@@ -75,6 +75,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
     hideSpouses: false, coupleLines: true, maxGen: null, collapsed: new Set(), rootId: null,
   });
   const [selected, setSelected] = useState<number | null>(null);
+  const [showOpts, setShowOpts] = useState(false);
   const [q, setQ] = useState('');
   const matches = useMemo(() => {
     return fold(q).length < 2 ? [] : rankByName(data.members, q);
@@ -120,14 +121,14 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
 
   return (
     <div className="flex flex-col">
-      <Container className="pt-8 pb-4 no-print">
+      <Container className="pt-6 sm:pt-8 pb-2 sm:pb-4 no-print">
         <PageHeader title="Phả đồ dòng họ" subtitle={`${data.members.length} thành viên · ${maxGenAll} đời`}
           actions={locked ? <Button variant="ghost" size="sm" onClick={onLock}>Khóa lại</Button> : undefined} />
-        <div role="tablist" className="flex gap-1 border-b border-line -mb-px overflow-x-auto">
+        <div role="tablist" className="flex gap-1 border-b border-line -mb-px overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
           {([['tree', 'Cây phả hệ'], ['list', 'Danh sách'], ['gen', 'Theo đời'], ['kin', 'Quan hệ xưng hô']] as const).map(([k, l]) => (
             <button key={k} role="tab" aria-selected={tab === k}
               onClick={() => setParams((p) => { p.set('tab', k); return p; }, { replace: true })}
-              className={cx('h-11 px-4 text-[15px] font-medium border-b-2 whitespace-nowrap cursor-pointer',
+              className={cx('h-11 px-3 sm:px-4 text-[15px] font-medium border-b-2 whitespace-nowrap cursor-pointer shrink-0',
                 tab === k ? 'border-accent text-accent' : 'border-transparent text-ink-2 hover:text-ink')}>
               {l}
             </button>
@@ -138,15 +139,15 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
       {tab === 'tree' && (
         <Container className="pb-6">
           <div className="flex flex-wrap items-center gap-2 py-3 no-print">
-            <div className="relative w-full sm:w-72">
-              <Input placeholder="Tìm theo tên (không cần dấu)" value={q} onChange={(e) => setQ(e.target.value)}
+            <div className="relative flex-1 min-w-0 md:flex-none md:w-72">
+              <Input placeholder="Tìm tên, không cần dấu" value={q} onChange={(e) => setQ(e.target.value)}
                 aria-label="Tìm thành viên" onKeyDown={(e) => { if (e.key === 'Enter' && matches[0]) { revealAndCenter(matches[0].id); setQ(''); } if (e.key === 'Escape') setQ(''); }} />
               {q.length >= 2 && (
                 <ul className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-line bg-surface shadow-lg py-1">
                   {!matches.length && <li className="px-3 py-2 text-sm text-ink-3">Không tìm thấy</li>}
                   {matches.slice(0, 20).map((m) => (
                     <li key={m.id}>
-                      <button className="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-sunken cursor-pointer"
+                      <button className="w-full text-left flex items-center gap-2 px-3 py-2 min-h-11 hover:bg-sunken cursor-pointer"
                         onClick={() => { revealAndCenter(m.id); setQ(''); }}>
                         <Avatar m={m} size={26} />
                         <span className="flex-1 truncate">{m.full_name}</span>
@@ -157,20 +158,26 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
                 </ul>
               )}
             </div>
-            <Select aria-label="Hiển thị đến đời" className="w-auto" value={opt.maxGen ?? ''}
+            <Button className="md:hidden" aria-expanded={showOpts} aria-controls="tree-opts" onClick={() => setShowOpts((v) => !v)}
+              icon={<svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h14M6 10h8M8 14h4" /></svg>}>
+              Tùy chọn
+            </Button>
+            <div id="tree-opts" className={cx('w-full md:w-auto md:contents', showOpts ? 'flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-line bg-surface p-3' : 'hidden')}>
+            <Select aria-label="Hiển thị đến đời" className="w-full sm:w-auto" value={opt.maxGen ?? ''}
               onChange={(e) => setOpt((o) => ({ ...o, maxGen: e.target.value ? Number(e.target.value) : null }))}>
               <option value="">Tất cả các đời</option>
               {Array.from({ length: maxGenAll }, (_, i) => i + 1).map((g) => <option key={g} value={g}>Đến đời {g}</option>)}
             </Select>
             <Checkbox label="Ẩn vợ/chồng" checked={opt.hideSpouses} onChange={(v) => setOpt((o) => ({ ...o, hideSpouses: v }))} />
             <Checkbox label="Nối con theo cặp vợ chồng" checked={opt.coupleLines} onChange={(v) => setOpt((o) => ({ ...o, coupleLines: v }))} />
-            <div className="ml-auto flex gap-2">
+            <div className="w-full md:w-auto md:ml-auto flex gap-2 pt-2 md:pt-0">
               <ExportMenu onPng={async () => { const b = await ref.current?.exportPng(); if (b) download(b, 'pha-do.png'); }}
                 onSvg={() => { const s = ref.current?.exportSvg(); if (s) download(new Blob([s], { type: 'image/svg+xml' }), 'pha-do.svg'); }} />
             </div>
+            </div>
           </div>
 
-          <div className="relative h-[72vh] min-h-[480px] rounded-xl border border-line bg-[radial-gradient(circle,#e5e0d8_1px,transparent_1px)] [background-size:20px_20px] overflow-hidden">
+          <div className="relative h-[calc(100dvh-18.5rem)] min-h-[400px] md:h-[72vh] md:min-h-[520px] -mx-4 sm:mx-0 rounded-none sm:rounded-xl border-y sm:border border-line bg-[radial-gradient(circle,#e5e0d8_1px,transparent_1px)] [background-size:20px_20px] overflow-hidden">
             <FamilyTree ref={ref} model={model} options={opt} selectedId={selected} highlight={highlight}
               onSelect={setSelected}
               onToggle={(id) => setOpt((o) => {
@@ -192,12 +199,12 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
               </button>
             </div>
             {opt.rootId && (
-              <div className="absolute left-16 top-3 flex items-center gap-2 rounded-lg bg-surface border border-line pl-3 pr-1 h-10 text-sm no-print">
-                <span>Đang xem hậu duệ của <b>{model.byId.get(opt.rootId)?.full_name}</b></span>
+              <div className="absolute left-16 right-3 sm:right-auto top-3 flex items-center gap-2 rounded-lg bg-surface border border-line pl-3 pr-1 min-h-10 text-sm no-print">
+                <span className="flex-1 min-w-0 truncate">Hậu duệ của <b>{model.byId.get(opt.rootId)?.full_name}</b></span>
                 <Button size="sm" variant="ghost" onClick={() => setOpt((o) => ({ ...o, rootId: null }))}>Về gốc</Button>
               </div>
             )}
-            <Legend />
+            {!sel && <Legend />}
             {sel && (
               <MemberPanel m={sel} onClose={() => setSelected(null)}
                 onDescendants={() => { setOpt((o) => ({ ...o, rootId: model.spouseOnly.has(sel.id) ? (model.spouses.get(sel.id)?.[0] ?? sel.id) : sel.id, collapsed: new Set() })); }}
@@ -257,7 +264,7 @@ function ExportMenu({ onPng, onSvg }: { onPng: () => void; onSvg: () => void }) 
 
 function Legend() {
   return (
-    <div className="absolute left-3 bottom-3 rounded-lg bg-surface/95 border border-line px-3 py-2 text-xs text-ink-2 flex flex-wrap gap-x-4 gap-y-1 no-print">
+    <div className="absolute left-3 right-3 sm:right-auto bottom-3 rounded-lg bg-surface/95 border border-line px-3 py-2 text-xs text-ink-2 flex flex-wrap gap-x-3 sm:gap-x-4 gap-y-1 no-print">
       <span className="inline-flex items-center gap-1.5"><i className="w-1 h-3 rounded bg-male" />Nam</span>
       <span className="inline-flex items-center gap-1.5"><i className="w-1 h-3 rounded bg-female" />Nữ</span>
       <span className="inline-flex items-center gap-1.5"><i className="size-3 rounded border border-dashed border-ink-3" />Dâu / rể</span>
@@ -270,7 +277,7 @@ function MemberPanel({ m, onClose, onDescendants, childrenCount }: {
   m: MemberBrief; onClose: () => void; onDescendants: () => void; childrenCount: number;
 }) {
   return (
-    <aside className="absolute right-3 top-3 w-[calc(100%-1.5rem)] sm:w-80 rounded-xl border border-line bg-surface shadow-lg p-4 no-print"
+    <aside className="absolute inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-auto sm:right-3 sm:top-3 sm:w-80 rounded-t-2xl sm:rounded-xl border border-line bg-surface shadow-[0_-8px_24px_rgba(0,0,0,.08)] sm:shadow-lg p-4 pb-[max(1rem,env(safe-area-inset-bottom))] no-print"
       aria-label={`Thông tin ${m.full_name}`}>
       <div className="flex gap-3">
         <Avatar m={m} size={56} />
@@ -279,7 +286,7 @@ function MemberPanel({ m, onClose, onDescendants, childrenCount }: {
           {m.alias && <p className="text-sm text-ink-2">{m.alias}</p>}
           <p className="text-sm text-ink-2 mt-0.5">{lifespan(m)}</p>
         </div>
-        <button onClick={onClose} aria-label="Đóng" className="size-8 -mr-1 -mt-1 rounded-md text-ink-3 hover:bg-sunken hover:text-ink cursor-pointer">×</button>
+        <button onClick={onClose} aria-label="Đóng" className="size-10 -mr-2 -mt-2 rounded-lg text-xl text-ink-3 hover:bg-sunken hover:text-ink cursor-pointer">×</button>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {m.generation && <Badge tone="accent">Đời {m.generation}</Badge>}
@@ -288,10 +295,10 @@ function MemberPanel({ m, onClose, onDescendants, childrenCount }: {
         {childrenCount > 0 && <Badge>{childrenCount} người con</Badge>}
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Link to={`/thanh-vien/${m.id}`} className="h-9 inline-flex items-center justify-center rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent-hover">
+        <Link to={`/thanh-vien/${m.id}`} className="h-10 pointer-coarse:h-11 inline-flex items-center justify-center rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent-hover">
           Xem hồ sơ
         </Link>
-        <Button size="sm" className="h-9" onClick={onDescendants}>Chỉ xem hậu duệ</Button>
+        <Button className="text-sm" onClick={onDescendants}>Chỉ xem hậu duệ</Button>
       </div>
     </aside>
   );
@@ -312,19 +319,19 @@ function MemberGrid({ members, maxGen }: { members: MemberBrief[]; maxGen: numbe
   return (
     <Container className="py-6">
       <div className="flex flex-wrap gap-2 mb-5">
-        <Input className="sm:w-72" placeholder="Tìm tên" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Tìm tên" />
-        <Select className="w-auto" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="Lọc theo đời">
+        <Input className="w-full sm:w-72" placeholder="Tìm tên" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Tìm tên" />
+        <Select className="flex-1 sm:flex-none w-auto" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="Lọc theo đời">
           <option value="">Mọi đời</option>
           {Array.from({ length: maxGen }, (_, i) => <option key={i} value={i + 1}>Đời {i + 1}</option>)}
         </Select>
-        <Select className="w-auto" value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Lọc loại">
+        <Select className="flex-1 sm:flex-none w-auto" value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Lọc loại">
           <option value="">Tất cả</option>
           <option value="blood">Huyết thống</option>
           <option value="inlaw">Dâu / rể</option>
           <option value="alive">Còn sống</option>
           <option value="dead">Đã mất</option>
         </Select>
-        <span className="self-center text-sm text-ink-3 ml-auto">{list.length} người</span>
+        <span className="self-center text-sm text-ink-3 sm:ml-auto">{list.length} người</span>
       </div>
       {!list.length ? <EmptyState title="Không tìm thấy thành viên phù hợp" text="Thử bỏ bớt bộ lọc hoặc gõ tên ngắn hơn." /> : (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -351,17 +358,17 @@ function ByGeneration({ members, maxGen }: { members: MemberBrief[]; maxGen: num
     <Container className="py-6 space-y-3">
       {groups.map((g, i) => (
         <details key={i} open={i < 2} className="group rounded-xl border border-line bg-surface">
-          <summary className="flex items-center justify-between px-5 h-14 cursor-pointer list-none">
+          <summary className="flex flex-wrap items-center justify-between gap-x-4 px-4 sm:px-5 py-3 min-h-14 cursor-pointer list-none">
             <span className="font-serif text-lg font-semibold">Đời thứ {i + 1}</span>
             <span className="text-sm text-ink-2">{g.filter((m) => m.is_blood).length} huyết thống · {g.filter((m) => !m.is_blood).length} dâu/rể</span>
           </summary>
           <ul className="border-t border-line divide-y divide-line">
             {g.map((m) => (
               <li key={m.id}>
-                <Link to={`/thanh-vien/${m.id}`} className="flex items-center gap-3 px-5 py-2.5 hover:bg-sunken">
+                <Link to={`/thanh-vien/${m.id}`} className="flex items-center gap-3 px-4 sm:px-5 py-2.5 min-h-12 hover:bg-sunken">
                   <Avatar m={m} size={32} />
                   <span className="flex-1">{m.full_name}{!m.is_blood && <span className="text-ink-3 text-sm"> ({m.gender === 'female' ? 'dâu' : 'rể'})</span>}</span>
-                  <span className="text-sm text-ink-2">{lifespan(m)}</span>
+                  <span className="text-sm text-ink-2 whitespace-nowrap">{lifespan(m)}</span>
                 </Link>
               </li>
             ))}
@@ -394,22 +401,22 @@ function KinshipTool({ members }: { members: MemberBrief[] }) {
       <p className="text-ink-2 mb-5">Chọn hai người để xem họ gọi nhau thế nào. Cách gọi theo miền Bắc, tính vai theo thứ bậc chi trên chi dưới.</p>
       <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] items-end">
         <Field label="Người thứ nhất" htmlFor="ka"><MemberPicker id="ka" members={members} value={a} onChange={setA} /></Field>
-        <Button variant="ghost" aria-label="Đổi chỗ" onClick={() => { setA(b); setB(a); }} className="h-10">⇄</Button>
+        <Button variant="ghost" aria-label="Đổi chỗ hai người" onClick={() => { setA(b); setB(a); }} className="justify-self-center rotate-90 sm:rotate-0">⇄</Button>
         <Field label="Người thứ hai" htmlFor="kb"><MemberPicker id="kb" members={members} value={b} onChange={setB} /></Field>
       </div>
       <div className="mt-6" aria-live="polite">
         {busy && <Loading label="Đang tính..." />}
         {err && <ErrorState error={err} />}
         {res && A && B && (
-          <div className="rounded-xl border border-line bg-surface p-6">
+          <div className="rounded-xl border border-line bg-surface p-5 sm:p-6">
             <div className="grid gap-6 sm:grid-cols-2">
               <div>
                 <p className="text-sm text-ink-2">{A.full_name} gọi {B.full_name} là</p>
-                <p className="mt-1 font-serif text-3xl font-semibold text-accent">{res.a_calls_b.term}</p>
+                <p className="mt-1 font-serif text-2xl sm:text-3xl font-semibold text-accent break-words">{res.a_calls_b.term}</p>
               </div>
               <div>
                 <p className="text-sm text-ink-2">{B.full_name} gọi {A.full_name} là</p>
-                <p className="mt-1 font-serif text-3xl font-semibold text-accent">{res.b_calls_a.term}</p>
+                <p className="mt-1 font-serif text-2xl sm:text-3xl font-semibold text-accent break-words">{res.b_calls_a.term}</p>
               </div>
             </div>
             <p className="mt-5 pt-4 border-t border-line text-sm text-ink-2">{res.a_calls_b.detail}</p>

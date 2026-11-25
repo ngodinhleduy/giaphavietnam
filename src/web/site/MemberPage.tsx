@@ -27,14 +27,14 @@ export function MemberPage() {
     ['Nơi an táng', m.burial_place],
   ];
   return (
-    <Container className="py-10 max-w-4xl">
+    <Container className="py-6 sm:py-10 max-w-4xl">
       <nav aria-label="Breadcrumb" className="text-sm text-ink-2 mb-6">
         <Link to="/pha-do" className="hover:text-accent">Phả đồ</Link> <span aria-hidden>/</span> <span className="text-ink">{m.full_name}</span>
       </nav>
-      <div className="flex flex-col sm:flex-row gap-6 items-start">
-        <Avatar m={m} size={112} />
-        <div className="flex-1">
-          <h1 className="font-serif text-3xl font-semibold">{m.full_name}</h1>
+      <div className="flex flex-row gap-4 sm:gap-6 items-center sm:items-start">
+        <Avatar m={m} size={88} />
+        <div className="flex-1 min-w-0">
+          <h1 className="font-serif text-2xl sm:text-3xl font-semibold">{m.full_name}</h1>
           {m.alias && <p className="mt-1 text-ink-2">{m.alias}</p>}
           <div className="mt-3 flex flex-wrap gap-2">
             {m.generation && <Badge tone="accent">Đời thứ {m.generation}</Badge>}
@@ -43,7 +43,7 @@ export function MemberPage() {
             {m.branch && <Badge tone="gold">{m.branch}</Badge>}
             {m.is_deceased ? <Badge>Đã mất</Badge> : null}
           </div>
-          <Link to={`/pha-do?focus=${m.id}`} className="inline-block mt-4 text-sm font-medium text-accent hover:underline">
+          <Link to={`/pha-do?focus=${m.id}`} className="inline-flex items-center min-h-10 mt-2 text-sm font-medium text-accent hover:underline">
             Xem trên cây phả hệ
           </Link>
         </div>
@@ -81,7 +81,7 @@ function Relatives({ title, list, note, className }: {
     <section className={className}>
       <h2 className="text-sm font-semibold text-ink-2 uppercase tracking-wide mb-2">{title}</h2>
       {!list.length ? <p className="text-ink-3 text-sm">Chưa có thông tin.</p> : (
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((r) => (
             <li key={r.id}>
               <Link to={`/thanh-vien/${r.id}`} className="flex items-center gap-3 rounded-lg border border-line bg-surface p-2.5 hover:border-line-strong">

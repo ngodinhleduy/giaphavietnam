@@ -5,3 +5,4 @@ data
 .dev.vars
 .wrangler
 src/server/_assets.gen.js
+dist-single

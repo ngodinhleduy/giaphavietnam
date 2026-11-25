@@ -55,9 +55,9 @@ function PasscodeSection({ hasPasscode, onSave }: { hasPasscode: boolean; onSave
   return (
     <Section title="Mã bảo mật phả đồ" hint="Người xem phải nhập mã này mới thấy cây phả hệ, hồ sơ và ngày giỗ. Bài viết, sự kiện và album vẫn công khai.">
       <p className="mb-3">{hasPasscode ? <Badge tone="success">Đang bật</Badge> : <Badge tone="accent">Đang tắt: ai cũng xem được phả đồ</Badge>}</p>
-      <div className="flex flex-wrap gap-2 items-end">
+      <div className="flex flex-wrap gap-2 items-end [&>div:first-child]:max-sm:w-full">
         <Field label={hasPasscode ? 'Mã mới' : 'Đặt mã'} htmlFor="pc" hint="Tối thiểu 4 ký tự. Đổi mã sẽ đăng xuất mọi người đang xem.">
-          <Input id="pc" type="text" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} className="w-64" />
+          <Input id="pc" type="text" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} className="w-full sm:w-64" />
         </Field>
         <Button variant="primary" disabled={code.length < 4} onClick={async () => { await onSave({ passcode: code }); setCode(''); }}>Lưu mã</Button>
         {hasPasscode && <Button variant="danger" onClick={() => confirm('Tắt mã bảo mật? Ai có link cũng sẽ xem được phả đồ.') && onSave({ passcode: '' })}>Tắt mã</Button>}
@@ -94,8 +94,8 @@ function AccountSection() {
     <Section title="Tài khoản quản trị">
       <ul className="divide-y divide-line border border-line rounded-lg mb-5">
         {admins.data?.map((a) => (
-          <li key={a.id} className="flex items-center justify-between px-4 h-12">
-            <span>{a.display_name} <span className="text-ink-3 text-sm">@{a.username}</span></span>
+          <li key={a.id} className="flex items-center justify-between gap-2 px-4 min-h-12 py-1">
+            <span className="min-w-0 truncate">{a.display_name} <span className="text-ink-3 text-sm">@{a.username}</span></span>
             <Button size="sm" variant="ghost" onClick={() => confirm(`Xóa tài khoản ${a.username}?`) && run(async () => { await api.del(`/admin/admins/${a.id}`); admins.reload(); }, 'Đã xóa.')}>Xóa</Button>
           </li>
         ))}

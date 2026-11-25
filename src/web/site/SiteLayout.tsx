@@ -30,8 +30,8 @@ export function SiteLayout() {
   return (
     <SiteCtx.Provider value={{ site, reload }}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 bg-surface p-2 z-50">Bỏ qua menu</a>
-      <header className="sticky top-0 z-40 bg-bg/95 backdrop-blur border-b border-line no-print">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-6">
+      <header className="sticky top-0 z-40 bg-bg/95 backdrop-blur border-b border-line no-print pt-[env(safe-area-inset-top)]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4 lg:gap-6">
           <Link to="/" className="flex items-center gap-3 min-w-0">
             {site.logo_file_id ? (
               <img src={fileUrl(site.logo_file_id)} alt="" className="size-9 rounded-full object-cover" />
@@ -46,7 +46,7 @@ export function SiteLayout() {
             {NAV.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end}
                 className={({ isActive }) => cx('px-3 h-10 inline-flex items-center rounded-lg text-[15px] font-medium',
-                  isActive ? 'text-accent bg-accent-soft' : 'text-ink-2 hover:text-ink hover:bg-sunken')}>
+                  isActive ? 'text-accent bg-accent-soft' : 'text-ink-2 hover:text-ink hover:bg-sunken', 'max-lg:px-2.5')}>
                 {n.label}
               </NavLink>
             ))}
@@ -60,7 +60,7 @@ export function SiteLayout() {
           <nav className="md:hidden border-t border-line bg-surface px-4 py-2" aria-label="Chính (di động)">
             {NAV.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end}
-                className={({ isActive }) => cx('flex h-12 items-center px-2 rounded-lg font-medium', isActive ? 'text-accent' : 'text-ink')}>
+                className={({ isActive }) => cx('flex h-12 items-center px-3 rounded-lg font-medium', isActive ? 'text-accent bg-accent-soft' : 'text-ink')}>
                 {n.label}
               </NavLink>
             ))}
@@ -78,9 +78,9 @@ export function SiteLayout() {
           </div>
           <div>
             <p className="font-medium text-ink">Chuyên mục</p>
-            <ul className="mt-2 space-y-1.5">
+            <ul className="mt-1">
               {site.categories.map((c) => (
-                <li key={c.id}><Link className="text-ink-2 hover:text-accent" to={`/bai-viet?c=${c.slug}`}>{c.name}</Link></li>
+                <li key={c.id}><Link className="inline-flex items-center min-h-9 pointer-coarse:min-h-11 text-ink-2 hover:text-accent" to={`/bai-viet?c=${c.slug}`}>{c.name}</Link></li>
               ))}
             </ul>
           </div>
@@ -90,9 +90,9 @@ export function SiteLayout() {
           </div>
         </div>
         <div className="border-t border-line">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between text-sm text-ink-3">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 min-h-12 pb-[env(safe-area-inset-bottom)] flex items-center justify-between gap-4 text-sm text-ink-3">
             <span>© {new Date().getFullYear()} {site.site_name}</span>
-            <Link to="/admin" className="hover:text-ink">Quản trị</Link>
+            <Link to="/admin" className="inline-flex items-center min-h-10 px-2 -mr-2 hover:text-ink">Quản trị</Link>
           </div>
         </div>
       </footer>

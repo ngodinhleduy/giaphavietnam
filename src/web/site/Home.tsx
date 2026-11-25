@@ -16,22 +16,22 @@ export function Home() {
         {site.banner_file_id && (
           <img src={fileUrl(site.banner_file_id)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-15" />
         )}
-        <Container className="relative py-16 sm:py-24">
+        <Container className="relative py-12 sm:py-20 lg:py-24">
           <p className="text-gold font-medium tracking-wide uppercase text-sm">{site.site_tagline}</p>
-          <h1 className="mt-3 font-serif text-4xl sm:text-5xl font-semibold text-ink leading-tight max-w-3xl">{site.site_name}</h1>
-          <p className="mt-5 text-lg text-ink-2 max-w-2xl leading-relaxed whitespace-pre-line">{site.intro}</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/pha-do" className="h-12 px-6 inline-flex items-center rounded-lg bg-accent text-white font-medium hover:bg-accent-hover">
+          <h1 className="mt-3 font-serif text-[2rem] sm:text-5xl font-semibold text-ink leading-tight max-w-3xl">{site.site_name}</h1>
+          <p className="mt-4 sm:mt-5 text-base sm:text-lg text-ink-2 max-w-2xl leading-relaxed whitespace-pre-line">{site.intro}</p>
+          <div className="mt-8 grid grid-cols-2 sm:flex gap-3">
+            <Link to="/pha-do" className="h-12 px-6 inline-flex items-center justify-center rounded-lg bg-accent text-white font-medium hover:bg-accent-hover">
               Xem phả đồ
             </Link>
-            <Link to="/bai-viet" className="h-12 px-6 inline-flex items-center rounded-lg border border-line-strong bg-surface text-ink font-medium hover:bg-sunken">
+            <Link to="/bai-viet" className="h-12 px-6 inline-flex items-center justify-center rounded-lg border border-line-strong bg-surface text-ink font-medium hover:bg-sunken">
               Đọc phả ký
             </Link>
           </div>
         </Container>
       </section>
 
-      <Container className="py-12 grid gap-12 lg:grid-cols-[1fr_380px]">
+      <Container className="py-10 sm:py-12 grid gap-10 lg:gap-12 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_380px]">
         <section aria-labelledby="h-articles">
           <div className="flex items-baseline justify-between mb-5">
             <h2 id="h-articles" className="font-serif text-2xl font-semibold">Bài viết mới</h2>
@@ -46,7 +46,7 @@ export function Home() {
               {articles.data.map((a) => (
                 <li key={a.id}>
                   <Link to={`/bai-viet/${a.slug}`} className="flex gap-4 py-5 group">
-                    {a.cover_file_id && <img src={fileUrl(a.cover_file_id)} alt="" className="w-28 h-20 rounded-lg object-cover shrink-0" />}
+                    {a.cover_file_id && <img src={fileUrl(a.cover_file_id)} alt="" className="w-20 h-16 sm:w-28 sm:h-20 rounded-lg object-cover shrink-0" />}
                     <div className="min-w-0">
                       {a.category_name && <p className="text-xs font-medium text-gold uppercase tracking-wide">{a.category_name}</p>}
                       <h3 className="mt-1 font-semibold text-ink group-hover:text-accent">{a.title}</h3>

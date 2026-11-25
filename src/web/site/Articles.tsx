@@ -15,10 +15,10 @@ export function ArticlesPage() {
   return (
     <Container className="py-10 max-w-4xl">
       <PageHeader title={current?.name ?? 'Phả ký & bài viết'} subtitle="Lịch sử, nhân vật và những ghi chép của dòng họ." />
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex gap-2 mb-6 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap [scrollbar-width:none]">
         {[{ slug: '', name: 'Tất cả' }, ...site.categories].map((x) => (
           <button key={x.slug} onClick={() => setParams(x.slug ? { c: x.slug } : {})}
-            className={cx('h-9 px-4 rounded-full text-sm font-medium border cursor-pointer',
+            className={cx('h-9 pointer-coarse:h-10 px-4 shrink-0 whitespace-nowrap rounded-full text-sm font-medium border cursor-pointer',
               c === x.slug ? 'bg-ink text-white border-ink' : 'bg-surface text-ink-2 border-line-strong hover:text-ink')}>
             {x.name}
           </button>
@@ -27,7 +27,7 @@ export function ArticlesPage() {
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? (
         <EmptyState title="Chưa có bài viết trong mục này" />
       ) : (
-        <ul className="grid gap-5 sm:grid-cols-2">
+        <ul className="grid gap-4 sm:gap-5 sm:grid-cols-2">
           {data.map((a) => (
             <li key={a.id}>
               <Link to={`/bai-viet/${a.slug}`} className="group block rounded-xl border border-line bg-surface overflow-hidden hover:shadow-sm h-full">
@@ -63,7 +63,7 @@ export function ArticlePage() {
         {a.category_name && <> <span aria-hidden>/</span> <Link to={`/bai-viet?c=${a.category_slug}`} className="hover:text-accent">{a.category_name}</Link></>}
       </nav>
       <article>
-        <h1 className="font-serif text-3xl sm:text-4xl font-semibold leading-tight">{a.title}</h1>
+        <h1 className="font-serif text-[1.75rem] sm:text-4xl font-semibold leading-tight">{a.title}</h1>
         <p className="mt-3 text-sm text-ink-3">Cập nhật {formatDate((a.updated_at ?? a.created_at).slice(0, 10))}</p>
         {a.summary && <p className="mt-5 text-lg text-ink-2 leading-relaxed">{a.summary}</p>}
         {a.cover_file_id && <img src={fileUrl(a.cover_file_id)} alt="" className="mt-6 w-full rounded-xl" />}

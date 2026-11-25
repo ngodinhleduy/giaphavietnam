@@ -36,16 +36,23 @@ export function AdminLayout() {
 
   return (
     <MeCtx.Provider value={me}>
-      <div className="min-h-screen md:grid md:grid-cols-[232px_1fr]">
-        <aside className="bg-surface border-b md:border-b-0 md:border-r border-line md:h-screen md:sticky md:top-0 flex md:flex-col">
+      <div className="min-h-screen md:grid md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr]">
+        <aside className="bg-surface border-b md:border-b-0 md:border-r border-line md:h-screen md:sticky md:top-0 flex flex-col max-md:sticky max-md:top-0 max-md:z-30 pt-[env(safe-area-inset-top)]">
+          <div className="md:hidden flex items-center gap-2 h-14 px-4 border-b border-line">
+            <span className="size-8 rounded-lg bg-accent text-white inline-flex items-center justify-center font-serif font-semibold">G</span>
+            <span className="font-semibold flex-1 truncate">Quản trị</span>
+            <Link to="/" className="h-10 px-3 inline-flex items-center rounded-lg text-sm text-ink-2 hover:bg-sunken">Xem trang</Link>
+            <button onClick={async () => { await api.post('/admin/logout'); setMe(null); nav('/admin'); }}
+              className="h-10 px-3 rounded-lg text-sm text-ink-2 hover:bg-sunken cursor-pointer">Đăng xuất</button>
+          </div>
           <div className="hidden md:flex items-center gap-2 h-16 px-5 border-b border-line">
             <span className="size-8 rounded-lg bg-accent text-white inline-flex items-center justify-center font-serif font-semibold">G</span>
             <span className="font-semibold">Quản trị</span>
           </div>
-          <nav className="flex md:flex-col gap-1 p-2 md:p-3 overflow-x-auto flex-1" aria-label="Quản trị">
+          <nav className="flex md:flex-col gap-1 px-2 py-1.5 md:p-3 overflow-x-auto md:flex-1 [scrollbar-width:none]" aria-label="Quản trị">
             {NAV.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end}
-                className={({ isActive }) => cx('h-10 px-3 inline-flex items-center rounded-lg text-[15px] font-medium whitespace-nowrap',
+                className={({ isActive }) => cx('h-10 px-3 inline-flex items-center shrink-0 rounded-lg text-[15px] font-medium whitespace-nowrap',
                   isActive ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-sunken hover:text-ink')}>
                 {n.label}
               </NavLink>
@@ -60,7 +67,7 @@ export function AdminLayout() {
             </div>
           </div>
         </aside>
-        <main className="p-4 sm:p-8 max-w-6xl w-full">
+        <main className="p-4 sm:p-6 lg:p-8 max-w-6xl w-full min-w-0">
           <Outlet />
         </main>
       </div>
@@ -88,7 +95,7 @@ function Login({ setup, onDone }: { setup: boolean; onDone: () => void }) {
   };
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-line bg-surface p-8 shadow-sm space-y-4">
+      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 sm:p-8 shadow-sm space-y-4">
         <div>
           <h1 className="font-serif text-2xl font-semibold">{setup ? 'Tạo tài khoản quản trị' : 'Đăng nhập quản trị'}</h1>
           {setup && <p className="mt-1 text-sm text-ink-2">Lần chạy đầu tiên. Tài khoản này có toàn quyền.</p>}
@@ -137,7 +144,7 @@ export function ImageUpload({ value, onChange, label = 'Ảnh', round }: {
         {busy ? <Spinner /> : value ? <img src={fileUrl(value)} alt="" className="w-full h-full object-cover" /> : <span className="text-xs text-ink-3">Chưa có</span>}
       </div>
       <div className="flex gap-2">
-        <label className="h-9 px-3 inline-flex items-center rounded-lg border border-line-strong bg-surface text-sm font-medium cursor-pointer hover:bg-sunken focus-within:ring-2 focus-within:ring-accent">
+        <label className="h-9 pointer-coarse:h-11 px-3 inline-flex items-center rounded-lg border border-line-strong bg-surface text-sm font-medium cursor-pointer hover:bg-sunken focus-within:ring-2 focus-within:ring-accent">
           {value ? 'Đổi ' + label.toLowerCase() : 'Tải ' + label.toLowerCase()}
           <input type="file" accept="image/*" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
         </label>

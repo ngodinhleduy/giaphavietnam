@@ -30,7 +30,7 @@ export function MembersAdmin() {
       <PageHeader title="Thành viên" subtitle={data ? `${data.length} người` : undefined}
         actions={<Link to="/admin/members/new" className="h-10 px-4 inline-flex items-center rounded-lg bg-accent text-white font-medium hover:bg-accent-hover">Thêm thành viên</Link>} />
       <div className="flex flex-wrap gap-2 mb-4">
-        <Input className="sm:w-72" placeholder="Tìm tên (không cần dấu)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Tìm" />
+        <Input className="flex-1 sm:flex-none sm:w-72" placeholder="Tìm tên (không cần dấu)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Tìm" />
         <Select className="w-auto" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="Đời">
           <option value="">Mọi đời</option>
           {Array.from({ length: maxGen }, (_, i) => <option key={i} value={i + 1}>Đời {i + 1}</option>)}
@@ -40,7 +40,24 @@ export function MembersAdmin() {
         <EmptyState title="Chưa có thành viên" text="Bắt đầu bằng việc nhập thủy tổ (đời 1), sau đó thêm con cháu từ hồ sơ của từng người."
           action={<Link to="/admin/members/new" className="text-accent font-medium">Nhập thủy tổ</Link>} />
       ) : !list.length ? <EmptyState title="Không có kết quả" /> : (
-        <div className="rounded-xl border border-line bg-surface overflow-x-auto">
+        <div className="rounded-xl border border-line bg-surface overflow-hidden">
+          <ul className="md:hidden divide-y divide-line">
+            {list.slice(page * PER, page * PER + PER).map((m) => (
+              <li key={m.id}>
+                <Link to={`/admin/members/${m.id}`} className="flex items-center gap-3 px-4 py-3 min-h-16 hover:bg-sunken/50">
+                  <Avatar m={m} size={40} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-medium text-ink truncate">{m.full_name}</span>
+                    <span className="block text-sm text-ink-2 truncate">
+                      Đời {m.generation}{lifespan(m) ? ` · ${lifespan(m)}` : ''}{m.father_name ? ` · con ${m.father_name}` : ''}
+                    </span>
+                  </span>
+                  {!m.is_blood && <Badge tone="gold">{m.gender === 'female' ? 'Dâu' : 'Rể'}</Badge>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-[15px]">
             <thead className="text-left text-sm text-ink-2 bg-sunken/60">
               <tr>
@@ -60,15 +77,16 @@ export function MembersAdmin() {
                     </Link>
                   </td>
                   <td className="px-4 tabular-nums">{m.generation}</td>
-                  <td className="px-4 text-ink-2 text-sm">{[m.father_name, m.mother_name].filter(Boolean).join(' · ') || '—'}</td>
+                  <td className="px-4 text-ink-2 text-sm max-w-64">{[m.father_name, m.mother_name].filter(Boolean).join(' · ') || '—'}</td>
                   <td className="px-4 text-ink-2 text-sm whitespace-nowrap">{lifespan(m)}</td>
                   <td className="px-4">{m.is_blood ? <Badge>{m.gender === 'male' ? 'Nam' : 'Nữ'}</Badge> : <Badge tone="gold">{m.gender === 'female' ? 'Dâu' : 'Rể'}</Badge>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
           {list.length > PER && (
-            <div className="flex items-center justify-between px-4 h-12 border-t border-line text-sm text-ink-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 min-h-12 border-t border-line text-sm text-ink-2">
               <span>{page * PER + 1}–{Math.min(list.length, (page + 1) * PER)} / {list.length}</span>
               <div className="flex gap-2">
                 <Button size="sm" disabled={!page} onClick={() => setPage(page - 1)}>Trước</Button>
@@ -200,8 +218,8 @@ export function MemberForm() {
         subtitle={!isNew && f.generation ? `Đời thứ ${f.generation}` : undefined}
         actions={!isNew ? <a href={`/thanh-vien/${id}`} target="_blank" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem trang</a> : undefined} />
 
-      <form onSubmit={save} className="grid gap-6 lg:grid-cols-[1fr_320px]" noValidate>
-        <div className="space-y-6">
+      <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_320px] max-lg:pb-20" noValidate>
+        <div className="space-y-4 sm:space-y-6 min-w-0">
           <Section title="Thông tin chính">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Họ và tên" htmlFor="fn" error={errors.full_name} className="sm:col-span-2">
@@ -253,10 +271,10 @@ export function MemberForm() {
                   </Field>
                   <Field label="Ngày giỗ (âm lịch)" htmlFor="ld" error={errors.death_lunar} className="sm:col-span-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Input id="ld" type="number" min={1} max={30} placeholder="Ngày" className="w-24" value={f.death_lunar_day}
+                      <Input id="ld" type="number" inputMode="numeric" min={1} max={30} placeholder="Ngày" className="w-20 sm:w-24" value={f.death_lunar_day}
                         onChange={(e) => set('death_lunar_day', e.target.value)} aria-label="Ngày âm lịch" />
                       <span className="text-ink-2">tháng</span>
-                      <Input type="number" min={1} max={12} placeholder="Tháng" className="w-24" value={f.death_lunar_month}
+                      <Input type="number" inputMode="numeric" min={1} max={12} placeholder="Tháng" className="w-20 sm:w-24" value={f.death_lunar_month}
                         onChange={(e) => set('death_lunar_month', e.target.value)} aria-label="Tháng âm lịch" />
                       <Button type="button" size="sm" variant="ghost" onClick={fillLunar}>Tính từ ngày mất</Button>
                     </div>
@@ -281,13 +299,13 @@ export function MemberForm() {
           </Section>
         </div>
 
-        <div className="space-y-6 lg:sticky lg:top-6 self-start">
+        <div className="space-y-4 sm:space-y-6 lg:sticky lg:top-6 self-start min-w-0">
           <Section title="Ảnh chân dung">
             <ImageUpload value={f.photo_file_id} onChange={(v) => set('photo_file_id', v)} label="Ảnh" round />
           </Section>
-          <div className="flex flex-col gap-2">
-            <Button type="submit" variant="primary" loading={busy}>{isNew ? 'Thêm thành viên' : 'Lưu thay đổi'}</Button>
-            <Button type="button" disabled={busy} onClick={(e) => save(e as any, 'child')}>Lưu và thêm con</Button>
+          <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:bg-surface/95 max-lg:backdrop-blur max-lg:border-t max-lg:border-line max-lg:px-4 max-lg:pt-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-row-reverse lg:flex-col gap-2">
+            <Button type="submit" variant="primary" loading={busy} className="flex-1 lg:flex-none">{isNew ? 'Thêm thành viên' : 'Lưu thay đổi'}</Button>
+            <Button type="button" disabled={busy} onClick={(e) => save(e as any, 'child')} className="flex-1 lg:flex-none">Lưu và thêm con</Button>
           </div>
           {!isNew && (
             <>
@@ -301,7 +319,7 @@ export function MemberForm() {
                       <li key={mr.id} className="flex items-center gap-2 text-[15px]">
                         <Link to={`/admin/members/${otherId}`} className="flex-1 hover:text-accent truncate">{name}</Link>
                         {marriages.length > 1 && <Badge>Thứ {mr.order_no}</Badge>}
-                        <button type="button" aria-label={`Gỡ quan hệ với ${name}`} className="size-8 rounded-md text-ink-3 hover:bg-danger-soft hover:text-danger cursor-pointer"
+                        <button type="button" aria-label={`Gỡ quan hệ với ${name}`} className="size-8 pointer-coarse:size-10 rounded-md text-ink-3 hover:bg-danger-soft hover:text-danger cursor-pointer"
                           onClick={async () => { await api.del(`/admin/marriages/${mr.id}`); detail.reload(); }}>×</button>
                       </li>
                     );
@@ -312,11 +330,11 @@ export function MemberForm() {
               <Section title={`Con (${children.length})`}>
                 <ul className="space-y-1 mb-3">
                   {children.map((c) => (
-                    <li key={c.id}><Link to={`/admin/members/${c.id}`} className="text-[15px] hover:text-accent">{c.full_name}</Link></li>
+                    <li key={c.id}><Link to={`/admin/members/${c.id}`} className="flex items-center min-h-9 pointer-coarse:min-h-11 text-[15px] hover:text-accent">{c.full_name}</Link></li>
                   ))}
                 </ul>
                 <Link to={`/admin/members/new?${f.gender === 'male' ? 'father' : 'mother'}=${self}${marriages.length === 1 ? `&${f.gender === 'male' ? 'mother' : 'father'}=${marriages[0].husband_id === self ? marriages[0].wife_id : marriages[0].husband_id}` : ''}`}
-                  className="h-8 px-3 inline-flex items-center rounded-lg border border-line-strong bg-surface text-sm font-medium hover:bg-sunken">
+                  className="h-8 pointer-coarse:h-10 px-3 inline-flex items-center rounded-lg border border-line-strong bg-surface text-sm font-medium hover:bg-sunken">
                   Thêm con
                 </Link>
               </Section>
@@ -379,10 +397,10 @@ function SpouseModal({ open, onClose, self, gender, members, nextOrder, onDone }
     <Modal open={open} onClose={onClose} title={gender === 'male' ? 'Thêm vợ' : 'Thêm chồng'}
       footer={<><Button onClick={onClose}>Hủy</Button><Button variant="primary" loading={busy} onClick={submit}>Thêm</Button></>}>
       <div className="space-y-4">
-        <div role="radiogroup" className="inline-flex p-1 rounded-lg bg-sunken">
+        <div role="radiogroup" className="flex p-1 rounded-lg bg-sunken">
           {([['new', 'Người mới (dâu/rể)'], ['existing', 'Người đã có trong phả']] as const).map(([k, l]) => (
             <button key={k} role="radio" aria-checked={mode === k} onClick={() => setMode(k)}
-              className={`h-9 px-3 rounded-md text-sm font-medium cursor-pointer ${mode === k ? 'bg-surface shadow-sm' : 'text-ink-2'}`}>{l}</button>
+              className={`flex-1 min-h-9 pointer-coarse:min-h-10 px-3 py-1 rounded-md text-sm font-medium cursor-pointer ${mode === k ? 'bg-surface shadow-sm' : 'text-ink-2'}`}>{l}</button>
           ))}
         </div>
         {mode === 'new' ? (
@@ -402,7 +420,7 @@ function SpouseModal({ open, onClose, self, gender, members, nextOrder, onDone }
 
 export function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-line bg-surface p-5">
+    <section className="rounded-xl border border-line bg-surface p-4 sm:p-5">
       <h2 className="font-semibold text-ink">{title}</h2>
       {hint && <p className="text-sm text-ink-3 mt-0.5">{hint}</p>}
       <div className="mt-4">{children}</div>

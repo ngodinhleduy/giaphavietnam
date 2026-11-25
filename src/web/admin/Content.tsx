@@ -93,12 +93,12 @@ export function ArticleForm() {
       <nav className="text-sm text-ink-2 mb-3"><Link to="/admin/articles" className="hover:text-accent">Bài viết</Link></nav>
       <PageHeader title={isNew ? 'Viết bài mới' : 'Sửa bài viết'}
         actions={!isNew && f.published ? <a href={`/bai-viet/${f.slug}`} target="_blank" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem bài</a> : undefined} />
-      <form onSubmit={save} className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <div className="space-y-4">
+      <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] max-lg:pb-20">
+        <div className="space-y-4 min-w-0">
           <Field label="Tiêu đề" htmlFor="t"><Input id="t" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} className="text-lg h-12" /></Field>
           <Field label="Tóm tắt" htmlFor="s"><Textarea id="s" rows={2} value={f.summary} onChange={(e) => setF({ ...f, summary: e.target.value })} /></Field>
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
               <span className="text-sm font-medium">Nội dung</span>
               <div className="flex items-center gap-1">
                 <label className="h-8 px-3 inline-flex items-center gap-2 rounded-lg text-sm text-ink-2 hover:bg-sunken cursor-pointer">
@@ -116,9 +116,9 @@ export function ArticleForm() {
               </div>
             </div>
             {preview ? (
-              <div className="min-h-96 rounded-lg border border-line bg-surface p-6 prose-gp" dangerouslySetInnerHTML={{ __html: marked.parse(f.content, { async: false }) as string }} />
+              <div className="min-h-80 sm:min-h-96 rounded-lg border border-line bg-surface p-4 sm:p-6 prose-gp" dangerouslySetInnerHTML={{ __html: marked.parse(f.content, { async: false }) as string }} />
             ) : (
-              <Textarea aria-label="Nội dung (Markdown)" rows={20} className="font-mono text-sm min-h-96" value={f.content} onChange={(e) => setF({ ...f, content: e.target.value })}
+              <Textarea aria-label="Nội dung (Markdown)" rows={20} className="w-full font-mono text-sm min-h-80 sm:min-h-96" value={f.content} onChange={(e) => setF({ ...f, content: e.target.value })}
                 placeholder={'## Tiêu đề mục\n\nĐoạn văn...\n\n- Ý 1\n- Ý 2'} />
             )}
             <p className="mt-1.5 text-sm text-ink-3">Markdown: ## tiêu đề, **đậm**, *nghiêng*, - danh sách, &gt; trích dẫn.</p>
@@ -137,7 +137,9 @@ export function ArticleForm() {
                 <Input id="sl" value={f.slug} onChange={(e) => setF({ ...f, slug: e.target.value })} />
               </Field>
               <Checkbox label="Hiển thị công khai" checked={f.published} onChange={(v) => setF({ ...f, published: v })} />
-              <Button type="submit" variant="primary" className="w-full" loading={busy}>Lưu</Button>
+              <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:bg-surface/95 max-lg:backdrop-blur max-lg:border-t max-lg:border-line max-lg:px-4 max-lg:pt-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <Button type="submit" variant="primary" className="w-full" loading={busy}>Lưu</Button>
+              </div>
             </div>
           </Section>
           <Section title="Ảnh bìa"><ImageUpload value={f.cover_file_id} onChange={(v) => setF({ ...f, cover_file_id: v })} label="Ảnh bìa" /></Section>
@@ -196,8 +198,8 @@ export function EventsAdmin() {
       ) : (
         <ul className="rounded-xl border border-line bg-surface divide-y divide-line">
           {data.map((e) => (
-            <li key={e.id} className="flex items-center gap-4 px-5 py-3">
-              <div className="flex-1 min-w-0">
+            <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 sm:px-5 py-3">
+              <div className="flex-1 min-w-[12rem]">
                 <p className="font-medium">{e.title}</p>
                 <p className="text-sm text-ink-2">{e.day}/{e.month}{e.year && !e.recurring ? `/${e.year}` : ''} {e.calendar === 'lunar' ? 'âm lịch' : 'dương lịch'}{e.recurring ? ', hằng năm' : ''}{e.location ? ` · ${e.location}` : ''}</p>
               </div>
@@ -210,22 +212,22 @@ export function EventsAdmin() {
       <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Sửa sự kiện' : 'Thêm sự kiện'}
         footer={<><Button onClick={() => setEdit(null)}>Hủy</Button><Button variant="primary" loading={busy} onClick={save}>Lưu</Button></>}>
         {edit && (
-          <div className="grid gap-4 grid-cols-3">
-            <Field label="Tên sự kiện" htmlFor="et" className="col-span-3"><Input id="et" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
-            <Field label="Lịch" htmlFor="ec">
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
+            <Field label="Tên sự kiện" htmlFor="et" className="col-span-2 sm:col-span-3"><Input id="et" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
+            <Field label="Lịch" htmlFor="ec" className="col-span-2 sm:col-span-1">
               <Select id="ec" value={edit.calendar} onChange={(e) => setEdit({ ...edit, calendar: e.target.value as any })}>
                 <option value="lunar">Âm lịch</option><option value="solar">Dương lịch</option>
               </Select>
             </Field>
             <Field label="Ngày" htmlFor="ed"><Input id="ed" type="number" min={1} max={31} value={edit.day} onChange={(e) => setEdit({ ...edit, day: e.target.value })} /></Field>
             <Field label="Tháng" htmlFor="em"><Input id="em" type="number" min={1} max={12} value={edit.month} onChange={(e) => setEdit({ ...edit, month: e.target.value })} /></Field>
-            <div className="col-span-3 flex flex-wrap items-center gap-4">
+            <div className="col-span-2 sm:col-span-3 flex flex-wrap items-center gap-4">
               <Checkbox label="Lặp lại hằng năm" checked={edit.recurring} onChange={(v) => setEdit({ ...edit, recurring: v })} />
               {!edit.recurring && <Input aria-label="Năm" placeholder="Năm" type="number" className="w-28" value={edit.year ?? ''} onChange={(e) => setEdit({ ...edit, year: e.target.value })} />}
             </div>
-            {hint && <p className="col-span-3 text-sm text-ink-2 -mt-2">{hint}</p>}
-            <Field label="Địa điểm" htmlFor="el" className="col-span-3"><Input id="el" value={edit.location} onChange={(e) => setEdit({ ...edit, location: e.target.value })} /></Field>
-            <Field label="Mô tả" htmlFor="eds" className="col-span-3"><Textarea id="eds" rows={3} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
+            {hint && <p className="col-span-2 sm:col-span-3 text-sm text-ink-2 -mt-2">{hint}</p>}
+            <Field label="Địa điểm" htmlFor="el" className="col-span-2 sm:col-span-3"><Input id="el" value={edit.location} onChange={(e) => setEdit({ ...edit, location: e.target.value })} /></Field>
+            <Field label="Mô tả" htmlFor="eds" className="col-span-2 sm:col-span-3"><Textarea id="eds" rows={3} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
           </div>
         )}
       </Modal>
@@ -301,19 +303,19 @@ export function AlbumAdmin() {
     <>
       <nav className="text-sm text-ink-2 mb-3"><Link to="/admin/albums" className="hover:text-accent">Album ảnh</Link></nav>
       <PageHeader title={data.title} actions={<Button variant="danger" onClick={async () => { if (confirm('Xóa album và toàn bộ ảnh trong album?')) { await api.del(`/admin/albums/${id}`); nav('/admin/albums'); } }}>Xóa album</Button>} />
-      <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] items-end mb-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] items-end mb-6">
         <Field label="Tên album" htmlFor="t"><Input id="t" value={meta.title} onChange={(e) => setMeta({ ...meta, title: e.target.value })} /></Field>
         <Field label="Mô tả" htmlFor="d"><Input id="d" value={meta.description} onChange={(e) => setMeta({ ...meta, description: e.target.value })} /></Field>
         <Button onClick={async () => { await api.put(`/admin/albums/${id}`, meta); toast('Đã lưu.'); }}>Lưu</Button>
       </div>
       <label onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files); }}
-        className={cx('flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed py-10 cursor-pointer mb-6',
+        className={cx('flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed py-8 sm:py-10 px-4 text-center cursor-pointer mb-6',
           drag ? 'border-accent bg-accent-soft' : 'border-line-strong bg-surface hover:bg-sunken')}>
         {progress ? (
           <><Spinner /><span className="text-ink-2">Đang tải {progress.done}/{progress.total}...</span></>
         ) : (
-          <><span className="font-medium">Kéo thả ảnh vào đây hoặc bấm để chọn</span><span className="text-sm text-ink-3">Ảnh được thu nhỏ còn tối đa 2000px trước khi tải lên.</span></>
+          <><span className="font-medium"><span className="pointer-coarse:hidden">Kéo thả ảnh vào đây hoặc bấm để chọn</span><span className="hidden pointer-coarse:inline">Bấm để chọn ảnh</span></span><span className="text-sm text-ink-3">Ảnh được thu nhỏ còn tối đa 2000px trước khi tải lên.</span></>
         )}
         <input type="file" accept="image/*" multiple className="sr-only" disabled={!!progress} onChange={(e) => e.target.files && upload(e.target.files)} />
       </label>
@@ -325,7 +327,7 @@ export function AlbumAdmin() {
               <div className="p-2 flex gap-1">
                 <Input aria-label="Chú thích" placeholder="Chú thích" defaultValue={p.caption ?? ''} className="h-8 text-sm"
                   onBlur={(e) => e.target.value !== (p.caption ?? '') && api.put(`/admin/photos/${p.id}`, { caption: e.target.value })} />
-                <button aria-label="Xóa ảnh" className="size-8 shrink-0 rounded-md text-ink-3 hover:bg-danger-soft hover:text-danger cursor-pointer"
+                <button aria-label="Xóa ảnh" className="size-8 pointer-coarse:size-11 shrink-0 rounded-md text-ink-3 hover:bg-danger-soft hover:text-danger cursor-pointer"
                   onClick={async () => { await api.del(`/admin/photos/${p.id}`); reload(); }}>×</button>
               </div>
             </li>

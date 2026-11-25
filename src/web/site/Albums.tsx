@@ -56,7 +56,7 @@ export function AlbumPage() {
       <nav className="text-sm text-ink-2 mb-4"><Link to="/album" className="hover:text-accent">Thư viện</Link></nav>
       <PageHeader title={data.title} subtitle={data.description ?? undefined} />
       {!photos.length ? <EmptyState title="Album chưa có ảnh" /> : (
-        <ul className="columns-2 md:columns-3 gap-3 [&>li]:mb-3">
+        <ul className="columns-2 md:columns-3 xl:columns-4 gap-2 sm:gap-3 [&>li]:mb-2 sm:[&>li]:mb-3">
           {photos.map((p, i) => (
             <li key={p.id} className="break-inside-avoid">
               <button onClick={() => setIdx(i)} className="block w-full cursor-zoom-in" aria-label={p.caption || `Ảnh ${i + 1}`}>
@@ -69,14 +69,14 @@ export function AlbumPage() {
       )}
       {idx != null && photos[idx] && (
         <div role="dialog" aria-modal aria-label="Xem ảnh" className="fixed inset-0 z-50 bg-black/90 flex flex-col" onClick={() => setIdx(null)}>
-          <div className="flex justify-between items-center p-4 text-white/90 text-sm">
+          <div className="flex justify-between items-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-2 text-white/90 text-sm">
             <span>{idx + 1} / {photos.length}</span>
             <button className="size-10 text-2xl cursor-pointer" aria-label="Đóng">×</button>
           </div>
-          <div className="flex-1 flex items-center justify-center px-4 min-h-0" onClick={(e) => e.stopPropagation()}>
-            <button className="text-white text-3xl px-3 cursor-pointer" aria-label="Ảnh trước" onClick={() => setIdx((idx - 1 + photos.length) % photos.length)}>‹</button>
+          <div className="flex-1 flex items-center justify-center px-1 sm:px-4 min-h-0" onClick={(e) => e.stopPropagation()}>
+            <button className="shrink-0 size-12 text-white text-3xl cursor-pointer" aria-label="Ảnh trước" onClick={() => setIdx((idx - 1 + photos.length) % photos.length)}>‹</button>
             <img src={fileUrl(photos[idx].file_id)} alt={photos[idx].caption ?? ''} className="max-h-full max-w-full object-contain" />
-            <button className="text-white text-3xl px-3 cursor-pointer" aria-label="Ảnh sau" onClick={() => setIdx((idx + 1) % photos.length)}>›</button>
+            <button className="shrink-0 size-12 text-white text-3xl cursor-pointer" aria-label="Ảnh sau" onClick={() => setIdx((idx + 1) % photos.length)}>›</button>
           </div>
           {photos[idx].caption && <p className="p-4 text-center text-white/90">{photos[idx].caption}</p>}
         </div>

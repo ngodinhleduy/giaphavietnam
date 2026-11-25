@@ -190,7 +190,7 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
     const bw = bounds.x1 - bounds.x0;
     const bh = bounds.y1 - bounds.y0;
     const kFit = Math.min(1, (width - 48) / bw, (height - 48) / bh);
-    const k = Math.max(kFit, Math.min(0.6, 1));
+    const k = Math.max(kFit, width < 640 ? 0.5 : 0.6);
     let tx = (width - bw * k) / 2 - bounds.x0 * k;
     if (k > kFit) {
       // Cây lớn hơn khung: canh giữa theo gốc đầu tiên, neo lên trên
@@ -308,6 +308,7 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
                 <g data-noexport transform={`translate(${CW / 2 - 13},${CH - 4})`}
                   onClick={(e) => { e.stopPropagation(); onToggle(m.id); }} role="button"
                   aria-label={n.hiddenKids ? `Mở ${n.hiddenKids} người con` : 'Thu gọn nhánh'}>
+                  <rect x="-10" y="-8" width="46" height="36" fill="transparent" />
                   <rect width="26" height="18" rx="9" fill={n.hiddenKids ? '#8a1c1c' : '#ffffff'} stroke="#cfc8bc" />
                   <text x="13" y="13" textAnchor="middle" fontSize="11" fontWeight="600" fill={n.hiddenKids ? '#fff' : '#57534e'}>
                     {n.hiddenKids ? `+${n.hiddenKids}` : '−'}

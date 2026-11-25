@@ -27,9 +27,9 @@ export function Dashboard() {
       } />
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {tiles.map(([l, v, sub]) => (
-          <div key={l} className="rounded-xl border border-line bg-surface p-5">
+          <div key={l} className="rounded-xl border border-line bg-surface p-4 sm:p-5">
             <p className="text-sm text-ink-2">{l}</p>
-            <p className="mt-1 text-3xl font-semibold tabular-nums">{v}</p>
+            <p className="mt-1 text-2xl sm:text-3xl font-semibold tabular-nums">{v}</p>
             <p className="mt-1 text-sm text-ink-3">{sub}</p>
           </div>
         ))}
@@ -42,7 +42,7 @@ export function Dashboard() {
           )}
         </section>
         <section className="rounded-xl border border-line bg-surface">
-          <h2 className="px-5 h-14 flex items-center justify-between font-semibold border-b border-line">
+          <h2 className="px-4 sm:px-5 py-3 min-h-14 flex flex-wrap items-center justify-between gap-2 font-semibold border-b border-line">
             Cần kiểm tra
             <Badge tone={s.storage === 'none' ? 'accent' : 'success'}>Storage: {s.storage === 'gdrive' ? 'Google Drive' : s.storage === 'local' ? 'Thư mục local/NAS' : 'chưa cấu hình'}</Badge>
           </h2>

@@ -28,7 +28,7 @@ export const Button = forwardRef<
       disabled={disabled || loading}
       className={cx(
         'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors cursor-pointer disabled:cursor-not-allowed whitespace-nowrap',
-        size === 'sm' ? 'h-8 px-3 text-sm' : 'h-10 px-4 text-[15px]',
+        size === 'sm' ? 'h-8 px-3 text-sm pointer-coarse:h-10' : 'h-10 px-4 text-[15px] pointer-coarse:h-11',
         VARIANT[variant],
         className,
       )}
@@ -64,7 +64,7 @@ export function Field({ label, hint, error, children, className, htmlFor }: {
 
 const withW = (c?: string) => (c && /(^|\s)(sm:|md:)?w-/.test(c) ? c : cx('w-full', c));
 const inputCls =
-  'h-10 rounded-lg border border-line-strong bg-surface px-3 text-[15px] text-ink placeholder:text-ink-3 hover:border-ink-3 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:bg-sunken';
+  'h-10 pointer-coarse:h-11 rounded-lg border border-line-strong bg-surface px-3 text-[15px] text-ink placeholder:text-ink-3 hover:border-ink-3 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:bg-sunken';
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
   { className, ...p }, ref,
 ) {
@@ -170,10 +170,10 @@ export function Modal({ open, onClose, title, children, footer, width = 'max-w-l
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-6" onMouseDown={onClose}>
       <div ref={ref} role="dialog" aria-modal aria-label={title} onMouseDown={(e) => e.stopPropagation()}
-        className={cx('w-full bg-surface rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92vh] flex flex-col', width)}>
+        className={cx('w-full bg-surface rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92dvh] flex flex-col pb-[env(safe-area-inset-bottom)]', width)}>
         <div className="flex items-center justify-between px-5 h-14 border-b border-line shrink-0">
           <h2 className="font-semibold text-ink">{title}</h2>
-          <button onClick={onClose} aria-label="Đóng" className="size-9 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-sunken cursor-pointer">
+          <button onClick={onClose} aria-label="Đóng" className="size-10 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-sunken cursor-pointer">
             <svg viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 5l10 10M15 5L5 15" /></svg>
           </button>
         </div>
@@ -199,9 +199,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastCtx.Provider value={value}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 no-print" aria-live="polite">
+      <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 z-[60] flex flex-col gap-2 no-print" aria-live="polite">
         {items.map((t) => (
-          <div key={t.id} className={cx('rounded-lg px-4 py-3 text-sm shadow-lg max-w-sm',
+          <div key={t.id} className={cx('rounded-lg px-4 py-3 text-sm shadow-lg sm:max-w-sm',
             t.tone === 'success' ? 'bg-ink text-white' : 'bg-danger text-white')}>
             {t.text}
           </div>
@@ -245,7 +245,7 @@ export function MemberPicker({ members, value, onChange, placeholder = 'Gõ tên
         }} />
       {selected && allowClear && !open && (
         <button type="button" onClick={() => pick(null)} aria-label="Bỏ chọn"
-          className="absolute right-1 top-1 size-8 rounded-md text-ink-3 hover:bg-sunken hover:text-ink cursor-pointer">×</button>
+          className="absolute right-1 top-1 pointer-coarse:top-1.5 size-8 rounded-md text-ink-3 hover:bg-sunken hover:text-ink cursor-pointer">×</button>
       )}
       {open && (
         <ul id={listId} role="listbox" className="absolute z-30 mt-1 w-full max-h-72 overflow-auto rounded-lg border border-line bg-surface shadow-lg py-1">
@@ -268,12 +268,12 @@ export function MemberPicker({ members, value, onChange, placeholder = 'Gõ tên
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 mb-6">
       <div>
         <h1 className="font-serif text-2xl sm:text-[28px] font-semibold text-ink leading-tight">{title}</h1>
         {subtitle && <p className="mt-1 text-ink-2">{subtitle}</p>}
       </div>
-      {actions && <div className="flex gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );
 }
