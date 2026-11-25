@@ -9,6 +9,7 @@ export const useMe = () => useContext(MeCtx);
 
 const NAV = [
   { to: '/admin', label: 'Tổng quan', end: true },
+  { to: '/admin/tree', label: 'Phả đồ' },
   { to: '/admin/members', label: 'Thành viên' },
   { to: '/admin/articles', label: 'Bài viết' },
   { to: '/admin/events', label: 'Sự kiện' },

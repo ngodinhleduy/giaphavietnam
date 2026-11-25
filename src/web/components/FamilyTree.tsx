@@ -169,6 +169,13 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [t, setT] = useState<ZoomTransform>(zoomIdentity);
   const { nodes, links, bounds } = useMemo(() => layout(model, options), [model, options]);
+  // Mỗi đời một hàng: nhãn "Đời n" ở lề trái và nền xen kẽ để dễ dò
+  const rows = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const n of nodes) if (!n.spouse && n.m.generation && !m.has(n.y)) m.set(n.y, n.m.generation);
+    if (options.rootId) return [] as { y: number; gen: number }[];
+    return [...m].map(([y, gen]) => ({ y, gen })).sort((a, b) => a.y - b.y);
+  }, [nodes, options.rootId]);
   const pos = useMemo(() => new Map(nodes.filter((n) => !n.spouse || !nodes.some((o) => o.m.id === n.m.id && !o.spouse)).map((n) => [n.m.id, n])), [nodes]);
 
   useEffect(() => {
@@ -223,10 +230,11 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
 
   const serialize = (withImages: boolean) => {
     const pad = 32;
-    const w = bounds.x1 - bounds.x0 + pad * 2;
+    const lead = 64; // lề trái cho nhãn đời
+    const w = bounds.x1 - bounds.x0 + pad * 2 + lead;
     const h = bounds.y1 - bounds.y0 + pad * 2;
     const clone = gRef.current!.cloneNode(true) as SVGGElement;
-    clone.setAttribute('transform', `translate(${pad - bounds.x0},${pad - bounds.y0})`);
+    clone.setAttribute('transform', `translate(${pad + lead - bounds.x0},${pad - bounds.y0})`);
     clone.querySelectorAll('[data-noexport]').forEach((el) => el.remove());
     if (!withImages) clone.querySelectorAll('image').forEach((el) => el.remove());
     else clone.querySelectorAll('image').forEach((el) => el.setAttribute('href', location.origin + el.getAttribute('href')));
@@ -267,6 +275,14 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
         <clipPath id="gp-avatar"><rect x="11" y="11" width="38" height="54" /></clipPath>
       </defs>
       <g ref={gRef} transform={t.toString()}>
+        <g aria-hidden="true">
+          {rows.map((r, i) => (
+            <g key={r.y}>
+              {i % 2 === 1 && <rect data-noexport x={bounds.x0 - 20000} y={r.y - (ROW_H - CH) / 2} width={bounds.x1 - bounds.x0 + 40000} height={ROW_H} fill="#f7f7f5" />}
+              <text x={bounds.x0 - 28} y={r.y + CH / 2 + 4} textAnchor="end" fontSize="12" fontWeight="500" fill="#6b6a66">Đời {r.gen}</text>
+            </g>
+          ))}
+        </g>
         <g fill="none" stroke="#8f8e8a" strokeWidth="1">
           {links.map((l) => <path key={l.key} d={l.d} />)}
         </g>
