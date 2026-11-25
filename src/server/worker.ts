@@ -11,13 +11,17 @@ interface CfEnv {
   GDRIVE_CLIENT_SECRET?: string;
   GDRIVE_REFRESH_TOKEN?: string;
   GDRIVE_FOLDER_ID?: string;
+  // Gắn tên miền riêng từ trang quản trị
+  CF_API_TOKEN?: string;
+  CF_ACCOUNT_ID?: string;
+  CF_WORKER_NAME?: string;
 }
 
 // Giữ deps (và access token Drive) giữa các request trong cùng isolate
 let cached: { key: string; deps: Deps } | null = null;
 
 function deps(env: CfEnv): Deps {
-  const key = `${env.JWT_SECRET}|${env.GDRIVE_REFRESH_TOKEN ?? ''}|${env.GDRIVE_FOLDER_ID ?? ''}`;
+  const key = `${env.JWT_SECRET}|${env.GDRIVE_REFRESH_TOKEN ?? ''}|${env.GDRIVE_FOLDER_ID ?? ''}|${env.CF_API_TOKEN ?? ''}`;
   if (cached?.key === key) return { ...cached.deps, db: d1Adapter(env.DB) };
   if (!env.JWT_SECRET || env.JWT_SECRET.length < 32) throw new Error('Thiếu JWT_SECRET (tối thiểu 32 ký tự).');
   const db = d1Adapter(env.DB);
@@ -33,7 +37,10 @@ function deps(env: CfEnv): Deps {
           db,
         )
       : noStorage();
-  const d = { db, storage, secret: env.JWT_SECRET };
+  const cloudflare = env.CF_ACCOUNT_ID
+    ? { token: env.CF_API_TOKEN ?? '', accountId: env.CF_ACCOUNT_ID, worker: env.CF_WORKER_NAME || 'giaphavietnam' }
+    : undefined;
+  const d = { db, storage, secret: env.JWT_SECRET, cloudflare };
   cached = { key, deps: d };
   return d;
 }

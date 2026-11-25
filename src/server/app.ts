@@ -8,9 +8,14 @@ import { nextSolarOfLunar, lunarToSolar, startOfDay } from '../shared/lunar.ts';
 import { slugify } from '../shared/slug.ts';
 import { menuLinks, parseMenu } from '../shared/menu.ts';
 import { parsePeople, safeUrl, templateOf } from '../shared/site.ts';
+import { DomainError, cleanDomain, cloudflareDomains, type CloudflareConfig } from './domain.ts';
 
 /** storage: nơi lưu file mới. readers: các storage khác để đọc file cũ (ví dụ ảnh còn trên Drive sau khi chuyển sang NAS). */
-export type Deps = { db: DB; storage: Storage; secret: string; readers?: Record<string, Storage> };
+export type Deps = {
+  db: DB; storage: Storage; secret: string; readers?: Record<string, Storage>;
+  /** Chỉ có khi chạy trên Cloudflare Workers. token rỗng: chưa khai API token. */
+  cloudflare?: CloudflareConfig;
+};
 type Role = 'admin' | 'editor';
 type Env = { Variables: { deps: Deps; adminId?: number; role?: Role; branch?: string | null } };
 type C = Context<Env>;
@@ -50,10 +55,11 @@ const LOG_RES: Record<string, { label: string; table?: string; col?: string; onl
   admins: { label: 'tài khoản', table: 'admins', col: 'username' },
   password: { label: 'của chính mình' },
   menu: { label: 'menu website' },
+  domain: { label: 'tên miền' },
   messages: { label: 'thư trong hòm thư', table: 'messages', col: 'name', only: ['DELETE'] },
 };
 // Biên tập viên không được đụng tới các nhóm này
-const ADMIN_ONLY = ['settings', 'admins', 'logs', 'menu', 'messages', 'categories', 'storage', 'recompute-generations', 'import-url'];
+const ADMIN_ONLY = ['settings', 'admins', 'logs', 'menu', 'messages', 'categories', 'storage', 'recompute-generations', 'import-url', 'domain'];
 const IMPORT_MAX = 25;
 const IMPORT_HOSTS = ['s3.cloudzone.vn'];
 
@@ -911,6 +917,49 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
         p ? await hashPassword(p) : '',
       ]);
     }
+    return c.json({ ok: true });
+  });
+
+  // Tên miền riêng. Trạng thái luôn hỏi trực tiếp Cloudflare; database chỉ nhớ tên miền và mã zone.
+  const domainCtx = async (c: C) => {
+    const cf = c.get('deps').cloudflare;
+    const s = await settingsMap(c);
+    return { cf, api: cf?.token ? cloudflareDomains(cf) : null, domain: s.domain_name || null, zoneId: s.domain_zone_id || null };
+  };
+  const domainGuard = async <T>(fn: () => Promise<T>) => {
+    try { return await fn(); } catch (e) { if (e instanceof DomainError) throw new HttpError(502, e.message); throw e; }
+  };
+  app.get('/admin/domain', async (c) => {
+    const { cf, api, domain, zoneId } = await domainCtx(c);
+    const host = new URL(c.req.url).host;
+    // supported: chạy trên Cloudflare. ready: đã có API token.
+    if (!cf) return c.json({ supported: false, ready: false, host, stage: 'none', domain: null });
+    if (!api) return c.json({ supported: true, ready: false, host, stage: 'none', domain });
+    return c.json(await domainGuard(async () => {
+      await api.verify();
+      return { supported: true, ready: true, host, ...(await api.state(domain, zoneId)) };
+    }));
+  });
+  app.post('/admin/domain', async (c) => {
+    const { api, domain: current } = await domainCtx(c);
+    if (!api) throw bad('Chưa khai API token của Cloudflare.');
+    if (current) throw bad('Đã có một tên miền. Gỡ tên miền hiện tại trước khi thêm tên miền khác.');
+    const domain = cleanDomain((await c.req.json<any>()).domain);
+    if (!domain) throw bad('Tên miền chưa đúng. Nhập dạng hongo.vn, không dấu, không khoảng trắng.');
+    const st = await domainGuard(() => api.add(domain));
+    await db(c).run("INSERT OR REPLACE INTO settings (key, value) VALUES ('domain_name', ?)", [domain]);
+    await db(c).run("INSERT OR REPLACE INTO settings (key, value) VALUES ('domain_zone_id', ?)", [st.zoneId]);
+    return c.json({ supported: true, ready: true, host: new URL(c.req.url).host, ...st });
+  });
+  app.post('/admin/domain/check', async (c) => {
+    const { api, domain, zoneId } = await domainCtx(c);
+    if (!api || !domain || !zoneId) throw bad('Chưa có tên miền nào để kiểm tra.');
+    return c.json({ supported: true, ready: true, host: new URL(c.req.url).host, ...(await domainGuard(() => api.check(domain, zoneId))) });
+  });
+  app.delete('/admin/domain', async (c) => {
+    const { api, zoneId } = await domainCtx(c);
+    if (api && zoneId) await domainGuard(() => api.remove(zoneId));
+    await db(c).run("DELETE FROM settings WHERE key IN ('domain_name', 'domain_zone_id')");
     return c.json({ ok: true });
   });
 

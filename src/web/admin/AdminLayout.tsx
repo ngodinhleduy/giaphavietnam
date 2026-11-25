@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type FormEvent } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  CalendarDays, CircleUser, ExternalLink, FileText, History, ImageUp, Images, Inbox, LayoutDashboard, LogIn, LogOut, Network,
+  CalendarDays, CircleUser, ExternalLink, FileText, Globe, History, ImageUp, Images, Inbox, LayoutDashboard, LogIn, LogOut, Network,
   PanelTop, Settings, ShieldCheck, Users, type LucideIcon,
 } from 'lucide-react';
 import { api, fileUrl, shrinkImage } from '../lib/api.ts';
@@ -27,6 +27,7 @@ const NAV: { group?: string; items: NavItem[] }[] = [
   { group: 'Website', items: [
     { to: '/admin/settings', label: 'Cấu hình website', icon: Settings, adminOnly: true },
     { to: '/admin/menu', label: 'Menu website', icon: PanelTop, adminOnly: true },
+    { to: '/admin/domain', label: 'Tên miền', icon: Globe, adminOnly: true },
     { to: '/admin/messages', label: 'Hòm thư', icon: Inbox, alert: 'unread', adminOnly: true },
   ] },
   { group: 'Hệ thống', items: [

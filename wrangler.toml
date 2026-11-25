@@ -16,6 +16,12 @@ database_name = "giapha"
 database_id = "dc65a00a-17c8-405e-becb-44bb5623ad91"
 migrations_dir = "migrations"
 
+# Gắn tên miền riêng từ trang quản trị (mục Tên miền). Hai giá trị dưới đây không phải bí mật.
+# Bí mật duy nhất là CF_API_TOKEN, đặt ở Workers > Settings > Variables and Secrets, hoặc: npx wrangler secret put CF_API_TOKEN
+[vars]
+CF_ACCOUNT_ID = "e62a68ee17d457f1da1261d0313cf185"
+CF_WORKER_NAME = "giaphavietnam"
+
 # Secrets (không ghi vào file này). Đặt bằng lệnh:
 #   npx wrangler secret put JWT_SECRET
 #   npx wrangler secret put GDRIVE_CLIENT_ID

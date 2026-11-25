@@ -31,6 +31,7 @@ const AdminsAdmin = L(() => import('./admin/Admins.tsx'), 'AdminsAdmin');
 const TreeAdmin = L(() => import('./admin/TreeAdmin.tsx'), 'TreeAdmin');
 const LogsAdmin = L(() => import('./admin/Logs.tsx'), 'LogsAdmin');
 const MessagesAdmin = L(() => import('./admin/Messages.tsx'), 'MessagesAdmin');
+const DomainAdmin = L(() => import('./admin/Domain.tsx'), 'DomainAdmin');
 const MenuAdmin = L(() => import('./admin/Menu.tsx'), 'MenuAdmin');
 const AccountPage = L(() => import('./admin/Settings.tsx'), 'AccountPage');
 
@@ -81,6 +82,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="contact" element={<Navigate to="/admin/settings?tab=contact" replace />} />
             <Route path="menu" element={<MenuAdmin />} />
             <Route path="messages" element={<MessagesAdmin />} />
+            <Route path="domain" element={<DomainAdmin />} />
             <Route path="account" element={<AccountPage />} />
           </Route>
         </Routes>
