@@ -234,7 +234,7 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
     return {
       w,
       h,
-      text: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="Be Vietnam Pro, Arial, sans-serif"><rect width="100%" height="100%" fill="#faf8f5"/>${defs}${clone.outerHTML}</svg>`,
+      text: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="Be Vietnam Pro, Arial, sans-serif"><rect width="100%" height="100%" fill="#ffffff"/>${defs}${clone.outerHTML}</svg>`,
     };
   };
 
@@ -264,10 +264,10 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
       aria-label="Cây phả hệ">
       <defs>
         <filter id="gp-gray"><feColorMatrix type="saturate" values="0" /></filter>
-        <clipPath id="gp-avatar"><circle cx="30" cy={CH / 2} r="20" /></clipPath>
+        <clipPath id="gp-avatar"><rect x="11" y="11" width="38" height="54" /></clipPath>
       </defs>
       <g ref={gRef} transform={t.toString()}>
-        <g fill="none" stroke="#b9b0a3" strokeWidth="1.5">
+        <g fill="none" stroke="#8f8e8a" strokeWidth="1">
           {links.map((l) => <path key={l.key} d={l.d} />)}
         </g>
         {nodes.map((n) => {
@@ -276,32 +276,32 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
           const hit = highlight.has(m.id);
           const lines = wrapName(m.full_name);
           const yrs = m.is_deceased ? `${year(m.birth_date) || '?'} – ${year(m.death_date) || '?'}` : year(m.birth_date) ? `Sinh ${year(m.birth_date)}` : '';
-          const stripe = m.gender === 'male' ? '#1e4e8c' : '#9c2a5a';
           return (
             <g key={`${n.spouse ? 's' : 'n'}${m.id}`} transform={`translate(${n.x},${n.y})`} role="treeitem"
               aria-label={`${m.full_name}${yrs ? ', ' + yrs : ''}`} aria-selected={sel} tabIndex={0}
               className="cursor-pointer outline-none"
               onClick={(e) => { e.stopPropagation(); onSelect(m.id); }}
               onKeyDown={(e) => e.key === 'Enter' && onSelect(m.id)}>
-              <rect width={CW} height={CH} rx="10"
-                fill={hit ? '#f6efdc' : m.is_deceased ? '#f3f0eb' : '#ffffff'}
-                stroke={sel ? '#8a1c1c' : hit ? '#7a5a12' : n.spouse ? '#d6cfc4' : '#cfc8bc'}
-                strokeWidth={sel ? 2.5 : 1} strokeDasharray={n.spouse ? '4 3' : undefined} />
-              <rect x="0" y="10" width="3" height={CH - 20} rx="1.5" fill={stripe} />
+              <rect width={CW} height={CH} rx="6"
+                fill={hit ? '#e3e2de' : n.spouse ? '#f7f7f5' : '#ffffff'}
+                stroke={sel || hit ? '#191919' : '#d3d2ce'}
+                strokeWidth={sel ? 2 : 1} />
               {showPhotos && m.photo_file_id ? (
-                <image href={fileUrl(m.photo_file_id)} x="10" y={CH / 2 - 20} width="40" height="40" clipPath="url(#gp-avatar)"
+                <image href={fileUrl(m.photo_file_id)} x="11" y="11" width="38" height="54" clipPath="url(#gp-avatar)"
                   preserveAspectRatio="xMidYMid slice" filter={m.is_deceased ? 'url(#gp-gray)' : undefined} />
               ) : (
                 <>
-                  <circle cx="30" cy={CH / 2} r="20" fill={m.is_deceased ? '#e5e0d8' : m.gender === 'male' ? '#e8eef7' : '#f7e9ef'} />
-                  <text x="30" y={CH / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" fill={m.is_deceased ? '#57534e' : stripe}
-                    fontFamily="Noto Serif, Georgia, serif">{initials(m.full_name)}</text>
+                  <rect x="11" y="11" width="38" height="54" fill={m.is_deceased ? '#e4e3df' : '#f3eee4'} />
+                  <text x="30" y={CH / 2 + 7} textAnchor="middle" fontSize="19" fontWeight="500" fill={m.is_deceased ? '#6b6a66' : '#37352f'}
+                    fontFamily="Newsreader, Noto Serif, Georgia, serif">{initials(m.full_name).slice(-1)}</text>
                 </>
               )}
-              <text x="58" y={lines.length > 1 ? 24 : 32} fontSize="13.5" fontWeight="600" fill="#1c1917">
-                {lines.map((l, i) => <tspan key={i} x="58" dy={i ? 17 : 0}>{l}</tspan>)}
+              {/* Khung ảnh: viền đen mảnh, không hoa văn */}
+              <rect x="11" y="11" width="38" height="54" fill="none" stroke="#141414" strokeWidth="2.5" />
+              <text x="60" y={lines.length > 1 ? 24 : 32} fontSize="13.5" fontWeight="600" fill="#37352f">
+                {lines.map((l, i) => <tspan key={i} x="60" dy={i ? 17 : 0}>{l}</tspan>)}
               </text>
-              <text x="58" y={lines.length > 1 ? 60 : 52} fontSize="12" fill="#57534e">
+              <text x="60" y={lines.length > 1 ? 60 : 52} fontSize="12" fill="#6b6a66">
                 {yrs}{m.generation && !n.spouse ? `${yrs ? ' · ' : ''}Đời ${m.generation}` : ''}{n.spouse ? `${yrs ? ' · ' : ''}${m.gender === 'female' ? 'Vợ' : 'Chồng'}` : ''}
               </text>
               {n.hasKids && (
@@ -309,8 +309,8 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
                   onClick={(e) => { e.stopPropagation(); onToggle(m.id); }} role="button"
                   aria-label={n.hiddenKids ? `Mở ${n.hiddenKids} người con` : 'Thu gọn nhánh'}>
                   <rect x="-10" y="-8" width="46" height="36" fill="transparent" />
-                  <rect width="26" height="18" rx="9" fill={n.hiddenKids ? '#8a1c1c' : '#ffffff'} stroke="#cfc8bc" />
-                  <text x="13" y="13" textAnchor="middle" fontSize="11" fontWeight="600" fill={n.hiddenKids ? '#fff' : '#57534e'}>
+                  <rect width="26" height="18" rx="4" fill={n.hiddenKids ? '#191919' : '#ffffff'} stroke="#8f8e8a" />
+                  <text x="13" y="13" textAnchor="middle" fontSize="11" fontWeight="600" fill={n.hiddenKids ? '#fff' : '#6b6a66'}>
                     {n.hiddenKids ? `+${n.hiddenKids}` : '−'}
                   </text>
                 </g>

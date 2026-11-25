@@ -12,24 +12,46 @@ export function Home() {
 
   return (
     <>
-      <section className="relative border-b border-line overflow-hidden">
-        {site.banner_file_id && (
-          <img src={fileUrl(site.banner_file_id)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-15" />
+      <section className="relative overflow-hidden bg-cham text-white text-center">
+        {site.banner_file_id ? (
+          <img src={fileUrl(site.banner_file_id)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-25" />
+        ) : (
+          <img src="/hoa-tiet/trong-dong.webp" alt="" aria-hidden="true"
+            className="gp-drum absolute left-1/2 top-1/2 w-[max(820px,78vw)] max-w-none aspect-square" />
         )}
-        <Container className="relative py-12 sm:py-20 lg:py-24">
-          <p className="text-gold font-medium tracking-wide uppercase text-sm">{site.site_tagline}</p>
-          <h1 className="mt-3 font-serif text-[2rem] sm:text-5xl font-semibold text-ink leading-tight max-w-3xl">{site.site_name}</h1>
-          <p className="mt-4 sm:mt-5 text-base sm:text-lg text-ink-2 max-w-2xl leading-relaxed whitespace-pre-line">{site.intro}</p>
-          <div className="mt-8 grid grid-cols-2 sm:flex gap-3">
-            <Link to="/pha-do" className="h-12 px-6 inline-flex items-center justify-center rounded-lg bg-accent text-white font-medium hover:bg-accent-hover">
+        <div className="gp-hero-veil absolute inset-0" aria-hidden="true" />
+        <Container className="relative py-20 sm:py-28 lg:py-36">
+          <p className="font-serif italic text-lg text-cham-2">{site.site_tagline}</p>
+          <h1 className="mt-3 font-serif font-medium text-[2.75rem] sm:text-7xl leading-[1.05] text-balance">{site.site_name}</h1>
+          <p className="mt-5 mx-auto text-base sm:text-lg text-cham-2 max-w-xl leading-relaxed whitespace-pre-line">{site.intro}</p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Link to="/pha-do" className="h-12 px-6 inline-flex items-center justify-center rounded bg-white text-[#191919] font-medium hover:bg-[#ececea]">
               Xem phả đồ
             </Link>
-            <Link to="/bai-viet" className="h-12 px-6 inline-flex items-center justify-center rounded-lg border border-line-strong bg-surface text-ink font-medium hover:bg-sunken">
+            <Link to="/bai-viet" className="h-12 px-6 inline-flex items-center justify-center rounded border border-white/55 text-white font-medium hover:bg-white/10">
               Đọc phả ký
             </Link>
           </div>
         </Container>
       </section>
+
+      {events.data?.[0] && (
+        <section className="gp-lac text-white" aria-label="Sự kiện gần nhất">
+          <Container className="py-8 sm:py-10 flex flex-wrap items-center gap-x-10 gap-y-3">
+            <p className="font-serif font-medium text-5xl sm:text-6xl leading-none whitespace-nowrap">
+              {events.data[0].day} · {events.data[0].month}
+              <span className="block mt-2 font-sans text-sm font-medium text-son-2">{events.data[0].calendar === 'lunar' ? 'Âm lịch' : 'Dương lịch'}</span>
+            </p>
+            <div className="min-w-0 flex-1 basis-64">
+              <h2 className="font-serif font-medium text-2xl sm:text-3xl">{events.data[0].title}</h2>
+              {events.data[0].location && <p className="mt-1 text-son-2">{events.data[0].location}</p>}
+            </div>
+            <Link to="/su-kien" className="h-11 px-5 inline-flex items-center justify-center rounded bg-white text-[#191919] font-medium hover:bg-[#ececea]">
+              Xem lịch giỗ
+            </Link>
+          </Container>
+        </section>
+      )}
 
       <Container className="py-10 sm:py-12 grid gap-10 lg:gap-12 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_380px]">
         <section aria-labelledby="h-articles">

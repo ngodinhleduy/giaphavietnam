@@ -1,29 +1,35 @@
 @import 'tailwindcss';
 
-/* Design tokens. Tất cả màu chữ trên nền đều đạt WCAG AA (>= 4.5:1). */
+/* Design tokens: monotone kiểu Notion. Màu chỉ xuất hiện ở ba dải họa tiết (chàm, son, giấy dó) và trạng thái.
+   Tất cả màu chữ trên nền đều đạt WCAG AA (>= 4.5:1). */
 @theme {
   --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
-  --font-serif: 'Noto Serif', Georgia, serif;
+  --font-serif: 'Newsreader', 'Noto Serif', Georgia, serif;
 
-  --color-bg: #faf8f5;
+  --color-bg: #ffffff;
   --color-surface: #ffffff;
-  --color-sunken: #f3f0eb;
-  --color-line: #e5e0d8;
-  --color-line-strong: #cfc8bc;
-  --color-ink: #1c1917; /* 17:1 trên bg */
-  --color-ink-2: #57534e; /* 7.4:1 */
-  --color-ink-3: #736b62; /* 4.9:1, chỉ dùng cho text phụ */
-  --color-accent: #8a1c1c; /* 9.6:1 trên trắng */
-  --color-accent-hover: #6f1515;
-  --color-accent-soft: #f7ebe9;
-  --color-gold: #7a5a12; /* 6.3:1 */
-  --color-gold-soft: #f6efdc;
+  --color-sunken: #f7f7f5;
+  --color-line: #e9e9e7;
+  --color-line-strong: #8f8e8a; /* 3.3:1, viền ô nhập */
+  --color-ink: #37352f; /* 12.3:1 trên trắng */
+  --color-ink-2: #6b6a66; /* 5.4:1 */
+  --color-ink-3: #6b6a66; /* 5.4:1 */
+  --color-accent: #191919; /* nút chính, 17.6:1 */
+  --color-accent-hover: #000000;
+  --color-accent-soft: #efefed;
+  --color-gold: #6b6a66; /* nhãn phụ, không còn dùng màu vàng */
+  --color-gold-soft: #f7f7f5;
   --color-success: #166534;
   --color-success-soft: #e7f4ec;
   --color-danger: #b42318;
   --color-danger-soft: #fdecea;
-  --color-male: #1e4e8c;
-  --color-female: #9c2a5a;
+  --color-male: #37352f; /* không phân biệt giới tính bằng màu */
+  --color-female: #37352f;
+  --color-cham: #22364a; /* dải trống đồng */
+  --color-cham-2: #c9d3de;
+  --color-son: #7a2e2a; /* dải chim Lạc */
+  --color-son-2: #f1d9d6;
+  --color-do: #f3eee4; /* giấy dó */
 }
 
 /* Màn rất lớn: tăng cỡ gốc để chữ, nút, khoảng cách (đều tính bằng rem) giãn theo */
@@ -84,3 +90,11 @@ html {
 .tiptap img.ProseMirror-selectednode { outline: 2px solid var(--color-accent); }
 .tiptap a { cursor: text; }
 .tiptap:focus-visible, .tiptap:focus { outline: none; }
+/* Họa tiết Việt, đặt tone-on-tone */
+.gp-drum { translate: -50% -50%; will-change: transform; }
+.gp-hero-veil { background: radial-gradient(closest-side, rgb(34 54 74 / 0.86), rgb(34 54 74 / 0.5) 55%, rgb(34 54 74 / 0) 100%); }
+.gp-lac { background: var(--color-son) url(/hoa-tiet/chim-lac.svg) 0 0 / 420px 180px; }
+@media (prefers-reduced-motion: no-preference) {
+  .gp-drum { animation: gp-turn 420s linear infinite; }
+}
+@keyframes gp-turn { to { rotate: -360deg; } }
