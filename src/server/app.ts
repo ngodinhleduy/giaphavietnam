@@ -696,8 +696,9 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     let u: URL;
     try { u = new URL(String(b.url ?? '')); } catch { throw bad('Địa chỉ ảnh không hợp lệ.'); }
     if (u.protocol !== 'https:' || !IMPORT_HOSTS.includes(u.hostname)) throw bad('Chỉ nhận ảnh từ máy chủ được phép.');
-    const res = await fetch(u.toString(), { redirect: 'error' });
-    if (!res.ok) throw bad(`Không tải được ảnh (mã ${res.status}).`);
+    // Không đi theo chuyển hướng: nếu có, địa chỉ đích có thể nằm ngoài danh sách cho phép
+    const res = await fetch(u.toString(), { redirect: 'manual' });
+    if (res.status !== 200) throw bad(`Không tải được ảnh (mã ${res.status}).`);
     const mime = (res.headers.get('content-type') ?? '').split(';')[0].trim();
     if (!mime.startsWith('image/')) throw bad('Địa chỉ này không phải ảnh.');
     const bytes = new Uint8Array(await res.arrayBuffer());
