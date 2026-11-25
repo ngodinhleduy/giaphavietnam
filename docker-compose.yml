@@ -1,0 +1,20 @@
+services:
+  giapha:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    env_file: .env
+    volumes:
+      # Database + ảnh (khi STORAGE=local). Trên NAS, đổi ./data thành thư mục share, ví dụ /volume1/giapha
+      - ./data:/data
+
+  # Public ra tên miền mà không mở port router: Cloudflare Tunnel.
+  # Lấy token ở Cloudflare Zero Trust > Networks > Tunnels, trỏ hostname về http://giapha:8787
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+  #   depends_on: [giapha]

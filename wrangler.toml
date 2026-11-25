@@ -1,0 +1,27 @@
+name = "giapha"
+main = "src/server/worker.ts"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "giapha"
+# Thay bằng id in ra sau lệnh: npx wrangler d1 create giapha
+database_id = "REPLACE_WITH_YOUR_D1_ID"
+migrations_dir = "migrations"
+
+# Secrets (không ghi vào file này). Đặt bằng lệnh:
+#   npx wrangler secret put JWT_SECRET
+#   npx wrangler secret put GDRIVE_CLIENT_ID
+#   npx wrangler secret put GDRIVE_CLIENT_SECRET
+#   npx wrangler secret put GDRIVE_REFRESH_TOKEN
+# Tùy chọn: GDRIVE_FOLDER_ID (để trống thì app tự tạo thư mục "GiaPha-Storage")
+
+# Gắn tên miền riêng: bỏ comment và sửa domain (domain phải đã nằm trong tài khoản Cloudflare)
+# routes = [{ pattern = "giapha.example.com", custom_domain = true }]

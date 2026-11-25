@@ -1,0 +1,76 @@
+export type Gender = 'male' | 'female';
+
+export interface MemberBrief {
+  id: number;
+  full_name: string;
+  alias?: string | null;
+  gender: Gender;
+  generation: number | null;
+  father_id: number | null;
+  mother_id: number | null;
+  birth_order: number | null;
+  is_blood: number;
+  is_deceased: number;
+  birth_date: string | null;
+  death_date: string | null;
+  branch?: string | null;
+  photo_file_id: number | null;
+}
+
+export interface Marriage {
+  id: number;
+  husband_id: number;
+  wife_id: number;
+  order_no: number;
+}
+
+export interface MemberDetail extends MemberBrief {
+  death_lunar_day: number | null;
+  death_lunar_month: number | null;
+  burial_place: string | null;
+  hometown: string | null;
+  occupation: string | null;
+  bio: string | null;
+  father: MemberBrief | null;
+  mother: MemberBrief | null;
+  children: MemberBrief[];
+  spouses: (MemberBrief & { order_no: number; marriage_id: number })[];
+}
+
+export interface Site {
+  site_name: string;
+  site_tagline: string;
+  intro: string;
+  address: string;
+  map_embed: string;
+  contact: string;
+  locked: boolean;
+  unlocked: boolean;
+  categories: { id: number; slug: string; name: string }[];
+  logo_file_id: number | null;
+  banner_file_id: number | null;
+}
+
+export interface ArticleBrief {
+  id: number;
+  slug: string;
+  title: string;
+  summary: string | null;
+  cover_file_id: number | null;
+  created_at: string;
+  category_slug: string | null;
+  category_name: string | null;
+}
+
+export interface UpcomingEvent {
+  id: number | string;
+  kind: 'event' | 'gio';
+  member_id?: number;
+  title: string;
+  description?: string | null;
+  calendar: 'solar' | 'lunar';
+  day: number;
+  month: number;
+  location?: string | null;
+  next_date: string;
+}
