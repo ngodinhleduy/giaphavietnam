@@ -53,8 +53,9 @@ const LOG_RES: Record<string, { label: string; table?: string; col?: string; onl
   messages: { label: 'thư trong hòm thư', table: 'messages', col: 'name', only: ['DELETE'] },
 };
 // Biên tập viên không được đụng tới các nhóm này
-const ADMIN_ONLY = ['settings', 'admins', 'logs', 'menu', 'messages', 'categories', 'storage', 'recompute-generations'];
+const ADMIN_ONLY = ['settings', 'admins', 'logs', 'menu', 'messages', 'categories', 'storage', 'recompute-generations', 'import-url'];
 const IMPORT_MAX = 25;
+const IMPORT_HOSTS = ['s3.cloudzone.vn'];
 
 class HttpError extends Error {
   status: number;
@@ -502,7 +503,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     }
     for (const r of rows) {
       const m = normMember({
-        ...r, full_name: String(r.full_name).trim(), photo_file_id: null,
+        ...r, full_name: String(r.full_name).trim(), photo_file_id: Number(r.photo_file_id) > 0 ? Number(r.photo_file_id) : null,
         father_id: resolve(r.father_ref), mother_id: resolve(r.mother_ref),
         generation: Number(r.generation) > 0 ? Math.floor(Number(r.generation)) : 1,
         is_blood: r.is_blood === 0 || r.is_blood === false ? 0 : 1,
@@ -688,6 +689,26 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     return c.json({ id: r.lastId, name: file.name });
   });
 
+  // Chép một ảnh từ địa chỉ ngoài về kho lưu của trang. Dùng khi chuyển dữ liệu từ nơi khác sang.
+  // Chỉ nhận https từ các máy chủ trong danh sách, để không biến máy chủ này thành công cụ gọi địa chỉ tùy ý.
+  app.post('/admin/import-url', async (c) => {
+    const b = await c.req.json<{ url?: string }>();
+    let u: URL;
+    try { u = new URL(String(b.url ?? '')); } catch { throw bad('Địa chỉ ảnh không hợp lệ.'); }
+    if (u.protocol !== 'https:' || !IMPORT_HOSTS.includes(u.hostname)) throw bad('Chỉ nhận ảnh từ máy chủ được phép.');
+    const res = await fetch(u.toString(), { redirect: 'error' });
+    if (!res.ok) throw bad(`Không tải được ảnh (mã ${res.status}).`);
+    const mime = (res.headers.get('content-type') ?? '').split(';')[0].trim();
+    if (!mime.startsWith('image/')) throw bad('Địa chỉ này không phải ảnh.');
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.byteLength > MAX_UPLOAD) throw bad('Ảnh vượt quá 15 MB.');
+    const name = `${u.pathname.split('/').pop() || 'anh'}.${mime.split('/')[1].replace('jpeg', 'jpg').replace('svg+xml', 'svg')}`;
+    const storage = c.get('deps').storage;
+    const remote = await storage.put(name, mime, bytes);
+    const r = await db(c).run('INSERT INTO files (storage, remote_id, name, mime, size) VALUES (?, ?, ?, ?, ?)', [storage.kind, remote, name, mime, bytes.byteLength]);
+    return c.json({ id: r.lastId, name, size: bytes.byteLength });
+  });
+
   app.get('/admin/storage/check', async (c) => {
     try {
       return c.json({ ok: true, message: await c.get('deps').storage.check() });
@@ -758,6 +779,12 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
       const who = await db(c).first<any>('SELECT display_name, username FROM admins WHERE id = ?', [c.get('adminId')]);
       await db(c).run('UPDATE articles SET author_name = ? WHERE id = ?', [who?.display_name || who?.username || '', r.lastId]);
     } catch { /* cột author_name chưa có */ }
+    // Bài chuyển từ nơi khác sang: giữ ngày đăng gốc
+    if (c.get('role') === 'admin' && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/.test(String(b.created_at ?? ''))) {
+      const at = String(b.created_at).slice(0, 19).replace('T', ' ');
+      await db(c).run('UPDATE articles SET created_at = ?, updated_at = ? WHERE id = ?', [at, at, r.lastId]);
+    }
+    if (b.author_name && c.get('role') === 'admin') await db(c).run('UPDATE articles SET author_name = ? WHERE id = ?', [String(b.author_name).slice(0, 80), r.lastId]);
     return c.json({ id: r.lastId, slug, published });
   });
   app.put('/admin/articles/:id', async (c) => {
