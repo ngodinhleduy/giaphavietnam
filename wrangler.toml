@@ -1,4 +1,4 @@
-name = "giapha"
+name = "giaphavietnam"
 main = "src/server/worker.ts"
 compatibility_date = "2026-11-01"
 compatibility_flags = ["nodejs_compat"]
@@ -13,7 +13,7 @@ run_worker_first = ["/api/*"]
 binding = "DB"
 database_name = "giapha"
 # Thay bằng id in ra sau lệnh: npx wrangler d1 create giapha
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "dc65a00a-17c8-405e-becb-44bb5623ad91"
 migrations_dir = "migrations"
 
 # Secrets (không ghi vào file này). Đặt bằng lệnh:
