@@ -61,7 +61,8 @@ export function useTreeModel(members: MemberBrief[], marriages: Marriage[]) {
 
 export type TreeModel = ReturnType<typeof useTreeModel>;
 
-function layout(model: TreeModel, opt: TreeOptions) {
+export type TreeLines = 'ortho' | 'curve' | 'straight';
+function layout(model: TreeModel, opt: TreeOptions, lines: TreeLines = 'ortho') {
   const nodes: Node[] = [];
   const links: Link[] = [];
   const width = new Map<number, number>();
@@ -111,7 +112,10 @@ function layout(model: TreeModel, opt: TreeOptions) {
         const si = other != null ? sp.indexOf(other) : -1;
         if (si >= 0) ax = ux + (si + 1) * (CW + SPOUSE_GAP) - SPOUSE_GAP / 2;
       }
-      links.push({ key: `p${id}-${k.id}`, d: `M${ax},${yb}V${midY}H${childX}V${y + ROW_H}` });
+      // Kiểu đường nối cha con: góc vuông, cong mềm, hoặc chéo thẳng
+      const yc = y + ROW_H;
+      links.push({ key: `p${id}-${k.id}`, d: lines === 'curve' ? `M${ax},${yb}C${ax},${midY + 6} ${childX},${midY - 6} ${childX},${yc}`
+        : lines === 'straight' ? `M${ax},${yb}L${childX},${yc}` : `M${ax},${yb}V${midY}H${childX}V${yc}` });
       place(k.id, cx, y + ROW_H);
       cx += kw2 + GAP_X;
     }
@@ -163,12 +167,14 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
   onSelect: (id: number) => void;
   onToggle: (id: number) => void;
   showPhotos?: boolean;
-}>(function FamilyTree({ model, options, selectedId, highlight, onSelect, onToggle, showPhotos = true }, ref) {
+  /** Kiểu đường nối, lấy từ Cấu hình website > Hiển thị */
+  lines?: string;
+}>(function FamilyTree({ model, options, selectedId, highlight, onSelect, onToggle, showPhotos = true, lines }, ref) {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [t, setT] = useState<ZoomTransform>(zoomIdentity);
-  const { nodes, links, bounds } = useMemo(() => layout(model, options), [model, options]);
+  const { nodes, links, bounds } = useMemo(() => layout(model, options, lines === 'curve' || lines === 'straight' ? lines : 'ortho'), [model, options, lines]);
   // Mỗi đời một hàng: nhãn "Đời n" ở lề trái và nền xen kẽ để dễ dò
   const rows = useMemo(() => {
     const m = new Map<number, number>();

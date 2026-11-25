@@ -1,24 +1,72 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AtSign, Check, Eye, Globe, HardDrive, Image as ImageIcon, KeyRound, LayoutTemplate, Lock, MapPin, MessageSquareText, Plus, RefreshCw, Save, Sparkles, Trash2, CircleUser, Users } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import {
+  AtSign, BookOpenText, Check, CircleUser, Eye, HardDrive, Image as ImageIcon, KeyRound, Landmark, LayoutTemplate, Lock, MapPin, MessageSquareText,
+  Palette, Plus, RefreshCw, RotateCcw, Save, SlidersHorizontal, Sparkles, Trash2, Users,
+} from 'lucide-react';
 import { api, useApi } from '../lib/api.ts';
 import { TEMPLATES, parsePeople, templateOf, type ContactPerson, type TemplateId } from '../../shared/site.ts';
 import { Badge, Button, ErrorState, Field, Input, Loading, PageHeader, PasswordInput, StrengthMeter, Switch, Textarea, buttonClass, cx, generatePassword, useToast } from '../components/ui.tsx';
 import { ImageUpload, useMe } from './AdminLayout.tsx';
 import { Section } from './Members.tsx';
 
-/** Đọc và lưu bảng settings. Mỗi trang cấu hình chỉ gửi lên các khóa của mình. */
-function useSettings() {
+const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
+
+// Mọi khóa do trang này lưu. Một nút Lưu chung cho cả sáu tab, giống cách người dùng nghĩ: "lưu cấu hình".
+const KEYS = ['site_name', 'site_tagline', 'intro', 'foreword', 'banner_file_id', 'intro_image_file_id', 'logo_file_id', 'favicon_file_id',
+  'address', 'map_embed', 'contact', 'contact_intro', 'contact_email', 'contact_phone', 'contact_zalo', 'contact_facebook', 'contact_form',
+  'template', 'tree_lines'];
+const TABS = [
+  { id: 'general', label: 'Thông tin', icon: Landmark },
+  { id: 'images', label: 'Logo và biểu tượng', icon: ImageIcon },
+  { id: 'contact', label: 'Liên hệ và bản đồ', icon: MapPin },
+  { id: 'template', label: 'Giao diện', icon: Palette },
+  { id: 'display', label: 'Hiển thị', icon: SlidersHorizontal },
+  { id: 'security', label: 'Bảo mật và lưu trữ', icon: Lock },
+] as const;
+type TabId = (typeof TABS)[number]['id'];
+/** Dán cả thẻ iframe thì chỉ giữ địa chỉ trong src; gõ địa chỉ thường thì giữ nguyên. */
+const mapValue = (v: string) => (v.match(/src="([^"]+)"/)?.[1] ?? v).trim();
+const mapSrc = (v: string) => {
+  const m = v.match(/src="([^"]+)"/); // dán cả thẻ iframe của Google Maps cũng nhận
+  const u = (m ? m[1] : v).trim();
+  return /^https?:\/\//.test(u) ? u : `https://www.google.com/maps?q=${encodeURIComponent(u)}&output=embed`;
+};
+
+export function SettingsAdmin() {
   const { data, error, loading, reload } = useApi<any>('/admin/settings');
   const [f, setF] = useState<any>({});
+  const [people, setPeople] = useState<ContactPerson[]>([]);
   const [busy, setBusy] = useState(false);
+  const [params, setParams] = useSearchParams();
   const toast = useToast();
-  useEffect(() => { if (data) setF(data); }, [data]);
-  const save = async (body: any, done = 'Đã lưu.') => {
+  useEffect(() => { if (data) { setF(data); setPeople(parsePeople(data.contact_people)); } }, [data]);
+  // Bản đồ xem trước chỉ đổi khi rời ô nhập, để không tải lại iframe theo từng ký tự
+  const [mapPreview, setMapPreview] = useState('');
+  useEffect(() => { if (data) setMapPreview(data.map_embed ?? ''); }, [data]);
+
+  const tab: TabId = TABS.some((t) => t.id === params.get('tab')) ? (params.get('tab') as TabId) : 'general';
+  // Trên màn hẹp thanh tab cuộn ngang: đưa tab đang mở vào giữa
+  useEffect(() => { document.getElementById(`tab-${tab}`)?.scrollIntoView({ inline: 'center', block: 'nearest' }); }, [tab, data]);
+  const dirty = !!data && (KEYS.some((k) => String(f[k] ?? '') !== String(data[k] ?? ''))
+    || JSON.stringify(parsePeople(people)) !== JSON.stringify(parsePeople(data.contact_people)));
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  if (loading && !data) return <Loading />;
+  if (error || !data) return <ErrorState error={error ?? 'Lỗi'} onRetry={reload} />;
+
+  const bind = (k: string) => ({ value: f[k] ?? '', onChange: (e: any) => setF({ ...f, [k]: e.target.value }) });
+  const file = (k: string) => ({ value: f[k] ? Number(f[k]) : null, onChange: (v: number | null) => setF({ ...f, [k]: v ?? '' }) });
+  const save = async (body?: any) => {
     setBusy(true);
     try {
-      await api.put('/admin/settings', body);
-      toast(done);
+      await api.put('/admin/settings', body ?? { ...Object.fromEntries(KEYS.map((k) => [k, f[k] ?? ''])), map_embed: mapValue(f.map_embed ?? ''), contact_people: people });
+      toast('Đã lưu cấu hình.');
       reload();
     } catch (e: any) {
       toast(e.message, 'error');
@@ -26,40 +74,194 @@ function useSettings() {
       setBusy(false);
     }
   };
-  const bind = (k: string) => ({ value: f[k] ?? '', onChange: (e: any) => setF({ ...f, [k]: e.target.value }) });
-  const pick = (keys: string[]) => Object.fromEntries(keys.map((k) => [k, f[k] ?? '']));
-  const dirty = (keys: string[]) => !!data && keys.some((k) => String(f[k] ?? '') !== String(data[k] ?? ''));
-  return { data, error, loading, reload, f, setF, busy, save, bind, pick, dirty };
-}
+  const setP = (i: number, p: Partial<ContactPerson>) => setPeople((l) => l.map((x, k) => (k === i ? { ...x, ...p } : x)));
+  const formOn = f.contact_form !== '0';
+  const current = templateOf(data.template);
+  const chosen = templateOf(f.template);
+  const lines = ['curve', 'straight'].includes(f.tree_lines) ? f.tree_lines : 'ortho';
 
-const GENERAL = ['site_name', 'site_tagline', 'intro'];
-export function SettingsAdmin() {
-  const st = useSettings();
-  if (st.loading) return <Loading />;
-  if (st.error) return <ErrorState error={st.error} onRetry={st.reload} />;
   return (
-    <>
-      <PageHeader title="Cấu hình website" subtitle="Tên trang, lời giới thiệu, mã xem phả đồ." />
-      <div className="grid gap-6 xl:grid-cols-2 items-start max-w-[80rem] [&>section:first-child]:xl:col-span-2">
-        <Section title="Thông tin trang" icon={<Globe />}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Tên trang" htmlFor="sn"><Input id="sn" {...st.bind('site_name')} /></Field>
-            <Field label="Khẩu hiệu" htmlFor="st" hint="Dòng chữ nghiêng phía trên tên trang."><Input id="st" {...st.bind('site_tagline')} /></Field>
-            <Field label="Lời giới thiệu" htmlFor="in" className="sm:col-span-2" hint="Hiện ở trang chủ, ngay dưới tên trang."><Textarea id="in" rows={4} {...st.bind('intro')} /></Field>
-          </div>
-          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Button variant="primary" icon={<Save aria-hidden />} loading={st.busy} disabled={!st.dirty(GENERAL)} onClick={() => st.save(st.pick(GENERAL))}>Lưu</Button>
-            <p className="text-sm text-ink-2">Logo, ảnh nền và mẫu trang ở mục <Link to="/admin/appearance" className="text-ink underline underline-offset-4">Giao diện</Link>. Địa chỉ, điện thoại ở mục <Link to="/admin/contact" className="text-ink underline underline-offset-4">Trang Liên hệ</Link>.</p>
-          </div>
-        </Section>
-        <PasscodeSection hasPasscode={st.data.has_passcode} onSave={st.save} />
-        <StorageSection />
+    <div className="pb-24">
+      <PageHeader title="Cấu hình website" subtitle="Tên, hình ảnh, liên hệ và cách trình bày của trang xem." />
+      <div role="tablist" aria-label="Nhóm cấu hình" className="flex gap-1 mb-6 border-b border-line overflow-x-auto [scrollbar-width:none]">
+        {TABS.map((t) => (
+          <button key={t.id} role="tab" type="button" id={`tab-${t.id}`} aria-selected={tab === t.id} aria-controls="settings-panel"
+            onClick={() => setParams(t.id === 'general' ? {} : { tab: t.id }, { replace: true })}
+            className={cx('relative shrink-0 h-11 px-3 inline-flex items-center gap-2 text-[15px] font-medium whitespace-nowrap cursor-pointer transition-colors rounded-t-md',
+              tab === t.id ? 'text-ink after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-accent' : 'text-ink-2 hover:text-ink hover:bg-sunken')}>
+            <t.icon aria-hidden className="size-[18px]" strokeWidth={1.75} />{t.label}
+          </button>
+        ))}
       </div>
-    </>
+
+      <div id="settings-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="max-w-[80rem]">
+        {tab === 'general' && (
+          <div className="grid gap-6">
+            <Section title="Thông tin gia phả" icon={<Landmark />}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Tên trang" htmlFor="sn" hint="Hiện ở đầu trang và trên tab trình duyệt."><Input id="sn" {...bind('site_name')} /></Field>
+                <Field label="Khẩu hiệu" htmlFor="st" hint="Dòng chữ nghiêng phía trên tên trang."><Input id="st" {...bind('site_tagline')} /></Field>
+                <Field label="Lời giới thiệu ngắn" htmlFor="in" className="sm:col-span-2" hint="Một hai câu, hiện ngay dưới tên trang ở trang chủ."><Textarea id="in" rows={3} {...bind('intro')} /></Field>
+              </div>
+            </Section>
+            <Section title="Lời nói đầu" icon={<BookOpenText />} hint="Bài giới thiệu về dòng họ, hiện thành một khối riêng ở trang chủ. Để trống thì khối này ẩn.">
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_16rem]">
+                <Suspense fallback={<div className="h-64 rounded-lg border border-line-strong bg-surface animate-pulse" />}>
+                  <RichEditor value={f.foreword ?? ''} onChange={(v) => setF((x: any) => ({ ...x, foreword: v }))} minHeight={260} placeholder="Viết lời nói đầu..." />
+                </Suspense>
+                <div>
+                  <p className="text-sm font-medium mb-2">Ảnh đi kèm lời nói đầu</p>
+                  <ImageUpload {...file('intro_image_file_id')} label="Ảnh" />
+                  <p className="mt-2 text-sm text-ink-2">Ví dụ ảnh nhà thờ họ hoặc ảnh họp họ.</p>
+                </div>
+              </div>
+            </Section>
+          </div>
+        )}
+
+        {tab === 'images' && (
+          <Section title="Logo và biểu tượng" icon={<ImageIcon />}>
+            <div className="grid gap-8 sm:grid-cols-3">
+              <div>
+                <p className="text-sm font-medium mb-2">Logo</p>
+                <ImageUpload {...file('logo_file_id')} label="Logo" round />
+                <p className="mt-2 text-sm text-ink-2">Ảnh vuông. Chưa có thì hiện chữ cái đầu của tên họ.</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-2">Favicon</p>
+                <ImageUpload {...file('favicon_file_id')} label="Favicon" />
+                <p className="mt-2 text-sm text-ink-2">Biểu tượng trên tab trình duyệt. Ảnh vuông, nét đơn giản.</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-2">Ảnh nền trang chủ</p>
+                <ImageUpload {...file('banner_file_id')} label="Ảnh nền" />
+                <p className="mt-2 text-sm text-ink-2">Thay cho họa tiết của mẫu trang. Mẫu Tối giản không dùng.</p>
+              </div>
+            </div>
+          </Section>
+        )}
+
+        {tab === 'contact' && (
+          <div className="grid gap-6 xl:grid-cols-2 items-start">
+            <Section title="Nhà thờ họ và bản đồ" icon={<MapPin />}>
+              <div className="grid gap-4">
+                <Field label="Địa chỉ" htmlFor="ad"><Input id="ad" {...bind('address')} /></Field>
+                <Field label="Bản đồ" htmlFor="me" hint="Gõ địa chỉ, hoặc vào Google Maps: Chia sẻ, Nhúng bản đồ, Sao chép HTML rồi dán vào đây.">
+                  <Textarea id="me" rows={2} className="font-mono text-sm" {...bind('map_embed')} onBlur={() => setMapPreview(f.map_embed ?? '')} />
+                </Field>
+                {mapPreview ? (
+                  <iframe title="Xem trước bản đồ" className="w-full h-56 rounded-lg border border-line" loading="lazy" src={mapSrc(mapPreview)} />
+                ) : <p className="text-sm text-ink-2">Chưa có bản đồ. Bản xem trước hiện khi bạn rời ô nhập.</p>}
+              </div>
+            </Section>
+            <Section title="Kênh liên hệ" icon={<AtSign />}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Số điện thoại" htmlFor="c-phone" optional><Input id="c-phone" inputMode="tel" {...bind('contact_phone')} /></Field>
+                <Field label="Email" htmlFor="c-email" optional><Input id="c-email" type="email" inputMode="email" {...bind('contact_email')} /></Field>
+                <Field label="Nhóm Zalo" htmlFor="c-zalo" optional hint="Link bắt đầu bằng https://"><Input id="c-zalo" inputMode="url" placeholder="https://zalo.me/g/..." {...bind('contact_zalo')} /></Field>
+                <Field label="Facebook" htmlFor="c-fb" optional><Input id="c-fb" inputMode="url" placeholder="https://facebook.com/..." {...bind('contact_facebook')} /></Field>
+                <Field label="Ghi chú ở chân trang" htmlFor="ct" optional className="sm:col-span-2"><Textarea id="ct" rows={2} {...bind('contact')} /></Field>
+              </div>
+            </Section>
+            <Section title="Người liên hệ" icon={<Users />} hint="Tối đa 8 người. Số điện thoại hiện công khai, chỉ ghi khi người đó đồng ý.">
+              <ul className="space-y-3">
+                {people.map((p, i) => (
+                  <li key={i} className="grid gap-2 grid-cols-[1fr_auto] sm:grid-cols-[1.2fr_1fr_9.5rem_auto] items-center">
+                    <Input aria-label={`Họ tên người liên hệ ${i + 1}`} placeholder="Họ tên" value={p.name} maxLength={80} onChange={(e) => setP(i, { name: e.target.value })} className="max-sm:col-span-2" />
+                    <Input aria-label={`Vai trò của người liên hệ ${i + 1}`} placeholder="Vai trò" value={p.role} maxLength={80} onChange={(e) => setP(i, { role: e.target.value })} className="max-sm:col-span-2" />
+                    <Input aria-label={`Điện thoại của người liên hệ ${i + 1}`} placeholder="Điện thoại" inputMode="tel" value={p.phone} maxLength={30} onChange={(e) => setP(i, { phone: e.target.value })} />
+                    <Button variant="ghost" className="hover:text-danger px-2.5" icon={<Trash2 aria-hidden />} aria-label={`Gỡ ${p.name || `người liên hệ ${i + 1}`}`} onClick={() => setPeople((l) => l.filter((_, k) => k !== i))} />
+                  </li>
+                ))}
+              </ul>
+              {people.length < 8 && <Button className={people.length ? 'mt-3' : ''} icon={<Plus aria-hidden />} onClick={() => setPeople((l) => [...l, { name: '', role: '', phone: '' }])}>Thêm người</Button>}
+            </Section>
+            <Section title="Trang Liên hệ" icon={<MessageSquareText />}>
+              <div className="grid gap-4">
+                <Switch label="Nhận lời nhắn qua form" checked={formOn} onChange={(v) => setF({ ...f, contact_form: v ? '1' : '0' })}
+                  description={formOn ? 'Người xem gửi được lời nhắn. Thư vào mục Hòm thư.' : 'Ẩn form. Trang chỉ còn thông tin liên hệ.'} />
+                <Field label="Lời dẫn đầu trang" htmlFor="c-intro" optional hint="Để trống thì dùng câu mặc định."><Textarea id="c-intro" rows={3} maxLength={400} {...bind('contact_intro')} /></Field>
+                <a href="/lien-he" target="_blank" rel="noreferrer" className={buttonClass('secondary', 'md', 'self-start')}><Eye aria-hidden />Xem trang Liên hệ</a>
+              </div>
+            </Section>
+          </div>
+        )}
+
+        {tab === 'template' && (
+          <Section title="Mẫu trang" icon={<LayoutTemplate />} hint="Nội dung giữ nguyên, chỉ đổi cách trình bày trang chủ.">
+            <div role="radiogroup" aria-label="Mẫu trang" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {TEMPLATES.map((t) => {
+                const on = chosen === t.id;
+                return (
+                  <div key={t.id} className={cx('rounded-xl border bg-surface overflow-hidden transition-[border-color,box-shadow]', on ? 'border-accent ring-2 ring-accent' : 'border-line hover:border-line-strong hover:shadow-md')}>
+                    <button type="button" role="radio" aria-checked={on} onClick={() => setF({ ...f, template: t.id })} className="block w-full text-left cursor-pointer">
+                      <TemplateThumb id={t.id} />
+                      <span className="block px-4 pt-3 pb-1">
+                        <span className="flex items-center gap-2 font-semibold text-ink">
+                          <span className={cx('size-[18px] shrink-0 rounded-full border-2 inline-flex items-center justify-center', on ? 'border-accent bg-accent text-white' : 'border-line-strong')}>{on && <Check aria-hidden className="size-3" strokeWidth={3} />}</span>
+                          {t.name}
+                          {current === t.id && <Badge tone="success">Đang dùng</Badge>}
+                        </span>
+                        <span className="mt-1.5 block text-sm text-ink-2 leading-snug">{t.desc}</span>
+                      </span>
+                    </button>
+                    <a href={`/?mau=${t.id}`} target="_blank" rel="noreferrer" className="mx-4 mb-3 mt-1 inline-flex items-center gap-1.5 min-h-9 text-sm font-medium text-ink-2 hover:text-ink">
+                      <Eye aria-hidden className="size-4" />Xem thử<span className="sr-only"> mẫu {t.name} (mở tab mới)</span>
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
+        {tab === 'display' && (
+          <Section title="Đường nối trên phả đồ" icon={<SlidersHorizontal />} hint="Cách vẽ đường từ cha mẹ xuống con, áp dụng cho cả trang xem và trang quản trị.">
+            <div role="radiogroup" aria-label="Đường nối trên phả đồ" className="grid gap-4 sm:grid-cols-3 max-w-3xl">
+              {([['ortho', 'Góc vuông', 'Đi xuống, rẽ ngang, rồi xuống từng con.'], ['curve', 'Đường cong', 'Cong mềm từ cha mẹ tới từng con.'], ['straight', 'Đường thẳng', 'Chéo thẳng từ cha mẹ tới từng con.']] as const).map(([id, name, desc]) => {
+                const on = lines === id;
+                const d = (x: number) => (id === 'ortho' ? `M60,26V44H${x}V62` : id === 'curve' ? `M60,26C60,50 ${x},38 ${x},62` : `M60,26L${x},62`);
+                return (
+                  <button key={id} type="button" role="radio" aria-checked={on} onClick={() => setF({ ...f, tree_lines: id })}
+                    className={cx('rounded-xl border bg-surface p-3 text-left cursor-pointer transition-[border-color,box-shadow]', on ? 'border-accent ring-2 ring-accent' : 'border-line hover:border-line-strong hover:shadow-md')}>
+                    <svg viewBox="0 0 120 84" aria-hidden className="w-full rounded-lg bg-sunken">
+                      <g fill="none" stroke="#8f8e8a" strokeWidth="1.5">{[22, 60, 98].map((x) => <path key={x} d={d(x)} />)}</g>
+                      <g fill="#fff" stroke="#37352f" strokeWidth="1.5">
+                        <rect x="46" y="10" width="28" height="16" rx="3" />
+                        {[22, 60, 98].map((x) => <rect key={x} x={x - 14} y="62" width="28" height="14" rx="3" />)}
+                      </g>
+                    </svg>
+                    <span className="mt-3 flex items-center gap-2 font-semibold text-ink">
+                      <span className={cx('size-[18px] shrink-0 rounded-full border-2 inline-flex items-center justify-center', on ? 'border-accent bg-accent text-white' : 'border-line-strong')}>{on && <Check aria-hidden className="size-3" strokeWidth={3} />}</span>
+                      {name}
+                    </span>
+                    <span className="mt-1 block text-sm text-ink-2">{desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
+        {tab === 'security' && (
+          <div className="grid gap-6 xl:grid-cols-2 items-start">
+            <PasscodeSection hasPasscode={data.has_passcode} onSave={save} />
+            <StorageSection />
+          </div>
+        )}
+      </div>
+
+      {tab !== 'security' && (
+        <div className="fixed bottom-0 right-0 left-0 md:left-[220px] lg:left-[240px] 2xl:left-[264px] z-20 border-t border-line bg-surface/95 backdrop-blur px-4 sm:px-6 lg:px-8 2xl:px-12 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3">
+          <p role="status" className="flex-1 min-w-0 text-sm text-ink-2 truncate">{dirty ? 'Có thay đổi chưa lưu.' : 'Thay đổi chỉ áp dụng sau khi bấm Lưu.'}</p>
+          {dirty && <Button icon={<RotateCcw aria-hidden />} onClick={() => { setF(data); setPeople(parsePeople(data.contact_people)); }}><span className="max-sm:sr-only">Bỏ thay đổi</span></Button>}
+          <Button variant="primary" icon={<Save aria-hidden />} loading={busy} disabled={!dirty} onClick={() => save()}>Lưu lại</Button>
+        </div>
+      )}
+    </div>
   );
 }
 
-// ================= Giao diện: chọn mẫu trang =================
 /** Ảnh thu nhỏ vẽ bằng CSS, mô phỏng phần đầu trang chủ của từng mẫu. */
 function TemplateThumb({ id }: { id: TemplateId }) {
   const bar = (w: string, tone: string, h = 'h-1.5') => <span className={cx('block rounded-full', h, w, tone)} />;
@@ -85,127 +287,6 @@ function TemplateThumb({ id }: { id: TemplateId }) {
       </span>
       {id === 'toi-gian' && <span className="absolute inset-x-[8%] bottom-[14%] h-px bg-line-strong" />}
     </span>
-  );
-}
-
-const LOOK = ['template', 'logo_file_id', 'banner_file_id'];
-export function AppearanceAdmin() {
-  const st = useSettings();
-  if (st.loading) return <Loading />;
-  if (st.error) return <ErrorState error={st.error} onRetry={st.reload} />;
-  const current = templateOf(st.data.template);
-  const chosen = templateOf(st.f.template);
-  return (
-    <>
-      <PageHeader title="Giao diện" subtitle="Chọn mẫu cho trang xem. Nội dung giữ nguyên, chỉ đổi cách trình bày."
-        actions={<Button variant="primary" icon={<Save aria-hidden />} loading={st.busy} disabled={!st.dirty(LOOK)}
-          onClick={() => st.save(st.pick(LOOK), 'Đã lưu giao diện.')}>Lưu giao diện</Button>} />
-      <div className="max-w-[80rem] space-y-6">
-        <Section title="Mẫu trang" icon={<LayoutTemplate />}>
-          <div role="radiogroup" aria-label="Mẫu trang" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {TEMPLATES.map((t) => {
-              const on = chosen === t.id;
-              return (
-                <div key={t.id} className={cx('rounded-xl border bg-surface overflow-hidden transition-[border-color,box-shadow]', on ? 'border-accent ring-2 ring-accent' : 'border-line hover:border-line-strong hover:shadow-md')}>
-                  <button type="button" role="radio" aria-checked={on} onClick={() => st.setF({ ...st.f, template: t.id })} className="block w-full text-left cursor-pointer">
-                    <TemplateThumb id={t.id} />
-                    <span className="block px-4 pt-3 pb-1">
-                      <span className="flex items-center gap-2 font-semibold text-ink">
-                        <span className={cx('size-[18px] shrink-0 rounded-full border-2 inline-flex items-center justify-center', on ? 'border-accent bg-accent text-white' : 'border-line-strong')}>{on && <Check aria-hidden className="size-3" strokeWidth={3} />}</span>
-                        {t.name}
-                        {current === t.id && <Badge tone="success">Đang dùng</Badge>}
-                      </span>
-                      <span className="mt-1.5 block text-sm text-ink-2 leading-snug">{t.desc}</span>
-                    </span>
-                  </button>
-                  <a href={`/?mau=${t.id}`} target="_blank" rel="noreferrer" className="mx-4 mb-3 mt-1 inline-flex items-center gap-1.5 min-h-9 text-sm font-medium text-ink-2 hover:text-ink">
-                    <Eye aria-hidden className="size-4" />Xem thử<span className="sr-only"> mẫu {t.name} (mở tab mới)</span>
-                  </a>
-                </div>
-              );
-            })}
-          </div>
-          {chosen !== current && <p role="status" className="mt-4 text-sm text-ink-2">Đã chọn mẫu {TEMPLATES.find((t) => t.id === chosen)?.name}. Bấm Lưu giao diện để áp dụng cho mọi người xem.</p>}
-        </Section>
-        <Section title="Hình ảnh" icon={<ImageIcon />}>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div>
-              <p className="text-sm font-medium mb-2">Logo</p>
-              <ImageUpload value={st.f.logo_file_id ? Number(st.f.logo_file_id) : null} onChange={(v) => st.setF({ ...st.f, logo_file_id: v ?? '' })} label="Logo" round />
-              <p className="mt-2 text-sm text-ink-2">Ảnh vuông. Chưa có thì hiện chữ cái đầu của tên họ.</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium mb-2">Ảnh nền trang chủ</p>
-              <ImageUpload value={st.f.banner_file_id ? Number(st.f.banner_file_id) : null} onChange={(v) => st.setF({ ...st.f, banner_file_id: v ?? '' })} label="Ảnh nền" />
-              <p className="mt-2 text-sm text-ink-2">Có ảnh nền thì ảnh thay cho họa tiết của mẫu. Mẫu Tối giản không dùng ảnh nền.</p>
-            </div>
-          </div>
-        </Section>
-      </div>
-    </>
-  );
-}
-
-// ================= Trang Liên hệ =================
-const CONTACT = ['contact_intro', 'contact_people', 'contact_email', 'contact_zalo', 'contact_facebook', 'contact_form', 'address', 'map_embed', 'contact'];
-export function ContactAdmin() {
-  const st = useSettings();
-  const [people, setPeople] = useState<ContactPerson[]>([]);
-  useEffect(() => { if (st.data) setPeople(parsePeople(st.data.contact_people)); }, [st.data]);
-  if (st.loading) return <Loading />;
-  if (st.error) return <ErrorState error={st.error} onRetry={st.reload} />;
-  const setP = (i: number, p: Partial<ContactPerson>) => setPeople((l) => l.map((x, k) => (k === i ? { ...x, ...p } : x)));
-  const formOn = st.f.contact_form !== '0';
-  const peopleDirty = JSON.stringify(parsePeople(people)) !== JSON.stringify(parsePeople(st.data.contact_people));
-  const save = () => st.save({ ...st.pick(CONTACT), contact_people: people, contact_form: formOn ? '1' : '0' }, 'Đã lưu trang Liên hệ.');
-  return (
-    <>
-      <PageHeader title="Trang Liên hệ" subtitle="Thông tin hiện ở trang Liên hệ và chân trang."
-        actions={<>
-          <a href="/lien-he" target="_blank" rel="noreferrer" className={buttonClass('secondary')}><Eye aria-hidden />Xem trang</a>
-          <Button variant="primary" icon={<Save aria-hidden />} loading={st.busy} disabled={!st.dirty(CONTACT) && !peopleDirty} onClick={save}>Lưu</Button>
-        </>} />
-      <div className="grid gap-6 xl:grid-cols-2 items-start max-w-[80rem]">
-        <Section title="Người liên hệ" icon={<Users />} hint="Tối đa 8 người. Số điện thoại hiện công khai, chỉ ghi khi người đó đồng ý.">
-          {!people.length && <p className="mb-3 text-sm text-ink-2">Chưa có ai. Thêm trưởng họ hoặc người giữ gia phả.</p>}
-          <ul className="space-y-3">
-            {people.map((p, i) => (
-              <li key={i} className="grid gap-2 grid-cols-[1fr_auto] sm:grid-cols-[1.2fr_1fr_9.5rem_auto] items-center">
-                <Input aria-label={`Họ tên người liên hệ ${i + 1}`} placeholder="Họ tên" value={p.name} maxLength={80} onChange={(e) => setP(i, { name: e.target.value })} className="max-sm:col-span-2" />
-                <Input aria-label={`Vai trò của người liên hệ ${i + 1}`} placeholder="Vai trò, ví dụ Trưởng họ" value={p.role} maxLength={80} onChange={(e) => setP(i, { role: e.target.value })} className="max-sm:col-span-2" />
-                <Input aria-label={`Điện thoại của người liên hệ ${i + 1}`} placeholder="Điện thoại" inputMode="tel" value={p.phone} maxLength={30} onChange={(e) => setP(i, { phone: e.target.value })} />
-                <Button variant="ghost" className="hover:text-danger px-2.5" icon={<Trash2 aria-hidden />} aria-label={`Gỡ ${p.name || `người liên hệ ${i + 1}`}`} onClick={() => setPeople((l) => l.filter((_, k) => k !== i))} />
-              </li>
-            ))}
-          </ul>
-          {people.length < 8 && <Button className="mt-3" icon={<Plus aria-hidden />} onClick={() => setPeople((l) => [...l, { name: '', role: '', phone: '' }])}>Thêm người</Button>}
-        </Section>
-
-        <Section title="Kênh liên hệ" icon={<AtSign />}>
-          <div className="grid gap-4">
-            <Field label="Email" htmlFor="c-email" optional><Input id="c-email" type="email" inputMode="email" placeholder="banlienlac@example.com" {...st.bind('contact_email')} /></Field>
-            <Field label="Nhóm Zalo" htmlFor="c-zalo" optional hint="Dán link mời vào nhóm, bắt đầu bằng https://"><Input id="c-zalo" inputMode="url" placeholder="https://zalo.me/g/..." {...st.bind('contact_zalo')} /></Field>
-            <Field label="Facebook" htmlFor="c-fb" optional><Input id="c-fb" inputMode="url" placeholder="https://facebook.com/..." {...st.bind('contact_facebook')} /></Field>
-          </div>
-        </Section>
-
-        <Section title="Nhà thờ họ" icon={<MapPin />}>
-          <div className="grid gap-4">
-            <Field label="Địa chỉ" htmlFor="ad"><Input id="ad" {...st.bind('address')} /></Field>
-            <Field label="Bản đồ" htmlFor="me" hint="Gõ địa chỉ hoặc dán link nhúng Google Maps. Hiện ở trang chủ và trang Liên hệ."><Input id="me" {...st.bind('map_embed')} /></Field>
-          </div>
-        </Section>
-
-        <Section title="Lời nhắn" icon={<MessageSquareText />}>
-          <div className="grid gap-4">
-            <Switch label="Nhận lời nhắn qua form" checked={formOn} onChange={(v) => st.setF({ ...st.f, contact_form: v ? '1' : '0' })}
-              description={formOn ? 'Người xem gửi được lời nhắn. Thư vào mục Hòm thư.' : 'Ẩn form. Trang chỉ còn thông tin liên hệ.'} />
-            <Field label="Lời dẫn đầu trang" htmlFor="c-intro" optional hint="Để trống thì dùng câu mặc định."><Textarea id="c-intro" rows={3} maxLength={400} {...st.bind('contact_intro')} /></Field>
-            <Field label="Ghi chú ở chân trang" htmlFor="ct" optional hint="Một hai dòng ngắn, hiện ở cột Liên hệ cuối mỗi trang."><Textarea id="ct" rows={2} {...st.bind('contact')} /></Field>
-          </div>
-        </Section>
-      </div>
-    </>
   );
 }
 

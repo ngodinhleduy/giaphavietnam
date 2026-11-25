@@ -7,6 +7,7 @@ import type { TemplateId } from '../../shared/site.ts';
 import { Container, useSite } from './SiteLayout.tsx';
 import { EmptyState, Skeleton, cx } from '../components/ui.tsx';
 import { EventRow } from './Events.tsx';
+import { RichContent } from '../components/RichContent.tsx';
 
 const btn = 'group h-12 px-6 inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-[background-color,border-color,box-shadow,transform] duration-150 active:scale-[.98]';
 
@@ -95,6 +96,19 @@ export function Home() {
             </Link>
           </Container>
         </section>
+      )}
+
+      {site.foreword && site.foreword.replace(/<[^>]*>/g, '').trim() && (
+        <Container className="pt-10 sm:pt-14">
+          <section aria-labelledby="h-foreword" className={cx('grid gap-6 lg:gap-10 items-start', site.intro_image_file_id && 'lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]')}>
+            {site.intro_image_file_id && <img src={fileUrl(site.intro_image_file_id)} alt="" className="w-full rounded-xl border border-line object-cover aspect-[4/3]" loading="lazy" />}
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink-2 uppercase tracking-wide">Lời nói đầu</p>
+              <h2 id="h-foreword" className="mt-1 font-serif text-2xl sm:text-3xl font-medium text-ink">{site.site_name}</h2>
+              <RichContent html={site.foreword} className="mt-4 max-w-prose" />
+            </div>
+          </section>
+        </Container>
       )}
 
       <Container className="pt-8 sm:pt-10">

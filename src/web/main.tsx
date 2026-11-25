@@ -1,6 +1,6 @@
 import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Route, Routes, Link } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, Link } from 'react-router-dom';
 import './index.css';
 import { ToastProvider } from './components/ui.tsx';
 import { SiteLayout, Container } from './site/SiteLayout.tsx';
@@ -33,8 +33,7 @@ const LogsAdmin = L(() => import('./admin/Logs.tsx'), 'LogsAdmin');
 const MessagesAdmin = L(() => import('./admin/Messages.tsx'), 'MessagesAdmin');
 const MenuAdmin = L(() => import('./admin/Menu.tsx'), 'MenuAdmin');
 const AccountPage = L(() => import('./admin/Settings.tsx'), 'AccountPage');
-const AppearanceAdmin = L(() => import('./admin/Settings.tsx'), 'AppearanceAdmin');
-const ContactAdmin = L(() => import('./admin/Settings.tsx'), 'ContactAdmin');
+
 
 function NotFound() {
   return (
@@ -78,8 +77,8 @@ createRoot(document.getElementById('root')!).render(
             <Route path="albums/:id" element={<AlbumAdmin />} />
             <Route path="admins" element={<AdminsAdmin />} />
             <Route path="settings" element={<SettingsAdmin />} />
-            <Route path="appearance" element={<AppearanceAdmin />} />
-            <Route path="contact" element={<ContactAdmin />} />
+            <Route path="appearance" element={<Navigate to="/admin/settings?tab=template" replace />} />
+            <Route path="contact" element={<Navigate to="/admin/settings?tab=contact" replace />} />
             <Route path="menu" element={<MenuAdmin />} />
             <Route path="messages" element={<MessagesAdmin />} />
             <Route path="account" element={<AccountPage />} />

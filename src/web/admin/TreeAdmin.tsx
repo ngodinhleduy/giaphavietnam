@@ -23,6 +23,7 @@ export function TreeAdmin() {
 
 function Editor({ data, reload, busy }: { data: TreeData; reload: () => void; busy: boolean }) {
   const toast = useToast();
+  const site = useApi<{ tree_lines?: string }>('/site');
   const model = useTreeModel(data.members, data.marriages);
   const ref = useRef<FamilyTreeHandle>(null);
   const [sp] = useSearchParams();
@@ -135,7 +136,7 @@ function Editor({ data, reload, busy }: { data: TreeData; reload: () => void; bu
       ) : (
         <div className="relative flex-1 min-h-0 flex rounded-lg border border-line overflow-hidden bg-surface">
           <div className="relative flex-1 min-w-0" onClick={() => setSelected(null)}>
-            <FamilyTree ref={ref} model={model} options={opt} selectedId={selected} highlight={new Set()}
+            <FamilyTree ref={ref} model={model} options={opt} lines={site.data?.tree_lines} selectedId={selected} highlight={new Set()}
               onSelect={(id) => setSelected(id)}
               onToggle={(id) => setOpt((o) => {
                 const c = new Set(o.collapsed);

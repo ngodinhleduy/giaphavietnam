@@ -72,8 +72,8 @@ export function Dashboard() {
     isAdmin && s.unread > 0 && { to: '/admin/messages', icon: <Inbox />, text: `${s.unread} thư chưa đọc` },
     s.orphans.length > 0 && { to: `/admin/members/${s.orphans[0].id}`, icon: <Network />,
       text: s.orphans.length === 1 ? `${s.orphans[0].full_name} chưa gắn cha mẹ` : `${s.orphans.length} người chưa gắn cha mẹ`, note: 'Đang hiện như một gốc riêng trên cây' },
-    isAdmin && site.data && !site.data.locked && { to: '/admin/settings', icon: <Lock />, text: 'Phả đồ chưa đặt mã xem', note: 'Ai có link cũng xem được' },
-    isAdmin && s.storage === 'none' && { to: '/admin/settings', icon: <TriangleAlert />, text: 'Chưa cấu hình nơi lưu ảnh' },
+    isAdmin && site.data && !site.data.locked && { to: '/admin/settings?tab=security', icon: <Lock />, text: 'Phả đồ chưa đặt mã xem', note: 'Ai có link cũng xem được' },
+    isAdmin && s.storage === 'none' && { to: '/admin/settings?tab=security', icon: <TriangleAlert />, text: 'Chưa cấu hình nơi lưu ảnh' },
   ].filter(Boolean) as { to: string; icon: ReactNode; text: string; note?: string }[];
 
   const shortcuts = [
@@ -118,7 +118,7 @@ export function Dashboard() {
 
       <div className="mt-4 sm:mt-6 grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_25rem] items-start">
         <div className="grid gap-4 sm:gap-6 min-w-0">
-          <TreePreview tree={tree.data ?? undefined} />
+          <TreePreview tree={tree.data ?? undefined} lines={site.data?.tree_lines} />
           <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
             <GenerationChart members={tree.data?.members ?? undefined} />
             {isAdmin && (
@@ -255,7 +255,7 @@ function GenerationChart({ members }: { members?: MemberBrief[] }) {
 }
 
 /** Phả đồ thu gọn ngay trên Tổng quan: bấm một người để sang màn soạn phả đồ với người đó đã được chọn. */
-function TreePreview({ tree }: { tree?: TreeData }) {
+function TreePreview({ tree, lines }: { tree?: TreeData; lines?: string }) {
   const nav = useNavigate();
   const ref = useRef<FamilyTreeHandle>(null);
   const model = useTreeModel(tree?.members ?? [], tree?.marriages ?? []);
@@ -278,7 +278,7 @@ function TreePreview({ tree }: { tree?: TreeData }) {
         </div>
       ) : (
         <div className="h-[360px] sm:h-[420px]">
-          <FamilyTree ref={ref} model={model} options={opt} selectedId={null} highlight={new Set()}
+          <FamilyTree ref={ref} model={model} options={opt} lines={lines} selectedId={null} highlight={new Set()}
             onSelect={(id) => nav(`/admin/tree?m=${id}`)}
             onToggle={(id) => setOpt((o) => {
               const c = new Set(o.collapsed);

@@ -21,7 +21,8 @@ const DAY = 86_400_000;
 const MAX_UPLOAD = 15 * 1024 * 1024;
 
 const PUBLIC_SETTINGS = ['site_name', 'site_tagline', 'intro', 'address', 'map_embed', 'contact', 'template',
-  'contact_intro', 'contact_people', 'contact_email', 'contact_zalo', 'contact_facebook', 'contact_form'];
+  'contact_intro', 'contact_people', 'contact_email', 'contact_phone', 'contact_zalo', 'contact_facebook', 'contact_form', 'foreword', 'tree_lines'];
+const FILE_SETTINGS = ['logo_file_id', 'banner_file_id', 'intro_image_file_id', 'favicon_file_id'];
 const MEMBER_FIELDS = [
   'full_name', 'alias', 'gender', 'generation', 'father_id', 'mother_id', 'birth_order', 'is_blood',
   'is_deceased', 'birth_date', 'death_date', 'death_lunar_day', 'death_lunar_month', 'burial_place',
@@ -115,8 +116,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
       locked: !!s.viewer_passcode_hash,
       unlocked: await canView(c),
       categories,
-      logo_file_id: s.logo_file_id ? Number(s.logo_file_id) : null,
-      banner_file_id: s.banner_file_id ? Number(s.banner_file_id) : null,
+      ...Object.fromEntries(FILE_SETTINGS.map((k) => [k, s[k] ? Number(s[k]) : null])),
     });
   });
 
@@ -856,7 +856,9 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   });
   app.put('/admin/settings', async (c) => {
     const b = await c.req.json<Record<string, any>>();
-    const allowed = [...PUBLIC_SETTINGS, 'logo_file_id', 'banner_file_id'];
+    const allowed = [...PUBLIC_SETTINGS, ...FILE_SETTINGS];
+    if ('tree_lines' in b) b.tree_lines = ['curve', 'straight'].includes(b.tree_lines) ? b.tree_lines : 'ortho';
+    if ('foreword' in b && String(b.foreword ?? '').length > 60000) throw bad('Lời nói đầu quá dài.');
     // Chuẩn hóa các trường có định dạng riêng trước khi lưu
     if ('template' in b) b.template = templateOf(b.template);
     if ('contact_people' in b) b.contact_people = JSON.stringify(parsePeople(b.contact_people));

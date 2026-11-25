@@ -56,12 +56,17 @@ export interface Site {
   contact_intro?: string;
   contact_people?: string;
   contact_email?: string;
+  contact_phone?: string;
   contact_zalo?: string;
   contact_facebook?: string;
   contact_form?: string;
   categories: { id: number; slug: string; name: string }[];
   logo_file_id: number | null;
   banner_file_id: number | null;
+  intro_image_file_id?: number | null;
+  favicon_file_id?: number | null;
+  foreword?: string;
+  tree_lines?: string;
 }
 
 export interface ArticleBrief {

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type FormEvent } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  CalendarDays, CircleUser, Contact, ExternalLink, FileText, History, ImageUp, Images, Inbox, LayoutDashboard, LogIn, LogOut, Network, Palette,
+  CalendarDays, CircleUser, ExternalLink, FileText, History, ImageUp, Images, Inbox, LayoutDashboard, LogIn, LogOut, Network,
   PanelTop, Settings, ShieldCheck, Users, type LucideIcon,
 } from 'lucide-react';
 import { api, fileUrl, shrinkImage } from '../lib/api.ts';
@@ -25,10 +25,8 @@ const NAV: { group?: string; items: NavItem[] }[] = [
     { to: '/admin/albums', label: 'Album ảnh', icon: Images },
   ] },
   { group: 'Website', items: [
-    { to: '/admin/settings', label: 'Cấu hình', icon: Settings, adminOnly: true },
-    { to: '/admin/appearance', label: 'Giao diện', icon: Palette, adminOnly: true },
-    { to: '/admin/menu', label: 'Menu', icon: PanelTop, adminOnly: true },
-    { to: '/admin/contact', label: 'Trang Liên hệ', icon: Contact, adminOnly: true },
+    { to: '/admin/settings', label: 'Cấu hình website', icon: Settings, adminOnly: true },
+    { to: '/admin/menu', label: 'Menu website', icon: PanelTop, adminOnly: true },
     { to: '/admin/messages', label: 'Hòm thư', icon: Inbox, alert: 'unread', adminOnly: true },
   ] },
   { group: 'Hệ thống', items: [

@@ -32,7 +32,14 @@ export function SiteLayout() {
   const loc = useLocation();
   useEffect(() => setMenu(false), [loc.pathname, loc.search]);
   useEffect(() => {
-    if (site) document.title = site.site_name;
+    if (!site) return;
+    document.title = site.site_name;
+    // Favicon do quản trị tải lên thay cho biểu tượng mặc định
+    if (site.favicon_file_id) {
+      let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+      link.href = fileUrl(site.favicon_file_id);
+    }
   }, [site]);
 
   // Xem thử mẫu từ trang quản trị: /?mau=<id>. Giữ trong phiên của tab này, không ảnh hưởng người khác.
@@ -111,12 +118,13 @@ export function SiteLayout() {
             <p className="font-medium text-ink">Liên hệ</p>
             <ul className="mt-2 space-y-2 text-ink-2 leading-relaxed">
               {site.address && <li className="flex gap-2"><MapPin aria-hidden className="size-4 shrink-0 mt-1" /><span>{site.address}</span></li>}
-              {people.filter((p) => p.phone).slice(0, 2).map((p) => (
+              {site.contact_phone && <li className="flex gap-2"><Phone aria-hidden className="size-4 shrink-0 mt-1" /><a href={`tel:${site.contact_phone.replace(/[^\d+]/g, '')}`} className="text-ink hover:underline underline-offset-4">{site.contact_phone}</a></li>}
+              {!site.contact_phone && people.filter((p) => p.phone).slice(0, 2).map((p) => (
                 <li key={p.name + p.phone} className="flex gap-2"><Phone aria-hidden className="size-4 shrink-0 mt-1" />
                   <span>{p.name} · <a href={`tel:${p.phone.replace(/[^\d+]/g, '')}`} className="text-ink hover:underline underline-offset-4">{p.phone}</a></span></li>
               ))}
               {site.contact && <li className="whitespace-pre-line">{site.contact}</li>}
-              {!site.address && !people.length && !site.contact && <li>Ban liên lạc dòng họ</li>}
+              {!site.address && !people.length && !site.contact && !site.contact_phone && <li>Ban liên lạc dòng họ</li>}
             </ul>
             <Link to="/lien-he" className="group inline-flex items-center gap-1.5 min-h-9 pointer-coarse:min-h-11 mt-2 font-medium text-ink"><MessageSquareText aria-hidden className="size-4" /><span className="underline underline-offset-4 decoration-line-strong group-hover:decoration-ink">{site.contact_form === '0' ? 'Trang Liên hệ' : 'Gửi lời nhắn'}</span></Link>
           </div>

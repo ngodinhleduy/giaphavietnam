@@ -66,6 +66,7 @@ function Gate({ onUnlocked }: { onUnlocked: () => void }) {
 }
 
 function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; onLock: () => void }) {
+  const { site } = useSite();
   const model = useTreeModel(data.members, data.marriages);
   const ref = useRef<FamilyTreeHandle>(null);
   const [params, setParams] = useSearchParams();
@@ -178,7 +179,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
           </div>
 
           <div className="relative h-[calc(100dvh-18.5rem)] min-h-[400px] md:h-[72vh] md:min-h-[520px] 2xl:h-[78vh] -mx-4 sm:mx-0 rounded-none sm:rounded-xl border-y sm:border border-line bg-[radial-gradient(circle,#e5e0d8_1px,transparent_1px)] [background-size:20px_20px] overflow-hidden">
-            <FamilyTree ref={ref} model={model} options={opt} selectedId={selected} highlight={highlight}
+            <FamilyTree ref={ref} model={model} options={opt} lines={site.tree_lines} selectedId={selected} highlight={highlight}
               onSelect={setSelected}
               onToggle={(id) => setOpt((o) => {
                 const c = new Set(o.collapsed);
