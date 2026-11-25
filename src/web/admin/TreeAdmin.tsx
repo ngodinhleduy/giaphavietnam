@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api, useApi } from '../lib/api.ts';
-import type { Gender, Marriage, MemberBrief } from '../lib/types.ts';
+import { CHILD_TYPE_LABEL, type Gender, type Marriage, type MemberBrief } from '../lib/types.ts';
 import { lifespan } from '../lib/format.ts';
 import { FamilyTree, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
 import {
@@ -24,11 +24,13 @@ function Editor({ data, reload, busy }: { data: TreeData; reload: () => void; bu
   const toast = useToast();
   const model = useTreeModel(data.members, data.marriages);
   const ref = useRef<FamilyTreeHandle>(null);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [sp] = useSearchParams();
+  const preset = Number(sp.get('m')) || null; // đi từ Tổng quan sang với một người đã chọn
+  const [selected, setSelected] = useState<number | null>(preset);
   const [q, setQ] = useState('');
   const [dialog, setDialog] = useState<Dialog>(null);
   const [undo, setUndo] = useState<Undo | null>(null);
-  const [goTo, setGoTo] = useState<number | null>(null);
+  const [goTo, setGoTo] = useState<number | null>(preset);
   const [opt, setOpt] = useState<TreeOptions>({ hideSpouses: false, coupleLines: true, maxGen: null, collapsed: new Set(), rootId: null });
 
   const sel = selected != null ? model.byId.get(selected) ?? null : null;
@@ -211,6 +213,9 @@ function Panel({ m, model, kids, why, onClose, onGo, onAct, onFocus }: {
         {m.generation && <Badge>Đời {m.generation}</Badge>}
         <Badge>{m.is_blood ? 'Trong họ' : m.gender === 'female' ? 'Dâu' : 'Rể'}</Badge>
         <Badge>{m.is_deceased ? 'Đã mất' : 'Còn sống'}</Badge>
+        {m.title_role && <Badge>{m.title_role}</Badge>}
+        {m.child_type && m.child_type !== 'biological' && <Badge>{CHILD_TYPE_LABEL[m.child_type]}</Badge>}
+        {!!m.is_hidden && <Badge>Ẩn trên website</Badge>}
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Button variant="primary" onClick={() => onAct('child')}>Thêm con</Button>
@@ -264,6 +269,7 @@ function ChildDialog({ picked, parent, model, nextOrder, onClose, onSaved }: {
   const partners = (model.spouses.get(parent.id) ?? []).map((id) => model.byId.get(id)!).filter(Boolean);
   const [v, setV] = useState({ name: '', gender: 'male' as Gender, year: '', dead: false });
   const [other, setOther] = useState<string>(String(picked.id !== parent.id ? picked.id : partners[0]?.id ?? ''));
+  const [childType, setChildType] = useState('biological');
   const [again, setAgain] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -274,7 +280,7 @@ function ChildDialog({ picked, parent, model, nextOrder, onClose, onSaved }: {
     try {
       const o = other ? Number(other) : null;
       const r = await api.post<{ id: number }>('/admin/members', {
-        full_name: v.name.trim(), gender: v.gender, is_blood: 1, is_deceased: v.dead ? 1 : 0, birth_date: v.year || null, birth_order: nextOrder,
+        full_name: v.name.trim(), gender: v.gender, is_blood: 1, is_deceased: v.dead ? 1 : 0, birth_date: v.year || null, birth_order: nextOrder, child_type: childType,
         ...(parent.gender === 'male' ? { father_id: parent.id, mother_id: o } : { mother_id: parent.id, father_id: o }),
       });
       onSaved(r.id, v.name.trim(), again);
@@ -294,6 +300,13 @@ function ChildDialog({ picked, parent, model, nextOrder, onClose, onSaved }: {
             </Select>
           </Field>
         )}
+        <Field label="Quan hệ với cha mẹ" htmlFor="qa-ct">
+          <Select id="qa-ct" value={childType} onChange={(e) => setChildType(e.target.value)}>
+            <option value="biological">Con ruột</option>
+            <option value="adopted">Con nuôi</option>
+            <option value="out_of_wedlock">Con ngoài giá thú</option>
+          </Select>
+        </Field>
         <Checkbox label="Lưu xong thêm tiếp người con khác" checked={again} onChange={setAgain} />
         {err && <p role="alert" className="text-sm text-danger">{err}</p>}
         <p className="text-xs text-ink-2">Ngày giỗ, tiểu sử, ảnh bổ sung sau ở Sửa hồ sơ.</p>

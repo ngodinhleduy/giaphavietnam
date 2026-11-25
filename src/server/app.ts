@@ -21,8 +21,30 @@ const PUBLIC_SETTINGS = ['site_name', 'site_tagline', 'intro', 'address', 'map_e
 const MEMBER_FIELDS = [
   'full_name', 'alias', 'gender', 'generation', 'father_id', 'mother_id', 'birth_order', 'is_blood',
   'is_deceased', 'birth_date', 'death_date', 'death_lunar_day', 'death_lunar_month', 'burial_place',
-  'hometown', 'occupation', 'branch', 'bio', 'photo_file_id',
+  'hometown', 'occupation', 'branch', 'bio', 'photo_file_id', 'is_hidden', 'title_role', 'child_type',
 ] as const;
+const CHILD_TYPES = ['biological', 'adopted', 'out_of_wedlock'];
+// Chuẩn hóa ba trường mới để không ghi NULL vào cột NOT NULL
+const normMember = (b: any) => ({
+  ...b,
+  is_hidden: b.is_hidden === true || Number(b.is_hidden) === 1 ? 1 : 0,
+  child_type: CHILD_TYPES.includes(b.child_type) ? b.child_type : 'biological',
+  title_role: String(b.title_role ?? '').trim() || null,
+});
+
+// Tên gọi của từng nhóm dữ liệu trong nhật ký
+const LOG_RES: Record<string, { label: string; table?: string; col?: string }> = {
+  members: { label: 'thành viên', table: 'members', col: 'full_name' },
+  marriages: { label: 'hôn nhân' },
+  articles: { label: 'bài viết', table: 'articles', col: 'title' },
+  categories: { label: 'chuyên mục', table: 'categories', col: 'name' },
+  events: { label: 'sự kiện', table: 'events', col: 'title' },
+  albums: { label: 'album', table: 'albums', col: 'title' },
+  photos: { label: 'ảnh trong album' },
+  settings: { label: 'cài đặt' },
+  admins: { label: 'quản trị viên', table: 'admins', col: 'username' },
+  password: { label: 'của chính mình' },
+};
 
 class HttpError extends Error {
   status: number;
@@ -156,7 +178,8 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     if (await canView(c)) {
       const dead = await db(c).all<any>(
         `SELECT id, full_name, generation, death_lunar_day, death_lunar_month FROM members
-         WHERE is_deceased = 1 AND death_lunar_day IS NOT NULL AND death_lunar_month IS NOT NULL`,
+         WHERE is_deceased = 1 AND death_lunar_day IS NOT NULL AND death_lunar_month IS NOT NULL
+           ${(await isAdmin(c)) ? '' : 'AND is_hidden = 0'}`,
       );
       for (const m of dead) {
         const d = nextSolarOfLunar(m.death_lunar_day, m.death_lunar_month, today);
@@ -216,27 +239,33 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
 
   // ---------- Viewer (cần mã bảo mật) ----------
   app.get('/tree', requireViewer, async (c) => {
-    const members = await db(c).all(
+    const admin = await isAdmin(c);
+    const members = await db(c).all<any>(
       `SELECT id, full_name, alias, gender, generation, father_id, mother_id, birth_order, is_blood, is_deceased,
-              birth_date, death_date, branch, photo_file_id FROM members ORDER BY generation, birth_order, id`,
+              birth_date, death_date, branch, photo_file_id, is_hidden, title_role, child_type
+       FROM members ${admin ? '' : 'WHERE is_hidden = 0'} ORDER BY generation, birth_order, id`,
     );
-    const marriages = await db(c).all('SELECT id, husband_id, wife_id, order_no FROM marriages ORDER BY order_no, id');
+    const shown = new Set(members.map((m) => m.id));
+    const marriages = (await db(c).all<any>('SELECT id, husband_id, wife_id, order_no FROM marriages ORDER BY order_no, id'))
+      .filter((mr) => shown.has(mr.husband_id) && shown.has(mr.wife_id));
     return c.json({ members, marriages });
   });
 
   app.get('/members/:id', requireViewer, async (c) => {
     const id = Number(c.req.param('id'));
     const m = await db(c).first<any>('SELECT * FROM members WHERE id = ?', [id]);
-    if (!m) throw new HttpError(404, 'Không tìm thấy thành viên.');
+    const admin = await isAdmin(c);
+    if (!m || (m.is_hidden && !admin)) throw new HttpError(404, 'Không tìm thấy thành viên.');
+    const vis = admin ? '' : ' AND is_hidden = 0';
     const brief = 'id, full_name, gender, generation, is_deceased, birth_date, death_date, photo_file_id, birth_order';
     const [father, mother, children, spouses] = await Promise.all([
-      m.father_id ? db(c).first(`SELECT ${brief} FROM members WHERE id = ?`, [m.father_id]) : null,
-      m.mother_id ? db(c).first(`SELECT ${brief} FROM members WHERE id = ?`, [m.mother_id]) : null,
-      db(c).all(`SELECT ${brief} FROM members WHERE father_id = ? OR mother_id = ? ORDER BY birth_order, birth_date, id`, [id, id]),
+      m.father_id ? db(c).first(`SELECT ${brief} FROM members WHERE id = ?${vis}`, [m.father_id]) : null,
+      m.mother_id ? db(c).first(`SELECT ${brief} FROM members WHERE id = ?${vis}`, [m.mother_id]) : null,
+      db(c).all(`SELECT ${brief} FROM members WHERE (father_id = ? OR mother_id = ?)${vis} ORDER BY birth_order, birth_date, id`, [id, id]),
       db(c).all(
         `SELECT ${brief.split(', ').map((f) => 'm.' + f).join(', ')}, mr.order_no, mr.id AS marriage_id FROM marriages mr
          JOIN members m ON m.id = CASE WHEN mr.husband_id = ? THEN mr.wife_id ELSE mr.husband_id END
-         WHERE mr.husband_id = ? OR mr.wife_id = ? ORDER BY mr.order_no`,
+         WHERE (mr.husband_id = ? OR mr.wife_id = ?)${admin ? '' : ' AND m.is_hidden = 0'} ORDER BY mr.order_no`,
         [id, id, id],
       ),
     ]);
@@ -259,7 +288,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
               m.birth_order, m.birth_date, m.death_date, m.death_lunar_day, m.death_lunar_month, m.is_deceased,
               m.is_blood, m.branch, m.hometown, m.burial_place
        FROM members m LEFT JOIN members f ON f.id = m.father_id LEFT JOIN members mo ON mo.id = m.mother_id
-       ORDER BY m.generation, m.id`,
+       ${(await isAdmin(c)) ? '' : 'WHERE m.is_hidden = 0'} ORDER BY m.generation, m.id`,
     );
     const head = ['ID', 'Đời', 'Họ tên', 'Tên khác', 'Giới tính', 'Cha', 'Mẹ', 'Thứ', 'Ngày sinh', 'Ngày mất',
       'Giỗ (âm)', 'Đã mất', 'Huyết thống', 'Chi', 'Quê quán', 'Nơi an táng'];
@@ -316,7 +345,42 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     const id = await isAdmin(c);
     if (!id) return c.json({ error: 'Phiên đăng nhập hết hạn.' }, 401);
     c.set('adminId', id);
+    const method = c.req.method;
+    if (method === 'GET') return next();
+    // Nhật ký: ghi sau khi thao tác thành công. Lỗi ghi nhật ký không được làm hỏng thao tác chính.
+    const seg = path.split('/admin/')[1]?.split('/') ?? [];
+    const res = LOG_RES[seg[0]];
+    let name = '';
+    try {
+      if (res && c.req.header('content-type')?.includes('json')) {
+        const b = await c.req.json<any>().catch(() => ({}));
+        name = b?.full_name ?? b?.title ?? b?.name ?? b?.username ?? '';
+      }
+      // Sửa hoặc xóa theo id: lấy tên đang lưu để nhật ký đọc được
+      if (res && !name && res.table && /^\d+$/.test(seg[1] ?? ''))
+        name = (await db(c).first<any>(`SELECT ${res.col} AS n FROM ${res.table} WHERE id = ?`, [Number(seg[1])]))?.n ?? '';
+    } catch { /* bỏ qua */ }
     await next();
+    if (!res || c.res.status >= 400) return;
+    try {
+      const verb = seg[2] === 'password' || seg[0] === 'password' ? 'Đổi mật khẩu' : method === 'POST' ? 'Thêm' : method === 'DELETE' ? 'Xóa' : 'Sửa';
+      const who = await db(c).first<any>('SELECT display_name, username FROM admins WHERE id = ?', [id]);
+      await db(c).run('INSERT INTO audit_logs (admin_id, admin_name, action) VALUES (?, ?, ?)', [
+        id, who?.display_name || who?.username || '', `${verb} ${res.label}${name ? ': ' + String(name).slice(0, 120) : ''}`,
+      ]);
+    } catch { /* bảng chưa có hoặc lỗi ghi: bỏ qua */ }
+  });
+
+  app.get('/admin/logs', async (c) => {
+    const limit = Math.min(Number(c.req.query('limit') ?? 50), 200);
+    const offset = Math.max(Number(c.req.query('offset') ?? 0), 0);
+    try {
+      const rows = await db(c).all('SELECT id, admin_name, action, created_at FROM audit_logs ORDER BY id DESC LIMIT ? OFFSET ?', [limit, offset]);
+      const total = (await db(c).first<{ n: number }>('SELECT COUNT(*) AS n FROM audit_logs'))?.n ?? 0;
+      return c.json({ rows, total });
+    } catch {
+      return c.json({ rows: [], total: 0 });
+    }
   });
 
   app.get('/admin/me', async (c) => {
@@ -348,7 +412,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     return c.json(
       await db(c).all(
         `SELECT m.id, m.full_name, m.alias, m.gender, m.generation, m.father_id, m.mother_id, m.birth_order, m.is_blood,
-                m.is_deceased, m.birth_date, m.death_date, m.branch, m.photo_file_id, m.updated_at,
+                m.is_deceased, m.birth_date, m.death_date, m.branch, m.photo_file_id, m.updated_at, m.is_hidden, m.title_role, m.child_type,
                 f.full_name AS father_name, mo.full_name AS mother_name
          FROM members m LEFT JOIN members f ON f.id = m.father_id LEFT JOIN members mo ON mo.id = m.mother_id
          ORDER BY m.generation, m.birth_order, m.id`,
@@ -409,7 +473,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     await validateMember(c, body);
     const r = await db(c).run(
       `INSERT INTO members (${MEMBER_FIELDS.join(', ')}) VALUES (${MEMBER_FIELDS.map(() => '?').join(', ')})`,
-      pick({ is_blood: 1, is_deceased: 0, ...body, full_name: body.full_name.trim() }),
+      pick(normMember({ is_blood: 1, is_deceased: 0, ...body, full_name: body.full_name.trim() })),
     );
     if (body.spouse_id) await addMarriage(c, r.lastId, Number(body.spouse_id), 1);
     await recomputeGenerations(db(c));
@@ -425,7 +489,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     await validateMember(c, body, id);
     await db(c).run(
       `UPDATE members SET ${MEMBER_FIELDS.map((f) => `${f} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`,
-      [...pick({ ...body, full_name: body.full_name.trim() }), id],
+      [...pick(normMember({ ...body, full_name: body.full_name.trim() })), id],
     );
     await recomputeGenerations(db(c));
     return c.json({ ok: true });

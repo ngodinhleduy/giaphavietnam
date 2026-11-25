@@ -15,7 +15,12 @@ export interface MemberBrief {
   death_date: string | null;
   branch?: string | null;
   photo_file_id: number | null;
+  is_hidden?: number;
+  title_role?: string | null;
+  child_type?: 'biological' | 'adopted' | 'out_of_wedlock';
 }
+
+export const CHILD_TYPE_LABEL = { biological: 'Con ruột', adopted: 'Con nuôi', out_of_wedlock: 'Con ngoài giá thú' } as const;
 
 export interface Marriage {
   id: number;

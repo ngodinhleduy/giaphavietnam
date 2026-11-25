@@ -194,11 +194,12 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
     const svg = svgRef.current;
     if (!svg || !zoomRef.current || !nodes.length) return;
     const { width, height } = svg.getBoundingClientRect();
-    const bw = bounds.x1 - bounds.x0;
+    const lead = rows.length ? 64 : 0; // chừa lề trái cho nhãn đời
+    const bw = bounds.x1 - bounds.x0 + lead;
     const bh = bounds.y1 - bounds.y0;
     const kFit = Math.min(1, (width - 48) / bw, (height - 48) / bh);
     const k = Math.max(kFit, width < 640 ? 0.5 : 0.6);
-    let tx = (width - bw * k) / 2 - bounds.x0 * k;
+    let tx = (width - bw * k) / 2 - (bounds.x0 - lead) * k;
     if (k > kFit) {
       // Cây lớn hơn khung: canh giữa theo gốc đầu tiên, neo lên trên
       const root = nodes.find((n) => !n.spouse);
@@ -300,8 +301,8 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
               onKeyDown={(e) => e.key === 'Enter' && onSelect(m.id)}>
               <rect width={CW} height={CH} rx="6"
                 fill={hit ? '#e3e2de' : n.spouse ? '#f7f7f5' : '#ffffff'}
-                stroke={sel || hit ? '#191919' : '#d3d2ce'}
-                strokeWidth={sel ? 2 : 1} />
+                stroke={sel || hit ? '#191919' : m.is_hidden ? '#8f8e8a' : '#d3d2ce'}
+                strokeWidth={sel ? 2 : 1} strokeDasharray={m.is_hidden ? '5 4' : undefined} />
               {showPhotos && m.photo_file_id ? (
                 <image href={fileUrl(m.photo_file_id)} x="11" y="11" width="38" height="54" clipPath="url(#gp-avatar)"
                   preserveAspectRatio="xMidYMid slice" filter={m.is_deceased ? 'url(#gp-gray)' : undefined} />

@@ -28,6 +28,7 @@ const AlbumAdmin = L(() => import('./admin/Content.tsx'), 'AlbumAdmin');
 const SettingsAdmin = L(() => import('./admin/Settings.tsx'), 'SettingsAdmin');
 const AdminsAdmin = L(() => import('./admin/Admins.tsx'), 'AdminsAdmin');
 const TreeAdmin = L(() => import('./admin/TreeAdmin.tsx'), 'TreeAdmin');
+const LogsAdmin = L(() => import('./admin/Logs.tsx'), 'LogsAdmin');
 
 function NotFound() {
   return (
@@ -60,6 +61,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="admin" element={<AdminLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="tree" element={<TreeAdmin />} />
+            <Route path="logs" element={<LogsAdmin />} />
             <Route path="members" element={<MembersAdmin />} />
             <Route path="members/:id" element={<MemberForm />} />
             <Route path="articles" element={<ArticlesAdmin />} />

@@ -107,11 +107,13 @@ type Form = {
   birth_order: string; is_blood: boolean; is_deceased: boolean; birth_date: string; death_date: string;
   death_lunar_day: string; death_lunar_month: string; branch: string; hometown: string; occupation: string;
   burial_place: string; bio: string; photo_file_id: number | null; generation: string;
+  is_hidden: boolean; title_role: string; child_type: string;
 };
 const EMPTY: Form = {
   full_name: '', alias: '', gender: 'male', father_id: null, mother_id: null, birth_order: '', is_blood: true,
   is_deceased: false, birth_date: '', death_date: '', death_lunar_day: '', death_lunar_month: '', branch: '', hometown: '',
   occupation: '', burial_place: '', bio: '', photo_file_id: null, generation: '',
+  is_hidden: false, title_role: '', child_type: 'biological',
 };
 type MarriageRow = { id: number; husband_id: number; wife_id: number; husband_name: string; wife_name: string; order_no: number };
 type Then = 'stay' | 'child' | 'sibling';
@@ -158,6 +160,7 @@ export function MemberForm() {
         death_date: s(d.death_date), death_lunar_day: s(d.death_lunar_day), death_lunar_month: s(d.death_lunar_month),
         branch: s(d.branch), hometown: s(d.hometown), occupation: s(d.occupation), burial_place: s(d.burial_place),
         bio: s(d.bio), photo_file_id: d.photo_file_id, generation: s(d.generation),
+        is_hidden: !!d.is_hidden, title_role: s(d.title_role), child_type: d.child_type || 'biological',
       };
       setF(v);
       setSaved(v);
@@ -177,7 +180,7 @@ export function MemberForm() {
   const self = isNew ? null : Number(id);
   const branches = useMemo(() => [...new Set(members.map((m) => m.branch).filter(Boolean))] as string[], [members]);
   const father = members.find((m) => m.id === f.father_id);
-  const hasExtra = !!(f.alias || f.branch || f.hometown || f.occupation || f.burial_place || !f.is_blood);
+  const hasExtra = !!(f.alias || f.branch || f.hometown || f.occupation || f.burial_place || !f.is_blood || f.is_hidden || f.title_role || f.child_type !== 'biological');
 
   // Ngày mất đầy đủ mà chưa có ngày giỗ thì tự điền
   const onDeathDate = (v: string) => {
@@ -212,7 +215,7 @@ export function MemberForm() {
       ...f, full_name: f.full_name.trim(), birth_order: n(f.birth_order), death_lunar_day: f.is_deceased ? n(f.death_lunar_day) : null,
       death_lunar_month: f.is_deceased ? n(f.death_lunar_month) : null, death_date: f.is_deceased ? f.death_date : null,
       burial_place: f.is_deceased ? f.burial_place : null,
-      generation: n(f.generation), is_blood: f.is_blood ? 1 : 0, is_deceased: f.is_deceased ? 1 : 0,
+      generation: n(f.generation), is_blood: f.is_blood ? 1 : 0, is_deceased: f.is_deceased ? 1 : 0, is_hidden: f.is_hidden ? 1 : 0,
       spouse_id: isNew ? (sp.get('spouse') ? Number(sp.get('spouse')) : null) : undefined,
     };
     try {
@@ -351,6 +354,16 @@ export function MemberForm() {
                 <Input id="br" list="branch-list" value={f.branch} onChange={(e) => set('branch', e.target.value)} />
                 <datalist id="branch-list">{branches.map((b) => <option key={b} value={b} />)}</datalist>
               </Field>
+              <Field label="Chức danh, vai vế" htmlFor="tr" hint="Ví dụ: Cụ Tổ, Trưởng chi, Mệ Đích.">
+                <Input id="tr" value={f.title_role} onChange={(e) => set('title_role', e.target.value)} />
+              </Field>
+              <Field label="Quan hệ với cha mẹ" htmlFor="ct">
+                <Select id="ct" value={f.child_type} onChange={(e) => set('child_type', e.target.value)}>
+                  <option value="biological">Con ruột</option>
+                  <option value="adopted">Con nuôi</option>
+                  <option value="out_of_wedlock">Con ngoài giá thú</option>
+                </Select>
+              </Field>
               <Field label="Quê quán" htmlFor="ht"><Input id="ht" value={f.hometown} onChange={(e) => set('hometown', e.target.value)} /></Field>
               <Field label="Nghề nghiệp" htmlFor="oc"><Input id="oc" value={f.occupation} onChange={(e) => set('occupation', e.target.value)} /></Field>
               {f.is_deceased && (
@@ -360,7 +373,11 @@ export function MemberForm() {
               )}
               <div className="sm:col-span-2 pt-1">
                 <Switch label="Mang huyết thống dòng họ" checked={f.is_blood} onChange={(v) => set('is_blood', v)}
-                  description="Tắt với con dâu, con rể. Người không mang huyết thống hiện cạnh vợ/chồng trên cây, viền nét đứt." />
+                  description="Tắt với con dâu, con rể. Người không mang huyết thống hiện cạnh vợ/chồng trên cây, nền xám nhạt." />
+              </div>
+              <div className="sm:col-span-2">
+                <Switch label="Ẩn trên website" checked={f.is_hidden} onChange={(v) => set('is_hidden', v)}
+                  description="Con cháu xem trang sẽ không thấy người này trên phả đồ, danh sách và lịch giỗ. Người quản trị vẫn thấy, viền nét đứt." />
               </div>
             </div>
           </details>

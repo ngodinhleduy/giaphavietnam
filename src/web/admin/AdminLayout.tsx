@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type FormEvent } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { api, fileUrl, shrinkImage } from '../lib/api.ts';
 import { Button, Field, Input, Loading, PasswordInput, Spinner, cx, useToast } from '../components/ui.tsx';
 
@@ -7,21 +7,31 @@ type Me = { id: number; username: string; display_name: string };
 const MeCtx = createContext<Me | null>(null);
 export const useMe = () => useContext(MeCtx);
 
-const NAV = [
-  { to: '/admin', label: 'Tổng quan', end: true },
-  { to: '/admin/tree', label: 'Phả đồ' },
-  { to: '/admin/members', label: 'Thành viên' },
-  { to: '/admin/articles', label: 'Bài viết' },
-  { to: '/admin/events', label: 'Sự kiện' },
-  { to: '/admin/albums', label: 'Album ảnh' },
-  { to: '/admin/admins', label: 'Quản trị viên' },
-  { to: '/admin/settings', label: 'Cài đặt' },
+type NavItem = { to: string; label: string; end?: boolean; count?: 'members' | 'events' | 'articles' };
+const NAV: { group?: string; items: NavItem[] }[] = [
+  { items: [{ to: '/admin', label: 'Tổng quan', end: true }] },
+  { group: 'Quản lý', items: [
+    { to: '/admin/tree', label: 'Phả đồ' },
+    { to: '/admin/members', label: 'Thành viên', count: 'members' },
+    { to: '/admin/events', label: 'Sự kiện', count: 'events' },
+    { to: '/admin/articles', label: 'Bài viết', count: 'articles' },
+    { to: '/admin/albums', label: 'Album ảnh' },
+  ] },
+  { group: 'Website', items: [{ to: '/admin/settings', label: 'Cấu hình website' }] },
+  { group: 'Hệ thống', items: [
+    { to: '/admin/admins', label: 'Người quản lý' },
+    { to: '/admin/logs', label: 'Nhật ký' },
+  ] },
 ];
+type Counts = Partial<Record<'members' | 'events' | 'articles', number>>;
 
 export function AdminLayout() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [setup, setSetup] = useState(false);
   const nav = useNavigate();
+  const loc = useLocation();
+  const [counts, setCounts] = useState<Counts>({});
+  const [siteName, setSiteName] = useState('');
   const load = () =>
     api.get<Me>('/admin/me').then(setMe).catch(async () => {
       setMe(null);
@@ -33,13 +43,21 @@ export function AdminLayout() {
     document.title = 'Quản trị gia phả';
   }, []);
 
+  // Số đếm trên menu: tải lại mỗi khi đổi trang để phản ánh thao tác vừa làm
+  useEffect(() => {
+    if (!me) return;
+    api.get<Counts>('/admin/stats').then(setCounts).catch(() => {});
+    if (!siteName) api.get<{ site_name: string }>('/site').then((x) => setSiteName(x.site_name)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, loc.pathname]);
+
   if (me === undefined) return <Loading />;
   if (!me) return <Login setup={setup} onDone={load} />;
 
   return (
     <MeCtx.Provider value={me}>
       <div className="min-h-screen md:grid md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr] 2xl:grid-cols-[264px_1fr]">
-        <aside className="bg-surface border-b md:border-b-0 md:border-r border-line md:h-screen md:sticky md:top-0 flex flex-col max-md:sticky max-md:top-0 max-md:z-30 pt-[env(safe-area-inset-top)]">
+        <aside className="bg-sunken border-b md:border-b-0 md:border-r border-line md:h-screen md:sticky md:top-0 flex flex-col max-md:sticky max-md:top-0 max-md:z-30 pt-[env(safe-area-inset-top)]">
           <div className="md:hidden flex items-center gap-2 h-14 px-4 border-b border-line">
             <span className="size-8 rounded-lg bg-accent text-white inline-flex items-center justify-center font-serif font-semibold">G</span>
             <span className="font-semibold flex-1 truncate">Quản trị</span>
@@ -47,17 +65,26 @@ export function AdminLayout() {
             <button onClick={async () => { await api.post('/admin/logout'); setMe(null); nav('/admin'); }}
               className="h-10 px-3 rounded-lg text-sm text-ink-2 hover:bg-sunken cursor-pointer">Đăng xuất</button>
           </div>
-          <div className="hidden md:flex items-center gap-2 h-16 px-5 border-b border-line">
-            <span className="size-8 rounded-lg bg-accent text-white inline-flex items-center justify-center font-serif font-semibold">G</span>
-            <span className="font-semibold">Quản trị</span>
+          <div className="hidden md:flex items-center gap-3 px-4 pt-5 pb-3">
+            <span className="size-9 shrink-0 rounded bg-accent text-white inline-flex items-center justify-center font-serif font-medium text-lg">{(siteName.trim().charAt(0) || 'G').toUpperCase()}</span>
+            <span className="min-w-0">
+              <span className="block font-semibold text-ink leading-snug truncate">{siteName || 'Gia phả'}</span>
+              <span className="block text-sm text-ink-2">Trang quản trị</span>
+            </span>
           </div>
-          <nav className="flex md:flex-col gap-1 px-2 py-1.5 md:p-3 overflow-x-auto md:flex-1 [scrollbar-width:none]" aria-label="Quản trị">
-            {NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.end}
-                className={({ isActive }) => cx('h-10 px-3 inline-flex items-center shrink-0 rounded-lg text-[15px] font-medium whitespace-nowrap',
-                  isActive ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-sunken hover:text-ink')}>
-                {n.label}
-              </NavLink>
+          <nav className="flex md:flex-col gap-1 md:gap-0.5 px-2 py-1.5 md:px-3 md:pb-3 overflow-x-auto md:overflow-y-auto md:flex-1 [scrollbar-width:none]" aria-label="Quản trị">
+            {NAV.map((g, gi) => (
+              <div key={gi} className="contents md:block">
+                {g.group && <p className="hidden md:block px-3 pt-4 pb-1 text-xs font-medium text-ink-2">{g.group}</p>}
+                {g.items.map((n) => (
+                  <NavLink key={n.to} to={n.to} end={n.end}
+                    className={({ isActive }) => cx('h-10 md:h-9 px-3 flex items-center gap-2 shrink-0 rounded text-[15px] font-medium whitespace-nowrap',
+                      isActive ? 'bg-accent-soft text-ink' : 'text-ink-2 hover:bg-accent-soft hover:text-ink')}>
+                    {n.label}
+                    {n.count && counts[n.count] != null && <span className="hidden md:inline ml-auto text-sm font-normal tabular-nums">{counts[n.count]}</span>}
+                  </NavLink>
+                ))}
+              </div>
             ))}
           </nav>
           <div className="hidden md:block p-3 border-t border-line text-sm">
