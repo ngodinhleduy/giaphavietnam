@@ -36,7 +36,7 @@ export function AdminLayout() {
 
   return (
     <MeCtx.Provider value={me}>
-      <div className="min-h-screen md:grid md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr]">
+      <div className="min-h-screen md:grid md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr] 2xl:grid-cols-[264px_1fr]">
         <aside className="bg-surface border-b md:border-b-0 md:border-r border-line md:h-screen md:sticky md:top-0 flex flex-col max-md:sticky max-md:top-0 max-md:z-30 pt-[env(safe-area-inset-top)]">
           <div className="md:hidden flex items-center gap-2 h-14 px-4 border-b border-line">
             <span className="size-8 rounded-lg bg-accent text-white inline-flex items-center justify-center font-serif font-semibold">G</span>
@@ -67,7 +67,7 @@ export function AdminLayout() {
             </div>
           </div>
         </aside>
-        <main className="p-4 sm:p-6 lg:p-8 max-w-6xl w-full min-w-0">
+        <main className="p-4 sm:p-6 lg:p-8 2xl:px-12 w-full min-w-0">
           <Outlet />
         </main>
       </div>

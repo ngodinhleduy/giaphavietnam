@@ -12,7 +12,7 @@ export function MemberPage() {
   if (loading) return <Loading />;
   if (error)
     return (
-      <Container className="py-10 max-w-xl">
+      <Container size="narrow" className="py-10">
         <ErrorState error={error.locked ? 'Cần nhập mã bảo mật ở trang Phả đồ để xem hồ sơ.' : error} onRetry={reload} />
         {error.locked && <Link to="/pha-do" className="inline-block mt-4 text-accent font-medium">Đến trang Phả đồ</Link>}
       </Container>
@@ -27,7 +27,7 @@ export function MemberPage() {
     ['Nơi an táng', m.burial_place],
   ];
   return (
-    <Container className="py-6 sm:py-10 max-w-4xl">
+    <Container className="py-6 sm:py-10">
       <nav aria-label="Breadcrumb" className="text-sm text-ink-2 mb-6">
         <Link to="/pha-do" className="hover:text-accent">Phả đồ</Link> <span aria-hidden>/</span> <span className="text-ink">{m.full_name}</span>
       </nav>
@@ -49,26 +49,28 @@ export function MemberPage() {
         </div>
       </div>
 
-      <dl className="mt-8 grid sm:grid-cols-2 gap-x-8 rounded-xl border border-line bg-surface px-5">
-        {facts.filter(([, v]) => v).map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-4 py-3 border-b border-line last:border-0 sm:[&:nth-last-child(2)]:border-0">
-            <dt className="text-ink-2">{k}</dt>
-            <dd className="text-ink font-medium text-right">{v}</dd>
-          </div>
-        ))}
-      </dl>
-
-      {m.bio && (
-        <section className="mt-8">
-          <h2 className="font-serif text-xl font-semibold mb-3">Tiểu sử</h2>
-          <div className="prose-gp" dangerouslySetInnerHTML={{ __html: marked.parse(m.bio, { async: false }) as string }} />
-        </section>
-      )}
-
-      <div className="mt-8 grid gap-6 sm:grid-cols-2">
-        <Relatives title="Cha mẹ" list={[m.father, m.mother].filter(Boolean) as MemberBrief[]} />
-        <Relatives title="Vợ / chồng" list={m.spouses} note={(s: any) => (m.spouses.length > 1 ? `Thứ ${s.order_no}` : '')} />
-        <Relatives title={`Con (${m.children.length})`} list={m.children} className="sm:col-span-2" />
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
+        <div className="min-w-0">
+          <dl className="grid sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-x-8 rounded-xl border border-line bg-surface px-5">
+            {facts.filter(([, v]) => v).map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-4 py-3 border-b border-line last:border-0">
+                <dt className="text-ink-2">{k}</dt>
+                <dd className="text-ink font-medium text-right">{v}</dd>
+              </div>
+            ))}
+          </dl>
+          {m.bio && (
+            <section className="mt-8 max-w-[68ch]">
+              <h2 className="font-serif text-xl font-semibold mb-3">Tiểu sử</h2>
+              <div className="prose-gp" dangerouslySetInnerHTML={{ __html: marked.parse(m.bio, { async: false }) as string }} />
+            </section>
+          )}
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-1 min-w-0">
+          <Relatives title="Cha mẹ" list={[m.father, m.mother].filter(Boolean) as MemberBrief[]} />
+          <Relatives title="Vợ / chồng" list={m.spouses} note={(s: any) => (m.spouses.length > 1 ? `Thứ ${s.order_no}` : '')} />
+          <Relatives title={`Con (${m.children.length})`} list={m.children} className="sm:col-span-2 lg:col-span-1" />
+        </div>
       </div>
     </Container>
   );
@@ -81,7 +83,7 @@ function Relatives({ title, list, note, className }: {
     <section className={className}>
       <h2 className="text-sm font-semibold text-ink-2 uppercase tracking-wide mb-2">{title}</h2>
       {!list.length ? <p className="text-ink-3 text-sm">Chưa có thông tin.</p> : (
-        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
           {list.map((r) => (
             <li key={r.id}>
               <Link to={`/thanh-vien/${r.id}`} className="flex items-center gap-3 rounded-lg border border-line bg-surface p-2.5 hover:border-line-strong">

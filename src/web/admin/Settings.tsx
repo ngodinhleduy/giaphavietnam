@@ -28,9 +28,9 @@ export function SettingsAdmin() {
   return (
     <>
       <PageHeader title="Cài đặt" />
-      <div className="space-y-6 max-w-3xl">
+      <div className="grid gap-6 xl:grid-cols-2 items-start max-w-[80rem] [&>section:first-child]:xl:col-span-2 [&>section:last-child]:xl:col-span-2">
         <Section title="Thông tin trang">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Field label="Tên trang" htmlFor="sn"><Input id="sn" {...bind('site_name')} /></Field>
             <Field label="Khẩu hiệu" htmlFor="st"><Input id="st" {...bind('site_tagline')} /></Field>
             <Field label="Lời giới thiệu (trang chủ)" htmlFor="in" className="sm:col-span-2"><Textarea id="in" rows={4} {...bind('intro')} /></Field>

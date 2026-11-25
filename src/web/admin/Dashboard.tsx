@@ -34,7 +34,7 @@ export function Dashboard() {
           </div>
         ))}
       </div>
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid gap-6 lg:grid-cols-2 2xl:grid-cols-[3fr_2fr]">
         <section className="rounded-xl border border-line bg-surface">
           <h2 className="px-5 h-14 flex items-center font-semibold border-b border-line">30 ngày tới</h2>
           {ev.loading ? <Loading /> : !ev.data?.length ? <p className="p-5 text-ink-3">Không có sự kiện hay ngày giỗ nào.</p> : (

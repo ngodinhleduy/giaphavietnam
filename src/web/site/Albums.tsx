@@ -15,7 +15,7 @@ export function AlbumsPage() {
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? (
         <EmptyState title="Chưa có album nào" />
       ) : (
-        <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {data.map((a) => (
             <li key={a.id}>
               <Link to={`/album/${a.id}`} className="group block">
@@ -52,11 +52,11 @@ export function AlbumPage() {
   if (error) return <Container className="py-10"><ErrorState error={error} onRetry={reload} /></Container>;
   if (!data) return null;
   return (
-    <Container className="py-10">
+    <Container size="wide" className="py-10">
       <nav className="text-sm text-ink-2 mb-4"><Link to="/album" className="hover:text-accent">Thư viện</Link></nav>
       <PageHeader title={data.title} subtitle={data.description ?? undefined} />
       {!photos.length ? <EmptyState title="Album chưa có ảnh" /> : (
-        <ul className="columns-2 md:columns-3 xl:columns-4 gap-2 sm:gap-3 [&>li]:mb-2 sm:[&>li]:mb-3">
+        <ul className="columns-2 md:columns-3 xl:columns-4 2xl:columns-5 gap-2 sm:gap-3 [&>li]:mb-2 sm:[&>li]:mb-3">
           {photos.map((p, i) => (
             <li key={p.id} className="break-inside-avoid">
               <button onClick={() => setIdx(i)} className="block w-full cursor-zoom-in" aria-label={p.caption || `Ảnh ${i + 1}`}>

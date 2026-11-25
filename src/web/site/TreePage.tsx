@@ -121,7 +121,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
 
   return (
     <div className="flex flex-col">
-      <Container className="pt-6 sm:pt-8 pb-2 sm:pb-4 no-print">
+      <Container size="wide" className="pt-6 sm:pt-8 pb-2 sm:pb-4 no-print">
         <PageHeader title="Phả đồ dòng họ" subtitle={`${data.members.length} thành viên · ${maxGenAll} đời`}
           actions={locked ? <Button variant="ghost" size="sm" onClick={onLock}>Khóa lại</Button> : undefined} />
         <div role="tablist" className="flex gap-1 border-b border-line -mb-px overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
@@ -137,7 +137,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
       </Container>
 
       {tab === 'tree' && (
-        <Container className="pb-6">
+        <Container size="wide" className="pb-6">
           <div className="flex flex-wrap items-center gap-2 py-3 no-print">
             <div className="relative flex-1 min-w-0 md:flex-none md:w-72">
               <Input placeholder="Tìm tên, không cần dấu" value={q} onChange={(e) => setQ(e.target.value)}
@@ -177,7 +177,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
             </div>
           </div>
 
-          <div className="relative h-[calc(100dvh-18.5rem)] min-h-[400px] md:h-[72vh] md:min-h-[520px] -mx-4 sm:mx-0 rounded-none sm:rounded-xl border-y sm:border border-line bg-[radial-gradient(circle,#e5e0d8_1px,transparent_1px)] [background-size:20px_20px] overflow-hidden">
+          <div className="relative h-[calc(100dvh-18.5rem)] min-h-[400px] md:h-[72vh] md:min-h-[520px] 2xl:h-[78vh] -mx-4 sm:mx-0 rounded-none sm:rounded-xl border-y sm:border border-line bg-[radial-gradient(circle,#e5e0d8_1px,transparent_1px)] [background-size:20px_20px] overflow-hidden">
             <FamilyTree ref={ref} model={model} options={opt} selectedId={selected} highlight={highlight}
               onSelect={setSelected}
               onToggle={(id) => setOpt((o) => {
@@ -317,7 +317,7 @@ function MemberGrid({ members, maxGen }: { members: MemberBrief[]; maxGen: numbe
     );
   }, [members, q, gen, kind]);
   return (
-    <Container className="py-6">
+    <Container size="wide" className="py-6">
       <div className="flex flex-wrap gap-2 mb-5">
         <Input className="w-full sm:w-72" placeholder="Tìm tên" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Tìm tên" />
         <Select className="flex-1 sm:flex-none w-auto" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="Lọc theo đời">
@@ -334,7 +334,7 @@ function MemberGrid({ members, maxGen }: { members: MemberBrief[]; maxGen: numbe
         <span className="self-center text-sm text-ink-3 sm:ml-auto">{list.length} người</span>
       </div>
       {!list.length ? <EmptyState title="Không tìm thấy thành viên phù hợp" text="Thử bỏ bớt bộ lọc hoặc gõ tên ngắn hơn." /> : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {list.map((m) => (
             <li key={m.id}>
               <Link to={`/thanh-vien/${m.id}`} className="flex items-center gap-3 rounded-xl border border-line bg-surface p-3 hover:border-line-strong hover:shadow-sm">
@@ -355,17 +355,17 @@ function MemberGrid({ members, maxGen }: { members: MemberBrief[]; maxGen: numbe
 function ByGeneration({ members, maxGen }: { members: MemberBrief[]; maxGen: number }) {
   const groups = Array.from({ length: maxGen }, (_, i) => members.filter((m) => (m.generation ?? 1) === i + 1));
   return (
-    <Container className="py-6 space-y-3">
+    <Container size="wide" className="py-6 space-y-3">
       {groups.map((g, i) => (
         <details key={i} open={i < 2} className="group rounded-xl border border-line bg-surface">
           <summary className="flex flex-wrap items-center justify-between gap-x-4 px-4 sm:px-5 py-3 min-h-14 cursor-pointer list-none">
             <span className="font-serif text-lg font-semibold">Đời thứ {i + 1}</span>
             <span className="text-sm text-ink-2">{g.filter((m) => m.is_blood).length} huyết thống · {g.filter((m) => !m.is_blood).length} dâu/rể</span>
           </summary>
-          <ul className="border-t border-line divide-y divide-line">
+          <ul className="border-t border-line divide-y divide-line lg:divide-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-x-2 lg:p-2">
             {g.map((m) => (
               <li key={m.id}>
-                <Link to={`/thanh-vien/${m.id}`} className="flex items-center gap-3 px-4 sm:px-5 py-2.5 min-h-12 hover:bg-sunken">
+                <Link to={`/thanh-vien/${m.id}`} className="flex items-center gap-3 px-4 sm:px-5 lg:px-3 py-2.5 min-h-12 lg:rounded-lg hover:bg-sunken">
                   <Avatar m={m} size={32} />
                   <span className="flex-1">{m.full_name}{!m.is_blood && <span className="text-ink-3 text-sm"> ({m.gender === 'female' ? 'dâu' : 'rể'})</span>}</span>
                   <span className="text-sm text-ink-2 whitespace-nowrap">{lifespan(m)}</span>
@@ -397,7 +397,7 @@ function KinshipTool({ members }: { members: MemberBrief[] }) {
       .then(setRes).catch((e) => setErr(e.message)).finally(() => setBusy(false));
   }, [a, b]);
   return (
-    <Container className="py-6 max-w-3xl">
+    <Container size="text" className="py-6">
       <p className="text-ink-2 mb-5">Chọn hai người để xem họ gọi nhau thế nào. Cách gọi theo miền Bắc, tính vai theo thứ bậc chi trên chi dưới.</p>
       <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] items-end">
         <Field label="Người thứ nhất" htmlFor="ka"><MemberPicker id="ka" members={members} value={a} onChange={setA} /></Field>

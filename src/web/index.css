@@ -26,11 +26,14 @@
   --color-female: #9c2a5a;
 }
 
+/* Màn rất lớn: tăng cỡ gốc để chữ, nút, khoảng cách (đều tính bằng rem) giãn theo */
+@media (min-width: 1920px) { html { font-size: 17px; } }
+@media (min-width: 2400px) { html { font-size: 18px; } }
+
 html {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 16px;
   -webkit-font-smoothing: antialiased;
 }
 

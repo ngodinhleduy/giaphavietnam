@@ -93,7 +93,7 @@ export function ArticleForm() {
       <nav className="text-sm text-ink-2 mb-3"><Link to="/admin/articles" className="hover:text-accent">Bài viết</Link></nav>
       <PageHeader title={isNew ? 'Viết bài mới' : 'Sửa bài viết'}
         actions={!isNew && f.published ? <a href={`/bai-viet/${f.slug}`} target="_blank" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem bài</a> : undefined} />
-      <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] max-lg:pb-20">
+      <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] 2xl:grid-cols-[1fr_340px] max-w-[88rem] max-lg:pb-20">
         <div className="space-y-4 min-w-0">
           <Field label="Tiêu đề" htmlFor="t"><Input id="t" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} className="text-lg h-12" /></Field>
           <Field label="Tóm tắt" htmlFor="s"><Textarea id="s" rows={2} value={f.summary} onChange={(e) => setF({ ...f, summary: e.target.value })} /></Field>
@@ -250,7 +250,7 @@ export function AlbumsAdmin() {
     <>
       <PageHeader title="Album ảnh" actions={<Button variant="primary" onClick={() => setOpen(true)}>Tạo album</Button>} />
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? <EmptyState title="Chưa có album" /> : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {data.map((a) => (
             <li key={a.id}>
               <Link to={`/admin/albums/${a.id}`} className="block rounded-xl border border-line bg-surface overflow-hidden hover:shadow-sm">
@@ -320,7 +320,7 @@ export function AlbumAdmin() {
         <input type="file" accept="image/*" multiple className="sr-only" disabled={!!progress} onChange={(e) => e.target.files && upload(e.target.files)} />
       </label>
       {!data.photos.length ? <EmptyState title="Album chưa có ảnh" /> : (
-        <ul className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
           {data.photos.map((p: any) => (
             <li key={p.id} className="rounded-lg border border-line bg-surface overflow-hidden">
               <img src={fileUrl(p.file_id)} alt="" className="w-full aspect-square object-cover" loading="lazy" />

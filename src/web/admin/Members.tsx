@@ -30,7 +30,7 @@ export function MembersAdmin() {
       <PageHeader title="Thành viên" subtitle={data ? `${data.length} người` : undefined}
         actions={<Link to="/admin/members/new" className="h-10 px-4 inline-flex items-center rounded-lg bg-accent text-white font-medium hover:bg-accent-hover">Thêm thành viên</Link>} />
       <div className="flex flex-wrap gap-2 mb-4">
-        <Input className="flex-1 sm:flex-none sm:w-72" placeholder="Tìm tên (không cần dấu)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Tìm" />
+        <Input className="flex-1 sm:flex-none sm:w-80" placeholder="Tìm tên (không cần dấu)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Tìm" />
         <Select className="w-auto" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="Đời">
           <option value="">Mọi đời</option>
           {Array.from({ length: maxGen }, (_, i) => <option key={i} value={i + 1}>Đời {i + 1}</option>)}
@@ -218,7 +218,7 @@ export function MemberForm() {
         subtitle={!isNew && f.generation ? `Đời thứ ${f.generation}` : undefined}
         actions={!isNew ? <a href={`/thanh-vien/${id}`} target="_blank" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem trang</a> : undefined} />
 
-      <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_320px] max-lg:pb-20" noValidate>
+      <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px] 2xl:grid-cols-[1fr_380px] max-w-[88rem] max-lg:pb-20" noValidate>
         <div className="space-y-4 sm:space-y-6 min-w-0">
           <Section title="Thông tin chính">
             <div className="grid gap-4 sm:grid-cols-2">

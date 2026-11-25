@@ -10,6 +10,7 @@ import { MemberPage } from './site/MemberPage.tsx';
 import { ArticlePage, ArticlesPage } from './site/Articles.tsx';
 import { EventsPage } from './site/Events.tsx';
 import { AlbumPage, AlbumsPage } from './site/Albums.tsx';
+import { PrivacyPage } from './site/Privacy.tsx';
 import { AdminLayout } from './admin/AdminLayout.tsx';
 import { Dashboard } from './admin/Dashboard.tsx';
 import { MemberForm, MembersAdmin } from './admin/Members.tsx';
@@ -40,6 +41,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="su-kien" element={<EventsPage />} />
             <Route path="album" element={<AlbumsPage />} />
             <Route path="album/:id" element={<AlbumPage />} />
+            <Route path="chinh-sach-bao-mat" element={<PrivacyPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
           <Route path="admin" element={<AdminLayout />}>

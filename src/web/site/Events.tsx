@@ -45,7 +45,7 @@ export function EventsPage() {
     byMonth.set(k, [...(byMonth.get(k) ?? []), e]);
   }
   return (
-    <Container className="py-10 max-w-3xl">
+    <Container size="text" className="py-10">
       <PageHeader title="Lịch sự kiện" subtitle="Lễ tế, họp họ và ngày giỗ trong 12 tháng tới. Ngày âm lịch đã quy đổi sang dương lịch." />
       <div role="tablist" className="flex sm:inline-flex p-1 rounded-lg bg-sunken mb-6">
         {([['all', 'Tất cả'], ['event', 'Sự kiện'], ['gio', 'Ngày giỗ']] as const).map(([k, l]) => (

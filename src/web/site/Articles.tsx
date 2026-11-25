@@ -13,7 +13,7 @@ export function ArticlesPage() {
   const { data, error, loading, reload } = useApi<ArticleBrief[]>(`/articles${c ? `?category=${c}` : ''}`);
   const current = site.categories.find((x) => x.slug === c);
   return (
-    <Container className="py-10 max-w-4xl">
+    <Container className="py-10">
       <PageHeader title={current?.name ?? 'Phả ký & bài viết'} subtitle="Lịch sử, nhân vật và những ghi chép của dòng họ." />
       <div className="flex gap-2 mb-6 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap [scrollbar-width:none]">
         {[{ slug: '', name: 'Tất cả' }, ...site.categories].map((x) => (
@@ -27,7 +27,7 @@ export function ArticlesPage() {
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? (
         <EmptyState title="Chưa có bài viết trong mục này" />
       ) : (
-        <ul className="grid gap-4 sm:gap-5 sm:grid-cols-2">
+        <ul className="grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {data.map((a) => (
             <li key={a.id}>
               <Link to={`/bai-viet/${a.slug}`} className="group block rounded-xl border border-line bg-surface overflow-hidden hover:shadow-sm h-full">
@@ -54,10 +54,10 @@ export function ArticlePage() {
   const { slug } = useParams();
   const { data: a, error, loading, reload } = useApi<any>(`/articles/${slug}`);
   if (loading) return <Loading />;
-  if (error) return <Container className="py-10 max-w-xl"><ErrorState error={error} onRetry={reload} /></Container>;
+  if (error) return <Container size="narrow" className="py-10"><ErrorState error={error} onRetry={reload} /></Container>;
   if (!a) return null;
   return (
-    <Container className="py-10 max-w-3xl">
+    <Container size="text" className="py-10">
       <nav aria-label="Breadcrumb" className="text-sm text-ink-2 mb-6">
         <Link to="/bai-viet" className="hover:text-accent">Phả ký</Link>
         {a.category_name && <> <span aria-hidden>/</span> <Link to={`/bai-viet?c=${a.category_slug}`} className="hover:text-accent">{a.category_name}</Link></>}

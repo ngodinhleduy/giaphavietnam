@@ -31,7 +31,7 @@ export function SiteLayout() {
     <SiteCtx.Provider value={{ site, reload }}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 bg-surface p-2 z-50">Bỏ qua menu</a>
       <header className="sticky top-0 z-40 bg-bg/95 backdrop-blur border-b border-line no-print pt-[env(safe-area-inset-top)]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4 lg:gap-6">
+        <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4 lg:gap-6">
           <Link to="/" className="flex items-center gap-3 min-w-0">
             {site.logo_file_id ? (
               <img src={fileUrl(site.logo_file_id)} alt="" className="size-9 rounded-full object-cover" />
@@ -71,7 +71,7 @@ export function SiteLayout() {
         <Outlet />
       </main>
       <footer className="border-t border-line bg-surface mt-16 no-print">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid gap-8 sm:grid-cols-3 text-sm">
+        <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 py-10 grid gap-8 sm:grid-cols-3 text-sm">
           <div>
             <p className="font-serif font-semibold text-ink text-base">{site.site_name}</p>
             <p className="mt-2 text-ink-2 leading-relaxed">{site.site_tagline}</p>
@@ -90,8 +90,9 @@ export function SiteLayout() {
           </div>
         </div>
         <div className="border-t border-line">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 min-h-12 pb-[env(safe-area-inset-bottom)] flex items-center justify-between gap-4 text-sm text-ink-3">
+          <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 min-h-12 pb-[env(safe-area-inset-bottom)] flex items-center justify-between gap-4 text-sm text-ink-3">
             <span>© {new Date().getFullYear()} {site.site_name}</span>
+            <Link to="/chinh-sach-bao-mat" className="inline-flex items-center min-h-10 px-2 ml-auto hover:text-ink">Chính sách bảo mật</Link>
             <Link to="/admin" className="inline-flex items-center min-h-10 px-2 -mr-2 hover:text-ink">Quản trị</Link>
           </div>
         </div>
@@ -100,6 +101,18 @@ export function SiteLayout() {
   );
 }
 
-export function Container({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cx('w-full max-w-6xl mx-auto px-4 sm:px-6', className)}>{children}</div>;
+const SIZES = {
+  // Đọc chữ: giữ dòng 65-80 ký tự
+  text: 'max-w-3xl',
+  narrow: 'max-w-xl',
+  // Mặc định: lớn dần theo màn hình
+  default: 'max-w-6xl 2xl:max-w-7xl',
+  // Header, footer và màn dữ liệu dùng chung khổ để thẳng hàng
+  // Màn dữ liệu / canvas: tận dụng màn lớn
+  wide: 'max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem]',
+};
+export function Container({ children, className, size = 'default' }: {
+  children: React.ReactNode; className?: string; size?: keyof typeof SIZES;
+}) {
+  return <div className={cx('w-full mx-auto px-4 sm:px-6 lg:px-8', SIZES[size], className)}>{children}</div>;
 }
