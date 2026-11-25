@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useState, type FormEvent } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import {
+  CalendarDays, CircleUser, Contact, ExternalLink, FileText, History, ImageUp, Images, Inbox, LayoutDashboard, LogIn, LogOut, Network, Palette,
+  PanelTop, Settings, ShieldCheck, Users, type LucideIcon,
+} from 'lucide-react';
 import { api, fileUrl, shrinkImage } from '../lib/api.ts';
+import { initials } from '../lib/format.ts';
 import { Button, Field, Input, Loading, PasswordInput, Spinner, cx, useToast } from '../components/ui.tsx';
 
 export type Me = { id: number; username: string; display_name: string; role: 'admin' | 'editor'; branch: string | null };
@@ -9,25 +14,27 @@ export const useMe = () => useContext(MeCtx);
 
 type CountKey = 'members' | 'events' | 'articles' | 'unread' | 'pending';
 // adminOnly: chỉ quản trị viên thấy. alert: số đếm là việc đang chờ xử lý, chỉ hiện khi lớn hơn 0.
-type NavItem = { to: string; label: string; end?: boolean; count?: CountKey; alert?: CountKey; adminOnly?: boolean };
+type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean; count?: CountKey; alert?: CountKey; adminOnly?: boolean };
 const NAV: { group?: string; items: NavItem[] }[] = [
-  { items: [{ to: '/admin', label: 'Tổng quan', end: true }] },
+  { items: [{ to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, end: true }] },
   { group: 'Quản lý', items: [
-    { to: '/admin/tree', label: 'Phả đồ' },
-    { to: '/admin/members', label: 'Thành viên', count: 'members' },
-    { to: '/admin/events', label: 'Sự kiện', count: 'events' },
-    { to: '/admin/articles', label: 'Bài viết', count: 'articles', alert: 'pending' },
-    { to: '/admin/albums', label: 'Album ảnh' },
+    { to: '/admin/tree', label: 'Phả đồ', icon: Network },
+    { to: '/admin/members', label: 'Thành viên', icon: Users, count: 'members' },
+    { to: '/admin/events', label: 'Sự kiện', icon: CalendarDays, count: 'events' },
+    { to: '/admin/articles', label: 'Bài viết', icon: FileText, count: 'articles', alert: 'pending' },
+    { to: '/admin/albums', label: 'Album ảnh', icon: Images },
   ] },
   { group: 'Website', items: [
-    { to: '/admin/settings', label: 'Cấu hình website', adminOnly: true },
-    { to: '/admin/menu', label: 'Menu website', adminOnly: true },
-    { to: '/admin/messages', label: 'Hòm thư', alert: 'unread', adminOnly: true },
+    { to: '/admin/settings', label: 'Cấu hình', icon: Settings, adminOnly: true },
+    { to: '/admin/appearance', label: 'Giao diện', icon: Palette, adminOnly: true },
+    { to: '/admin/menu', label: 'Menu', icon: PanelTop, adminOnly: true },
+    { to: '/admin/contact', label: 'Trang Liên hệ', icon: Contact, adminOnly: true },
+    { to: '/admin/messages', label: 'Hòm thư', icon: Inbox, alert: 'unread', adminOnly: true },
   ] },
   { group: 'Hệ thống', items: [
-    { to: '/admin/admins', label: 'Người quản lý', adminOnly: true },
-    { to: '/admin/logs', label: 'Nhật ký', adminOnly: true },
-    { to: '/admin/account', label: 'Tài khoản của tôi' },
+    { to: '/admin/admins', label: 'Người quản lý', icon: ShieldCheck, adminOnly: true },
+    { to: '/admin/logs', label: 'Nhật ký', icon: History, adminOnly: true },
+    { to: '/admin/account', label: 'Tài khoản', icon: CircleUser },
   ] },
 ];
 type Counts = Partial<Record<CountKey, number>>;
@@ -60,6 +67,7 @@ export function AdminLayout() {
 
   if (me === undefined) return <Loading />;
   if (!me) return <Login setup={setup} onDone={load} />;
+  const logout = async () => { await api.post('/admin/logout'); setMe(null); nav('/admin'); };
 
   return (
     <MeCtx.Provider value={me}>
@@ -68,9 +76,9 @@ export function AdminLayout() {
           <div className="md:hidden flex items-center gap-2 h-14 px-4 border-b border-line">
             <span className="size-8 rounded-lg bg-accent text-white inline-flex items-center justify-center font-serif font-semibold">G</span>
             <span className="font-semibold flex-1 truncate">Quản trị</span>
-            <Link to="/" className="h-10 px-3 inline-flex items-center rounded-lg text-sm text-ink-2 hover:bg-sunken">Xem trang</Link>
-            <button onClick={async () => { await api.post('/admin/logout'); setMe(null); nav('/admin'); }}
-              className="h-10 px-3 rounded-lg text-sm text-ink-2 hover:bg-sunken cursor-pointer">Đăng xuất</button>
+            <Link to="/" aria-label="Xem trang" className="size-10 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-accent-soft hover:text-ink"><ExternalLink aria-hidden className="size-5" /></Link>
+            <button onClick={logout} aria-label="Đăng xuất"
+              className="size-10 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-accent-soft hover:text-ink cursor-pointer"><LogOut aria-hidden className="size-5" /></button>
           </div>
           <div className="hidden md:flex items-center gap-3 px-4 pt-5 pb-3">
             <span className="size-9 shrink-0 rounded bg-accent text-white inline-flex items-center justify-center font-serif font-medium text-lg">{(siteName.trim().charAt(0) || 'G').toUpperCase()}</span>
@@ -85,8 +93,9 @@ export function AdminLayout() {
                 {g.group && <p className="hidden md:block px-3 pt-4 pb-1 text-xs font-medium text-ink-2">{g.group}</p>}
                 {g.items.map((n) => (
                   <NavLink key={n.to} to={n.to} end={n.end}
-                    className={({ isActive }) => cx('h-10 md:h-9 px-3 flex items-center gap-2 shrink-0 rounded text-[15px] font-medium whitespace-nowrap',
-                      isActive ? 'bg-accent-soft text-ink' : 'text-ink-2 hover:bg-accent-soft hover:text-ink')}>
+                    className={({ isActive }) => cx('group relative h-10 md:h-9 px-3 flex items-center gap-2.5 shrink-0 rounded-md text-[15px] font-medium whitespace-nowrap transition-colors',
+                      isActive ? 'bg-surface text-ink shadow-sm ring-1 ring-line [&>svg]:text-ink' : 'text-ink-2 hover:bg-accent-soft hover:text-ink')}>
+                    <n.icon aria-hidden className="size-[18px] shrink-0 transition-colors group-hover:text-ink" strokeWidth={1.75} />
                     {n.label}
                     {n.alert && !!counts[n.alert] && (
                       <span className="md:ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-ink text-white text-xs font-semibold tabular-nums"
@@ -98,12 +107,18 @@ export function AdminLayout() {
               </div>
             ))}
           </nav>
-          <div className="hidden md:block p-3 border-t border-line text-sm">
-            <p className="px-2 text-ink-2 truncate">{me.display_name} · {me.role === 'admin' ? 'Quản trị viên' : me.branch ? `Biên tập viên, ${me.branch}` : 'Biên tập viên'}</p>
-            <div className="mt-2 flex gap-1">
-              <Link to="/" className="h-9 px-2 inline-flex items-center rounded-lg text-ink-2 hover:bg-sunken hover:text-ink">Xem trang</Link>
-              <button onClick={async () => { await api.post('/admin/logout'); setMe(null); nav('/admin'); }}
-                className="h-9 px-2 rounded-lg text-ink-2 hover:bg-sunken hover:text-ink cursor-pointer">Đăng xuất</button>
+          <div className="hidden md:block p-3 border-t border-line">
+            <Link to="/admin/account" className="flex items-center gap-2.5 rounded-lg p-1.5 hover:bg-accent-soft transition-colors">
+              <span aria-hidden className="size-9 shrink-0 rounded-full bg-accent text-white inline-flex items-center justify-center text-sm font-semibold">{initials(me.display_name || me.username)}</span>
+              <span className="min-w-0 leading-tight">
+                <span className="block font-medium text-ink truncate">{me.display_name}</span>
+                <span className="block text-sm text-ink-2 truncate">{me.role === 'admin' ? 'Quản trị viên' : me.branch ? `Biên tập viên, ${me.branch}` : 'Biên tập viên'}</span>
+              </span>
+            </Link>
+            <div className="mt-1.5 grid grid-cols-2 gap-1 text-sm whitespace-nowrap">
+              <Link to="/" className="h-9 px-1 inline-flex items-center justify-center gap-1.5 rounded-lg text-ink-2 hover:bg-accent-soft hover:text-ink transition-colors"><ExternalLink aria-hidden className="size-4" />Xem trang</Link>
+              <button onClick={logout}
+                className="h-9 px-1 inline-flex items-center justify-center gap-1.5 rounded-lg text-ink-2 hover:bg-accent-soft hover:text-ink transition-colors cursor-pointer"><LogOut aria-hidden className="size-4" />Đăng xuất</button>
             </div>
           </div>
         </aside>
@@ -153,7 +168,7 @@ function Login({ setup, onDone }: { setup: boolean; onDone: () => void }) {
             onChange={(e) => setF({ ...f, password: e.target.value })} />
         </Field>
         {err && <p role="alert" className="text-sm text-danger">{err}</p>}
-        <Button type="submit" variant="primary" className="w-full" loading={busy}>{setup ? 'Tạo và đăng nhập' : 'Đăng nhập'}</Button>
+        <Button type="submit" variant="primary" className="w-full" icon={<LogIn aria-hidden />} loading={busy}>{setup ? 'Tạo và đăng nhập' : 'Đăng nhập'}</Button>
         <Link to="/" className="block text-center text-sm text-ink-2 hover:text-ink">Về trang chủ</Link>
       </form>
     </div>
@@ -187,7 +202,8 @@ export function ImageUpload({ value, onChange, label = 'Ảnh', round }: {
         {busy ? <Spinner /> : value ? <img src={fileUrl(value)} alt="" className="w-full h-full object-cover" /> : <span className="text-xs text-ink-3 text-center px-1">Kéo ảnh vào</span>}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <label title="Bấm để chọn hoặc kéo thả ảnh vào đây" className="h-9 pointer-coarse:h-11 px-3 inline-flex items-center rounded-lg border border-line-strong bg-surface text-sm font-medium cursor-pointer hover:bg-sunken focus-within:ring-2 focus-within:ring-accent">
+        <label title="Bấm để chọn hoặc kéo thả ảnh vào đây" className="h-9 pointer-coarse:h-11 px-3 inline-flex items-center gap-2 rounded-lg border border-line-strong bg-surface text-sm font-medium cursor-pointer transition-colors hover:bg-sunken hover:border-ink focus-within:ring-2 focus-within:ring-accent">
+          <ImageUp aria-hidden className="size-4" />
           {value ? 'Đổi ' + label.toLowerCase() : 'Tải ' + label.toLowerCase()}
           <input type="file" accept="image/*" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
         </label>

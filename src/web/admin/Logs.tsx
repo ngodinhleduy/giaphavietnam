@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { History } from 'lucide-react';
 import { useApi } from '../lib/api.ts';
 import { Button, EmptyState, ErrorState, Loading, PageHeader } from '../components/ui.tsx';
 
@@ -23,7 +24,7 @@ export function LogsAdmin() {
     <>
       <PageHeader title="Nhật ký" subtitle="Ai đã thêm, sửa, xóa gì trên trang quản trị." />
       {!data.rows.length ? (
-        <EmptyState title="Chưa có thao tác nào được ghi" text="Mọi lần thêm, sửa, xóa từ nay sẽ hiện ở đây." />
+        <EmptyState icon={<History />} title="Chưa có thao tác nào" text="Mọi lần thêm, sửa, xóa sẽ hiện ở đây." />
       ) : (
         <>
           <div className="rounded-xl border border-line bg-surface overflow-x-auto">

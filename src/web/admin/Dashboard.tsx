@@ -1,10 +1,16 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowRight, CalendarDays, ChevronRight, CircleCheck, ExternalLink, FileText, History, Images, Inbox, Layers, Lock,
+  Maximize2, Network, PenLine, Settings, TriangleAlert, UserPlus, Users, FileSpreadsheet,
+} from 'lucide-react';
 import { useApi } from '../lib/api.ts';
-import type { Marriage, MemberBrief, UpcomingEvent } from '../lib/types.ts';
-import { Badge, Button, ErrorState, Loading, PageHeader } from '../components/ui.tsx';
+import type { Marriage, MemberBrief, Site, UpcomingEvent } from '../lib/types.ts';
+import { LUNAR_MONTHS } from '../components/DateInput.tsx';
+import { solarToLunar, canChiYear } from '../../shared/lunar.ts';
+import { daysUntil, initials } from '../lib/format.ts';
+import { Button, ErrorState, LinkButton, Loading, Skeleton, cx } from '../components/ui.tsx';
 import { FamilyTree, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
-import { EventRow } from '../site/Events.tsx';
 import { logTime, type LogRow } from './Logs.tsx';
 import { useMe } from './AdminLayout.tsx';
 
@@ -12,128 +18,266 @@ type Stats = {
   members: number; living: number; deceased: number; generations: number; articles: number; events: number;
   albums: number; photos: number; storage: string; unread: number; pending: number; orphans: { id: number; full_name: string; generation: number }[];
 };
+type TreeData = { members: MemberBrief[]; marriages: Marriage[] };
 
-const SHORTCUTS = [
-  { to: '/admin/members/new', label: 'Thêm thành viên', sub: 'Nhập hồ sơ đầy đủ' },
-  { to: '/admin/members', label: 'Quản lý thành viên', sub: 'Danh sách, tìm và sửa' },
-  { to: '/admin/articles/new', label: 'Viết bài', sub: 'Phả ký, tin tức' },
-  { to: '/admin/events', label: 'Sự kiện, ngày giỗ', sub: 'Âm lịch tự đổi mỗi năm' },
-  { to: '/admin/settings', label: 'Cấu hình website', sub: 'Tên trang, mã xem phả đồ', adminOnly: true },
-];
+const WEEKDAY = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
+/** Thẻ khung chung của Tổng quan: tiêu đề có icon, phần phụ bên phải. */
+function Card({ title, icon, aside, children, className }: { title: string; icon: ReactNode; aside?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <section className={cx('rounded-xl border border-line bg-surface flex flex-col min-w-0', className)}>
+      <h2 className="flex items-center gap-2.5 px-4 sm:px-5 min-h-14 py-2 border-b border-line font-semibold text-ink">
+        <span aria-hidden className="text-ink-2 [&_svg]:size-[18px]">{icon}</span>
+        <span className="flex-1 min-w-0 truncate">{title}</span>
+        {aside}
+      </h2>
+      {children}
+    </section>
+  );
+}
+const moreLink = 'inline-flex items-center gap-1 min-h-9 text-sm font-medium text-ink-2 hover:text-ink transition-colors';
 
 export function Dashboard() {
+  const me = useMe();
+  const isAdmin = me?.role === 'admin';
   const { data: s, error, loading, reload } = useApi<Stats>('/admin/stats');
+  const tree = useApi<TreeData>('/tree');
   const ev = useApi<UpcomingEvent[]>('/events/upcoming?days=30');
-  const isAdmin = useMe()?.role === 'admin';
+  const site = useApi<Site>('/site');
   const logs = useApi<{ rows: LogRow[]; total: number }>(isAdmin ? '/admin/logs?limit=6' : null);
   if (loading) return <Loading />;
   if (error || !s) return <ErrorState error={error ?? 'Lỗi'} onRetry={reload} />;
-  const tiles = [
-    ['Thành viên', s.members, `${s.living} còn sống · ${s.deceased} đã mất`],
-    ['Số đời', s.generations || 0, 'Tính từ thủy tổ'],
-    ['Bài viết', s.articles, 'Phả ký, lịch sử'],
-    ['Ảnh', s.photos, `${s.albums} album`],
-  ] as const;
+
+  const now = new Date();
+  const lunar = solarToLunar(now.getDate(), now.getMonth() + 1, now.getFullYear());
+  const livingPct = s.members ? Math.round((s.living / s.members) * 100) : 0;
+
+  const kpis = [
+    { to: '/admin/members', icon: <Users />, label: 'Thành viên', value: s.members,
+      sub: <>
+        <span className="mt-2.5 block h-1.5 rounded-full bg-line overflow-hidden" role="img" aria-label={`${s.living} còn sống, ${s.deceased} đã mất`}>
+          <span className="block h-full bg-ink rounded-full" style={{ width: `${livingPct}%` }} />
+        </span>
+        <span className="mt-1.5 flex flex-wrap justify-between gap-x-2 text-[13px] sm:text-sm text-ink-2 whitespace-nowrap"><span>{s.living} còn sống</span><span>{s.deceased} đã mất</span></span>
+      </> },
+    { to: '/admin/tree', icon: <Layers />, label: 'Số đời', value: s.generations || 0, sub: <span className="mt-1.5 block text-sm text-ink-2">Tính từ thủy tổ</span> },
+    { to: '/admin/articles', icon: <FileText />, label: 'Bài viết', value: s.articles,
+      sub: <span className="mt-1.5 block text-sm text-ink-2">{s.pending > 0 ? `${s.pending} chờ duyệt` : 'Phả ký, tin tức'}</span> },
+    { to: '/admin/albums', icon: <Images />, label: 'Ảnh', value: s.photos, sub: <span className="mt-1.5 block text-sm text-ink-2">{s.albums} album</span> },
+  ];
+
+  // Việc đang chờ người quản lý xử lý
+  const todo = [
+    s.pending > 0 && { to: '/admin/articles', icon: <FileText />, text: `${s.pending} bài viết chờ duyệt` },
+    isAdmin && s.unread > 0 && { to: '/admin/messages', icon: <Inbox />, text: `${s.unread} thư chưa đọc` },
+    s.orphans.length > 0 && { to: `/admin/members/${s.orphans[0].id}`, icon: <Network />,
+      text: s.orphans.length === 1 ? `${s.orphans[0].full_name} chưa gắn cha mẹ` : `${s.orphans.length} người chưa gắn cha mẹ`, note: 'Đang hiện như một gốc riêng trên cây' },
+    isAdmin && site.data && !site.data.locked && { to: '/admin/settings', icon: <Lock />, text: 'Phả đồ chưa đặt mã xem', note: 'Ai có link cũng xem được' },
+    isAdmin && s.storage === 'none' && { to: '/admin/settings', icon: <TriangleAlert />, text: 'Chưa cấu hình nơi lưu ảnh' },
+  ].filter(Boolean) as { to: string; icon: ReactNode; text: string; note?: string }[];
+
+  const shortcuts = [
+    { to: '/admin/members/new', icon: <UserPlus />, label: 'Thêm thành viên' },
+    { to: '/admin/members', icon: <FileSpreadsheet />, label: 'Quản lý thành viên' },
+    { to: '/admin/articles/new', icon: <PenLine />, label: 'Viết bài' },
+    { to: '/admin/events', icon: <CalendarDays />, label: 'Sự kiện, ngày giỗ' },
+    ...(isAdmin ? [{ to: '/admin/settings', icon: <Settings />, label: 'Cấu hình website' }] : []),
+  ];
+
   return (
     <>
-      <PageHeader title="Tổng quan" actions={
-        <Link to="/" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem website</Link>
-      } />
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        {tiles.map(([l, v, sub]) => (
-          <div key={l} className="rounded-xl border border-line bg-surface p-4 sm:p-5">
-            <p className="text-sm text-ink-2">{l}</p>
-            <p className="mt-1 font-serif text-3xl font-medium tabular-nums">{v}</p>
-            <p className="mt-1 text-sm text-ink-3">{sub}</p>
-          </div>
-        ))}
-      </div>
-
-      {(s.pending > 0 || (isAdmin && s.unread > 0)) && (
-        <div role="status" className="mt-4 flex flex-wrap gap-x-6 gap-y-2 rounded-lg border border-line-strong bg-sunken px-4 py-3">
-          {s.pending > 0 && <Link to="/admin/articles" className="font-medium underline underline-offset-4">{s.pending} bài viết chờ duyệt</Link>}
-          {isAdmin && s.unread > 0 && <Link to="/admin/messages" className="font-medium underline underline-offset-4">{s.unread} thư chưa đọc trong hòm thư</Link>}
+      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 mb-6">
+        <div className="min-w-0">
+          <p className="text-sm text-ink-2">
+            {WEEKDAY[now.getDay()]}, {now.getDate()}/{now.getMonth() + 1}/{now.getFullYear()}
+            <span className="mx-2 text-line-strong" aria-hidden>·</span>
+            {lunar.day < 11 ? `Mùng ${lunar.day}` : lunar.day} tháng {LUNAR_MONTHS[lunar.month - 1]}{lunar.leap ? ' nhuận' : ''} năm {canChiYear(lunar.year)}
+          </p>
+          <h1 className="mt-1 font-serif text-2xl sm:text-[28px] font-semibold text-ink leading-tight">Chào {me?.display_name || 'bạn'}</h1>
         </div>
-      )}
+        <div className="flex flex-wrap gap-2">
+          <LinkButton to="/" target="_blank" icon={<ExternalLink aria-hidden />}>Xem website</LinkButton>
+          <LinkButton to="/admin/members/new" variant="primary" icon={<UserPlus aria-hidden />}>Thêm thành viên</LinkButton>
+        </div>
+      </header>
 
-      <nav aria-label="Lối tắt" className="mt-4 grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-        {SHORTCUTS.filter((x) => !('adminOnly' in x) || isAdmin).map((x) => (
-          <Link key={x.to} to={x.to} className="rounded-lg border border-line bg-surface px-4 py-3 hover:bg-sunken hover:border-line-strong">
-            <span className="block font-medium text-ink">{x.label}</span>
-            <span className="block text-sm text-ink-2">{x.sub}</span>
-          </Link>
+      <ul className="grid gap-3 sm:gap-4 grid-cols-2 xl:grid-cols-4">
+        {kpis.map((k) => (
+          <li key={k.label}>
+            <Link to={k.to} className="gp-card group block h-full rounded-xl border border-line bg-surface p-4 sm:p-5">
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-ink-2">{k.label}</span>
+                <span aria-hidden className="size-9 inline-flex items-center justify-center rounded-lg bg-sunken text-ink-2 transition-colors group-hover:bg-accent group-hover:text-white [&_svg]:size-[18px]">{k.icon}</span>
+              </span>
+              <span className="block mt-1 font-serif text-[2rem] sm:text-4xl leading-none font-medium tabular-nums text-ink">{k.value}</span>
+              {k.sub}
+            </Link>
+          </li>
         ))}
-      </nav>
+      </ul>
 
-      <TreePreview />
+      <div className="mt-4 sm:mt-6 grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_25rem] items-start">
+        <div className="grid gap-4 sm:gap-6 min-w-0">
+          <TreePreview tree={tree.data ?? undefined} />
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+            <GenerationChart members={tree.data?.members ?? undefined} />
+            {isAdmin && (
+              <Card title="Hoạt động gần đây" icon={<History />} aside={<Link to="/admin/logs" className={moreLink}>Nhật ký<ChevronRight aria-hidden className="size-4 gp-arrow" /></Link>}>
+                {!logs.data ? <div className="p-5"><Skeleton className="h-24" /></div> : !logs.data.rows.length ? (
+                  <p className="p-5 text-ink-2">Chưa có thao tác nào.</p>
+                ) : (
+                  <ol className="px-4 sm:px-5 py-2">
+                    {logs.data.rows.map((r, i) => (
+                      <li key={r.id} className="relative flex gap-3 py-2.5">
+                        {i < logs.data!.rows.length - 1 && <span aria-hidden className="absolute left-[15px] top-[42px] bottom-[-10px] w-px bg-line" />}
+                        <span aria-hidden className="relative size-8 shrink-0 inline-flex items-center justify-center rounded-full bg-sunken text-xs font-semibold text-ink-2">{initials(r.admin_name || '?')}</span>
+                        <span className="min-w-0">
+                          <span className="block text-[15px] text-ink leading-snug break-words">{r.action}</span>
+                          <span className="block text-sm text-ink-2 tabular-nums">{r.admin_name ? `${r.admin_name} · ` : ''}{logTime(r.created_at)}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </Card>
+            )}
+          </div>
+        </div>
 
-      <div className={`mt-6 grid gap-6 ${isAdmin ? 'lg:grid-cols-2' : ''}`}>
-        {isAdmin && <section className="rounded-xl border border-line bg-surface">
-          <h2 className="px-5 h-14 flex items-center justify-between font-semibold border-b border-line">
-            Lịch sử thao tác
-            <Link to="/admin/logs" className="text-sm font-medium text-ink-2 hover:text-ink underline underline-offset-4 decoration-line-strong">Xem nhật ký</Link>
-          </h2>
-          {!logs.data?.rows.length ? <p className="p-5 text-ink-3">Chưa có thao tác nào được ghi.</p> : (
-            <ul className="divide-y divide-line">
-              {logs.data.rows.map((r) => (
-                <li key={r.id} className="px-5 py-3">
-                  <Link to="/admin/logs" className="block hover:underline underline-offset-4">{r.action}</Link>
-                  <span className="text-sm text-ink-3 tabular-nums">{r.admin_name ? `Bởi ${r.admin_name} · ` : ''}{logTime(r.created_at)}</span>
-                </li>
+        <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-1 min-w-0 max-xl:order-first">
+          <Card title="Cần xử lý" icon={todo.length ? <TriangleAlert /> : <CircleCheck />}
+            aside={todo.length > 0 && <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full bg-ink text-white text-xs font-semibold tabular-nums">{todo.length}</span>}>
+            {!todo.length ? <p className="p-5 text-ink-2">Không có việc nào đang chờ.</p> : (
+              <ul className="p-2">
+                {todo.map((t) => (
+                  <li key={t.text}>
+                    <Link to={t.to} className="group flex items-center gap-3 rounded-lg px-2 sm:px-3 py-2.5 hover:bg-sunken transition-colors">
+                      <span aria-hidden className="size-9 shrink-0 inline-flex items-center justify-center rounded-lg bg-sunken text-ink group-hover:bg-surface [&_svg]:size-[18px]">{t.icon}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block font-medium text-ink">{t.text}</span>
+                        {t.note && <span className="block text-sm text-ink-2">{t.note}</span>}
+                      </span>
+                      <ArrowRight aria-hidden className="gp-arrow size-4 shrink-0 text-ink-2" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card title="Lối tắt" icon={<ArrowRight />}>
+            <nav aria-label="Lối tắt" className="p-2 grid">
+              {shortcuts.map((x) => (
+                <Link key={x.to} to={x.to} className="group flex items-center gap-3 rounded-lg px-2 sm:px-3 h-11 font-medium text-ink hover:bg-sunken transition-colors">
+                  <span aria-hidden className="text-ink-2 group-hover:text-ink transition-colors [&_svg]:size-[18px]">{x.icon}</span>
+                  <span className="flex-1 truncate">{x.label}</span>
+                  <ChevronRight aria-hidden className="gp-arrow size-4 text-line-strong group-hover:text-ink" />
+                </Link>
               ))}
-            </ul>
-          )}
-        </section>}
-        <section className="rounded-xl border border-line bg-surface">
-          <h2 className="px-5 h-14 flex items-center font-semibold border-b border-line">30 ngày tới</h2>
-          {ev.loading ? <Loading /> : !ev.data?.length ? <p className="p-5 text-ink-3">Không có sự kiện hay ngày giỗ nào.</p> : (
-            <ul className="divide-y divide-line">{ev.data.slice(0, 8).map((e) => <EventRow key={e.id} e={e} compact />)}</ul>
-          )}
-        </section>
+            </nav>
+          </Card>
+
+          <Card title="30 ngày tới" icon={<CalendarDays />} className="sm:col-span-2 xl:col-span-1"
+            aside={<Link to="/admin/events" className={moreLink}>Sự kiện<ChevronRight aria-hidden className="size-4 gp-arrow" /></Link>}>
+            {ev.loading ? <div className="p-5"><Skeleton className="h-20" /></div> : !ev.data?.length ? (
+              <p className="p-5 text-ink-2">Không có sự kiện hay ngày giỗ.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {ev.data.slice(0, 6).map((e) => {
+                  const [, m, d] = e.next_date.split('-').map(Number);
+                  const left = daysUntil(e.next_date);
+                  return (
+                    <li key={e.id} className="flex items-center gap-3 px-4 sm:px-5 py-3">
+                      <span aria-hidden className="w-11 shrink-0 rounded-lg bg-sunken py-1.5 text-center">
+                        <span className="block text-[11px] leading-none text-ink-2">Th {m}</span>
+                        <span className="block mt-1 font-serif text-lg font-semibold leading-none">{d}</span>
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block font-medium text-ink truncate">{e.title}</span>
+                        <span className="block text-sm text-ink-2">{e.kind === 'gio' ? 'Ngày giỗ' : 'Sự kiện'} · {d}/{m}</span>
+                      </span>
+                      <span className={cx('shrink-0 text-sm tabular-nums', left <= 7 ? 'font-semibold text-ink' : 'text-ink-2')}>{left === 0 ? 'Hôm nay' : `${left} ngày`}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+        </div>
       </div>
-
-      <section className="mt-6 rounded-xl border border-line bg-surface">
-        <h2 className="px-4 sm:px-5 py-3 min-h-14 flex flex-wrap items-center justify-between gap-2 font-semibold border-b border-line">
-          Cần kiểm tra
-          <Badge tone={s.storage === 'none' ? 'accent' : 'success'}>Storage: {s.storage === 'gdrive' ? 'Google Drive' : s.storage === 'local' ? 'Thư mục local/NAS' : 'chưa cấu hình'}</Badge>
-        </h2>
-        {!s.orphans.length ? <p className="p-5 text-ink-3">Dữ liệu ổn. Không có thành viên huyết thống nào bị thiếu cha mẹ.</p> : (
-          <>
-            <p className="px-5 pt-4 text-sm text-ink-2">Những người dưới đây thuộc đời 2 trở xuống nhưng chưa gắn cha hoặc mẹ, nên đang hiện như một gốc riêng trên cây.</p>
-            <ul className="p-3">
-              {s.orphans.map((o) => (
-                <li key={o.id}><Link to={`/admin/members/${o.id}`} className="flex justify-between px-2 py-2 rounded-lg hover:bg-sunken">
-                  <span>{o.full_name}</span><span className="text-sm text-ink-3">Đời {o.generation}</span>
-                </Link></li>
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
     </>
   );
 }
 
+/** Số người theo từng đời, tách trong họ và dâu rể. Vẽ bằng thanh ngang để đọc được cả trên điện thoại. */
+function GenerationChart({ members }: { members?: MemberBrief[] }) {
+  const rows = useMemo(() => {
+    const map = new Map<number, { blood: number; inlaw: number }>();
+    for (const m of members ?? []) {
+      const g = m.generation ?? 1;
+      const r = map.get(g) ?? { blood: 0, inlaw: 0 };
+      if (m.is_blood) r.blood++; else r.inlaw++;
+      map.set(g, r);
+    }
+    return [...map].sort((a, b) => a[0] - b[0]).map(([g, r]) => ({ g, ...r, total: r.blood + r.inlaw }));
+  }, [members]);
+  const max = Math.max(1, ...rows.map((r) => r.total));
+  return (
+    <Card title="Thành viên theo đời" icon={<Layers />}
+      aside={<span className="hidden sm:flex items-center gap-3 text-xs font-normal text-ink-2">
+        <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2.5 rounded-sm bg-ink" />Trong họ</span>
+        <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2.5 rounded-sm bg-line-strong" />Dâu, rể</span>
+      </span>}>
+      {!members ? <div className="p-5"><Skeleton className="h-24" /></div> : !rows.length ? <p className="p-5 text-ink-2">Chưa có thành viên.</p> : (
+        <table className="w-full my-3 text-sm">
+          <caption className="sr-only">Số thành viên theo từng đời</caption>
+          <thead className="sr-only"><tr><th>Đời</th><th>Trong họ</th><th>Dâu, rể</th><th>Tổng</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.g}>
+                <th scope="row" className="pl-4 sm:pl-5 pr-3 py-1.5 w-px whitespace-nowrap text-left font-medium text-ink-2">Đời {r.g}</th>
+                <td className="py-1.5 w-full">
+                  <span className="flex h-5 gap-px" aria-hidden>
+                    {r.blood > 0 && <span className="h-full rounded-l-sm bg-ink last:rounded-r-sm" style={{ width: `${(r.blood / max) * 100}%` }} />}
+                    {r.inlaw > 0 && <span className="h-full rounded-r-sm bg-line-strong first:rounded-l-sm" style={{ width: `${(r.inlaw / max) * 100}%` }} />}
+                  </span>
+                  <span className="sr-only">{r.blood} trong họ</span>
+                </td>
+                <td className="sr-only">{r.inlaw} dâu, rể</td>
+                <td className="pl-3 pr-4 sm:pr-5 py-1.5 w-px text-right font-semibold tabular-nums text-ink">{r.total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Card>
+  );
+}
+
 /** Phả đồ thu gọn ngay trên Tổng quan: bấm một người để sang màn soạn phả đồ với người đó đã được chọn. */
-function TreePreview() {
-  const { data } = useApi<{ members: MemberBrief[]; marriages: Marriage[] }>('/tree');
+function TreePreview({ tree }: { tree?: TreeData }) {
   const nav = useNavigate();
   const ref = useRef<FamilyTreeHandle>(null);
-  const model = useTreeModel(data?.members ?? [], data?.marriages ?? []);
+  const model = useTreeModel(tree?.members ?? [], tree?.marriages ?? []);
   const [opt, setOpt] = useState<TreeOptions>({ hideSpouses: false, coupleLines: true, maxGen: 4, collapsed: new Set(), rootId: null });
   return (
-    <section className="mt-6 rounded-xl border border-line bg-surface overflow-hidden">
-      <h2 className="px-5 min-h-14 py-2 flex flex-wrap items-center justify-between gap-2 font-semibold border-b border-line">
-        Phả đồ
-        <span className="flex items-center gap-2">
-          <Button size="sm" onClick={() => ref.current?.fit()}>Vừa khung</Button>
-          <Link to="/admin/tree" className="h-8 pointer-coarse:h-10 px-3 inline-flex items-center rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent-hover">Mở để soạn</Link>
-        </span>
-      </h2>
-      {!data ? <Loading /> : !data.members.length ? (
-        <p className="p-5 text-ink-3">Phả đồ chưa có ai. <Link to="/admin/members/new" className="text-ink underline underline-offset-4">Thêm thủy tổ</Link> để bắt đầu.</p>
+    <Card title="Phả đồ" icon={<Network />} className="overflow-hidden"
+      aside={<span className="flex items-center gap-2">
+        <Button size="sm" icon={<Maximize2 aria-hidden />} onClick={() => ref.current?.fit()}><span className="max-sm:sr-only">Vừa khung</span></Button>
+        <LinkButton to="/admin/tree" size="sm" variant="primary" icon={<PenLine aria-hidden />}>Soạn phả đồ</LinkButton>
+      </span>}>
+      {!tree ? <Loading /> : !tree.members.length ? (
+        <div className="flex flex-col items-center text-center px-6 py-12">
+          <span aria-hidden className="size-12 inline-flex items-center justify-center rounded-full bg-sunken text-ink-2"><Network className="size-6" /></span>
+          <p className="mt-3 font-medium text-ink">Phả đồ chưa có ai</p>
+          <p className="mt-1 text-sm text-ink-2">Bắt đầu từ thủy tổ, hoặc nhập cả danh sách từ Excel.</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <LinkButton to="/admin/members/new" variant="primary" icon={<UserPlus aria-hidden />}>Thêm thủy tổ</LinkButton>
+            <LinkButton to="/admin/members" icon={<FileSpreadsheet aria-hidden />}>Nhập từ Excel</LinkButton>
+          </div>
+        </div>
       ) : (
-        <div className="h-[420px]">
+        <div className="h-[360px] sm:h-[420px]">
           <FamilyTree ref={ref} model={model} options={opt} selectedId={null} highlight={new Set()}
             onSelect={(id) => nav(`/admin/tree?m=${id}`)}
             onToggle={(id) => setOpt((o) => {
@@ -145,6 +289,6 @@ function TreePreview() {
             })} />
         </div>
       )}
-    </section>
+    </Card>
   );
 }

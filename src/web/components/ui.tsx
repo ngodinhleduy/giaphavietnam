@@ -3,6 +3,8 @@ import {
   type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react';
+import { Link, type LinkProps } from 'react-router-dom';
+import { CircleAlert, CircleCheck, X } from 'lucide-react';
 import { fileUrl } from '../lib/api.ts';
 import { initials } from '../lib/format.ts';
 import { fold } from '../../shared/slug.ts';
@@ -13,11 +15,19 @@ export const cx = (...c: (string | false | null | undefined | 0)[]) => c.filter(
 // ---------- Button ----------
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 const VARIANT: Record<Variant, string> = {
-  primary: 'bg-accent text-white hover:bg-accent-hover disabled:bg-line-strong',
-  secondary: 'bg-surface text-ink border border-line-strong hover:bg-sunken disabled:text-ink-3',
+  primary: 'bg-accent text-white shadow-sm hover:bg-accent-hover hover:shadow-md disabled:bg-line-strong disabled:shadow-none',
+  secondary: 'bg-surface text-ink border border-line-strong hover:bg-sunken hover:border-ink disabled:text-ink-3 disabled:hover:border-line-strong',
   ghost: 'text-ink-2 hover:bg-sunken hover:text-ink disabled:text-ink-3',
   danger: 'bg-surface text-danger border border-line-strong hover:bg-danger-soft hover:border-danger',
 };
+const btnBase = 'inline-flex items-center justify-center gap-2 rounded-lg font-medium cursor-pointer whitespace-nowrap select-none transition-[background-color,border-color,box-shadow,transform,color] duration-150 active:scale-[.97] disabled:active:scale-100 disabled:cursor-not-allowed [&_svg]:shrink-0';
+const btnSize = (size: 'sm' | 'md') => (size === 'sm' ? 'h-8 px-3 text-sm pointer-coarse:h-10 [&_svg]:size-4' : 'h-10 px-4 text-[15px] pointer-coarse:h-11 [&_svg]:size-[18px]');
+export const buttonClass = (variant: Variant = 'secondary', size: 'sm' | 'md' = 'md', className?: string) => cx(btnBase, btnSize(size), VARIANT[variant], className);
+
+/** Liên kết có hình dạng nút. Dùng khi bấm vào là chuyển trang. */
+export function LinkButton({ variant = 'secondary', size = 'md', icon, className, children, ...rest }: LinkProps & { variant?: Variant; size?: 'sm' | 'md'; icon?: ReactNode }) {
+  return <Link className={buttonClass(variant, size, className)} {...rest}>{icon}{children}</Link>;
+}
 export const Button = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: 'sm' | 'md'; loading?: boolean; icon?: ReactNode }
@@ -26,12 +36,7 @@ export const Button = forwardRef<
     <button
       ref={ref}
       disabled={disabled || loading}
-      className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors cursor-pointer disabled:cursor-not-allowed whitespace-nowrap',
-        size === 'sm' ? 'h-8 px-3 text-sm pointer-coarse:h-10' : 'h-10 px-4 text-[15px] pointer-coarse:h-11',
-        VARIANT[variant],
-        className,
-      )}
+      className={buttonClass(variant, size, className)}
       {...rest}
     >
       {loading ? <Spinner className="size-4" /> : icon}
@@ -207,9 +212,10 @@ export function Switch({ checked, onChange, label, description, id }: {
 }
 
 // ---------- Feedback ----------
-export function EmptyState({ title, text, action }: { title: string; text?: string; action?: ReactNode }) {
+export function EmptyState({ title, text, action, icon }: { title: string; text?: string; action?: ReactNode; icon?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-14 px-6 border border-dashed border-line-strong rounded-xl bg-surface">
+      {icon && <span aria-hidden className="mb-3 size-12 inline-flex items-center justify-center rounded-full bg-sunken text-ink-2 [&_svg]:size-6">{icon}</span>}
       <p className="font-medium text-ink">{title}</p>
       {text && <p className="mt-1 text-sm text-ink-2 max-w-sm">{text}</p>}
       {action && <div className="mt-4">{action}</div>}
@@ -218,7 +224,8 @@ export function EmptyState({ title, text, action }: { title: string; text?: stri
 }
 export function ErrorState({ error, onRetry }: { error: { message: string } | string; onRetry?: () => void }) {
   return (
-    <div role="alert" className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+    <div role="alert" className="flex items-center gap-3 rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+      <CircleAlert aria-hidden className="size-5 shrink-0" />
       <span className="flex-1">{typeof error === 'string' ? error : error.message}</span>
       {onRetry && <Button size="sm" variant="secondary" onClick={onRetry}>Thử lại</Button>}
     </div>
@@ -235,14 +242,15 @@ export function Skeleton({ className }: { className?: string }) {
   return <div className={cx('animate-pulse rounded-lg bg-sunken', className)} />;
 }
 
-export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'accent' | 'gold' | 'success' }) {
+export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'accent' | 'gold' | 'success' | 'danger' }) {
   const t = {
+    danger: 'bg-danger-soft text-danger',
     neutral: 'bg-sunken text-ink-2',
     accent: 'bg-accent-soft text-accent',
     gold: 'bg-gold-soft text-gold',
     success: 'bg-success-soft text-success',
   }[tone];
-  return <span className={cx('inline-flex items-center h-6 px-2 rounded-md text-xs font-medium', t)}>{children}</span>;
+  return <span className={cx('inline-flex items-center gap-1 h-6 px-2 rounded-md text-xs font-medium whitespace-nowrap [&_svg]:size-3.5', t)}>{children}</span>;
 }
 
 // ---------- Avatar ----------
@@ -270,29 +278,46 @@ export function Modal({ open, onClose, title, children, footer, width = 'max-w-l
   open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; width?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  // onClose thường là hàm tạo mới ở mỗi lần render. Giữ trong ref để hiệu ứng bên dưới chỉ chạy khi mở hoặc đóng,
+  // nếu không mỗi ký tự gõ vào form sẽ chạy lại hiệu ứng và kéo focus đi chỗ khác.
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLElement>('input,select,textarea,button')?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const FOCUSABLE = 'input:not([type=hidden]):not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])';
+    // Focus ô nhập đầu tiên trong nội dung; không có thì focus chính hộp thoại
+    (body.current?.querySelector<HTMLElement>('input:not([type=hidden]):not([disabled]),select:not([disabled]),textarea:not([disabled])') ?? ref.current)?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); close.current(); return; }
+      if (e.key !== 'Tab' || !ref.current) return;
+      // Giữ phím Tab trong hộp thoại
+      const els = [...ref.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null);
+      if (!els.length) return;
+      const first = els[0];
+      const last = els[els.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === ref.current)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
       prev?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-6" onMouseDown={onClose}>
-      <div ref={ref} role="dialog" aria-modal aria-label={title} onMouseDown={(e) => e.stopPropagation()}
-        className={cx('w-full bg-surface rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92dvh] flex flex-col pb-[env(safe-area-inset-bottom)]', width)}>
-        <div className="flex items-center justify-between px-5 h-14 border-b border-line shrink-0">
-          <h2 className="font-semibold text-ink">{title}</h2>
-          <button onClick={onClose} aria-label="Đóng" className="size-10 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-sunken cursor-pointer">
-            <svg viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 5l10 10M15 5L5 15" /></svg>
+    <div className="gp-fade fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/45 backdrop-blur-[2px] p-0 sm:p-6" onMouseDown={onClose}>
+      <div ref={ref} role="dialog" aria-modal aria-label={title} tabIndex={-1} onMouseDown={(e) => e.stopPropagation()}
+        className={cx('gp-pop w-full bg-surface rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92dvh] flex flex-col pb-[env(safe-area-inset-bottom)] focus:outline-none', width)}>
+        <div className="flex items-center justify-between pl-5 pr-2 h-14 border-b border-line shrink-0">
+          <h2 className="font-semibold text-ink truncate">{title}</h2>
+          <button type="button" onClick={onClose} aria-label="Đóng" className="size-10 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-sunken hover:text-ink transition-colors cursor-pointer">
+            <X aria-hidden className="size-5" />
           </button>
         </div>
-        <div className="p-5 overflow-y-auto">{children}</div>
+        <div ref={body} className="p-5 overflow-y-auto">{children}</div>
         {footer && <div className="flex justify-end gap-2 px-5 py-3 border-t border-line shrink-0">{footer}</div>}
       </div>
     </div>
@@ -316,9 +341,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 z-[60] flex flex-col gap-2 no-print" aria-live="polite">
         {items.map((t) => (
-          <div key={t.id} className={cx('rounded-lg px-4 py-3 text-sm shadow-lg sm:max-w-sm',
+          <div key={t.id} role={t.tone === 'error' ? 'alert' : 'status'} className={cx('gp-rise flex items-start gap-2.5 rounded-lg px-4 py-3 text-sm shadow-lg sm:max-w-sm',
             t.tone === 'success' ? 'bg-ink text-white' : 'bg-danger text-white')}>
-            {t.text}
+            {t.tone === 'success' ? <CircleCheck aria-hidden className="size-[18px] shrink-0 mt-px" /> : <CircleAlert aria-hidden className="size-[18px] shrink-0 mt-px" />}
+            <span>{t.text}</span>
           </div>
         ))}
       </div>
@@ -423,9 +449,9 @@ export function MemberPicker({ members, value, onChange, placeholder = 'Gõ tên
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 mb-6">
-      <div>
+      <div className="min-w-0">
         <h1 className="font-serif text-2xl sm:text-[28px] font-semibold text-ink leading-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-ink-2">{subtitle}</p>}
+        {subtitle && <p className="mt-1 text-ink-2 max-w-2xl">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>

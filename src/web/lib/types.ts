@@ -52,6 +52,13 @@ export interface Site {
   locked: boolean;
   unlocked: boolean;
   menu?: { to: string; label: string; external: boolean }[];
+  template?: string;
+  contact_intro?: string;
+  contact_people?: string;
+  contact_email?: string;
+  contact_zalo?: string;
+  contact_facebook?: string;
+  contact_form?: string;
   categories: { id: number; slug: string; name: string }[];
   logo_file_id: number | null;
   banner_file_id: number | null;

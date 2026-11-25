@@ -7,6 +7,7 @@ import { buildCtx, kinship } from '../shared/kinship.ts';
 import { nextSolarOfLunar, lunarToSolar, startOfDay } from '../shared/lunar.ts';
 import { slugify } from '../shared/slug.ts';
 import { menuLinks, parseMenu } from '../shared/menu.ts';
+import { parsePeople, safeUrl, templateOf } from '../shared/site.ts';
 
 /** storage: nơi lưu file mới. readers: các storage khác để đọc file cũ (ví dụ ảnh còn trên Drive sau khi chuyển sang NAS). */
 export type Deps = { db: DB; storage: Storage; secret: string; readers?: Record<string, Storage> };
@@ -19,7 +20,8 @@ const VIEW_COOKIE = 'gp_view';
 const DAY = 86_400_000;
 const MAX_UPLOAD = 15 * 1024 * 1024;
 
-const PUBLIC_SETTINGS = ['site_name', 'site_tagline', 'intro', 'address', 'map_embed', 'contact'];
+const PUBLIC_SETTINGS = ['site_name', 'site_tagline', 'intro', 'address', 'map_embed', 'contact', 'template',
+  'contact_intro', 'contact_people', 'contact_email', 'contact_zalo', 'contact_facebook', 'contact_form'];
 const MEMBER_FIELDS = [
   'full_name', 'alias', 'gender', 'generation', 'father_id', 'mother_id', 'birth_order', 'is_blood',
   'is_deceased', 'birth_date', 'death_date', 'death_lunar_day', 'death_lunar_month', 'burial_place',
@@ -142,6 +144,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   app.post('/messages', async (c) => {
     const b = await c.req.json<any>().catch(() => ({}));
     if (b.website) return c.json({ ok: true }); // ô bẫy dành cho máy tự động điền
+    if ((await settingsMap(c)).contact_form === '0') throw new HttpError(403, 'Trang này hiện không nhận lời nhắn.');
     const name = String(b.name ?? '').trim().slice(0, 80);
     const contact = String(b.contact ?? '').trim().slice(0, 120);
     const subject = String(b.subject ?? '').trim().slice(0, 120);
@@ -854,6 +857,21 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   app.put('/admin/settings', async (c) => {
     const b = await c.req.json<Record<string, any>>();
     const allowed = [...PUBLIC_SETTINGS, 'logo_file_id', 'banner_file_id'];
+    // Chuẩn hóa các trường có định dạng riêng trước khi lưu
+    if ('template' in b) b.template = templateOf(b.template);
+    if ('contact_people' in b) b.contact_people = JSON.stringify(parsePeople(b.contact_people));
+    for (const k of ['contact_zalo', 'contact_facebook']) {
+      if (!(k in b)) continue;
+      const raw = String(b[k] ?? '').trim();
+      if (raw && !safeUrl(raw)) throw bad('Liên kết Zalo, Facebook phải bắt đầu bằng https://');
+      b[k] = safeUrl(raw);
+    }
+    if ('contact_email' in b) {
+      const e = String(b.contact_email ?? '').trim();
+      if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw bad('Email liên hệ không đúng định dạng.');
+      b.contact_email = e;
+    }
+    if ('contact_form' in b) b.contact_form = b.contact_form === '0' || b.contact_form === 0 || b.contact_form === false ? '0' : '1';
     for (const k of allowed)
       if (k in b) await db(c).run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [k, String(b[k] ?? '')]);
     if ('passcode' in b) {

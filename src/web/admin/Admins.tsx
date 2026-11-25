@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { KeyRound, Pencil, Trash2, UserPlus } from 'lucide-react';
 import { api, useApi } from '../lib/api.ts';
 import {
   Badge, Button, EmptyState, ErrorState, Field, Input, Loading, Modal, PageHeader, PasswordInput, Segmented, StrengthMeter,
@@ -56,7 +57,7 @@ export function AdminsAdmin() {
   return (
     <>
       <PageHeader title="Người quản lý" subtitle={data ? `${count} tài khoản, ${data.filter((a) => a.role === 'admin').length} quản trị viên` : undefined}
-        actions={<Button variant="primary" onClick={() => setAdding(true)}>Thêm tài khoản</Button>} />
+        actions={<Button variant="primary" icon={<UserPlus aria-hidden />} onClick={() => setAdding(true)}>Thêm tài khoản</Button>} />
       <p className="-mt-3 mb-6 text-sm text-ink-2 max-w-2xl">
         Quản trị viên có toàn quyền, kể cả với các tài khoản khác. Biên tập viên chỉ nhập liệu: phả đồ, sự kiện, album, và bài viết ở dạng chờ duyệt. Có thể giới hạn biên tập viên trong một chi.
       </p>
@@ -142,9 +143,9 @@ function RowActions({ a, self, last, inline, onEdit, onReset, onRemove }: {
 }) {
   return (
     <div className={inline ? 'flex justify-end gap-1' : 'flex flex-wrap gap-2 mt-3 pl-[3.25rem]'}>
-      <Button size="sm" variant={inline ? 'ghost' : 'secondary'} onClick={onEdit}>{self ? 'Đổi tên' : 'Sửa'}</Button>
-      {!self && <Button size="sm" variant={inline ? 'ghost' : 'secondary'} onClick={onReset}>Đặt lại mật khẩu</Button>}
-      {!self && !last && <Button size="sm" variant={inline ? 'ghost' : 'secondary'} className="text-danger" onClick={onRemove}
+      <Button size="sm" variant={inline ? 'ghost' : 'secondary'} icon={<Pencil aria-hidden />} onClick={onEdit}>{self ? 'Đổi tên' : 'Sửa'}</Button>
+      {!self && <Button size="sm" variant={inline ? 'ghost' : 'secondary'} icon={<KeyRound aria-hidden />} onClick={onReset}>Đặt lại mật khẩu</Button>}
+      {!self && !last && <Button size="sm" variant={inline ? 'ghost' : 'secondary'} className="text-danger" icon={<Trash2 aria-hidden />} onClick={onRemove}
         aria-label={`Xóa ${a.display_name}`}>Xóa</Button>}
     </div>
   );

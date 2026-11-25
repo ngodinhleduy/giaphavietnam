@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.ts';
-import { Button, Field, Input, Textarea } from '../components/ui.tsx';
+import { ArrowUpRight, CircleCheck, Lock, Mail, MapPin, MessageCircle, MessageSquareText, PenLine, Phone, Send, ThumbsUp } from 'lucide-react';
+import { parsePeople } from '../../shared/site.ts';
+import { initials } from '../lib/format.ts';
+import { Button, Field, Input, Textarea, cx } from '../components/ui.tsx';
 import { Container, useSite } from './SiteLayout.tsx';
 
 const F0 = { name: '', contact: '', subject: '', body: '', website: '' };
@@ -36,19 +39,29 @@ export function ContactPage() {
     }
   };
 
+  const people = parsePeople(site.contact_people);
+  const formOn = site.contact_form !== '0';
+  const tel = (v: string) => `tel:${v.replace(/[^\d+]/g, '')}`;
+  const hasInfo = people.length > 0 || site.contact_email || site.contact_zalo || site.contact_facebook || site.address;
+  const chan = 'group flex items-center gap-3 rounded-lg border border-line bg-surface px-3.5 min-h-12 py-2 font-medium text-ink transition-colors hover:border-ink hover:bg-sunken';
+
   return (
     <Container className="py-10 sm:py-14">
       <h1 className="font-serif text-3xl sm:text-4xl font-medium text-ink">Liên hệ</h1>
-      <p className="mt-3 text-ink-2 max-w-2xl leading-relaxed">Bổ sung thông tin cho phả đồ, báo chỗ sai, hoặc hỏi về việc họ: gửi lời nhắn cho ban liên lạc ở đây.</p>
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] items-start">
-        {sent ? (
-          <div role="status" className="rounded-xl border border-line bg-surface p-6 sm:p-8">
-            <h2 className="font-semibold text-lg text-ink">Đã gửi lời nhắn</h2>
-            <p className="mt-2 text-ink-2 leading-relaxed">Ban liên lạc sẽ đọc và phản hồi qua thông tin bạn để lại. Nếu bạn không để lại số điện thoại hoặc email, ban liên lạc không có cách nào trả lời.</p>
-            <Button className="mt-5" onClick={() => setSent(false)}>Gửi thư khác</Button>
+      <p className="mt-3 text-ink-2 max-w-2xl leading-relaxed whitespace-pre-line">
+        {site.contact_intro || (formOn ? 'Bổ sung thông tin cho phả đồ, báo chỗ sai, hoặc hỏi về việc họ: gửi lời nhắn cho ban liên lạc ở đây.' : 'Thông tin liên hệ của ban liên lạc dòng họ.')}
+      </p>
+      <div className={cx('mt-8 grid gap-10 items-start', formOn && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
+        {formOn && (sent ? (
+          <div role="status" className="gp-rise rounded-xl border border-line bg-surface p-6 sm:p-8">
+            <span aria-hidden className="size-12 inline-flex items-center justify-center rounded-full bg-success-soft text-success"><CircleCheck className="size-6" /></span>
+            <h2 className="mt-4 font-semibold text-lg text-ink">Đã gửi lời nhắn</h2>
+            <p className="mt-2 text-ink-2 leading-relaxed">Ban liên lạc sẽ phản hồi qua số điện thoại hoặc email bạn để lại.</p>
+            <Button className="mt-5" icon={<PenLine aria-hidden />} onClick={() => setSent(false)}>Gửi thư khác</Button>
           </div>
         ) : (
           <form onSubmit={submit} noValidate className="rounded-xl border border-line bg-surface p-5 sm:p-8 space-y-4">
+            <h2 className="flex items-center gap-2 font-semibold text-lg text-ink"><MessageSquareText aria-hidden className="size-5 text-ink-2" />Gửi lời nhắn</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Họ tên" htmlFor="ct-name" required error={errs.name}>
                 <Input id="ct-name" autoComplete="name" maxLength={80} value={f.name} aria-invalid={!!errs.name}
@@ -71,24 +84,58 @@ export function ContactPage() {
             </div>
             {errs.form && <p role="alert" className="text-sm text-danger">{errs.form}</p>}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <Button type="submit" variant="primary" loading={busy}>Gửi lời nhắn</Button>
-              <p className="text-sm text-ink-2">Thông tin chỉ ban quản trị đọc được. Xem <Link to="/chinh-sach-bao-mat" className="underline underline-offset-4">chính sách bảo mật</Link>.</p>
+              <Button type="submit" variant="primary" icon={<Send aria-hidden />} loading={busy}>Gửi lời nhắn</Button>
+              <p className="inline-flex items-center gap-1.5 text-sm text-ink-2"><Lock aria-hidden className="size-3.5 shrink-0" /><span>Chỉ ban quản trị đọc được. <Link to="/chinh-sach-bao-mat" className="underline underline-offset-4">Chính sách bảo mật</Link></span></p>
             </div>
           </form>
-        )}
-        <aside className="space-y-5 text-[15px]">
-          <div>
-            <h2 className="font-semibold text-ink">Ban liên lạc</h2>
-            <p className="mt-2 text-ink-2 whitespace-pre-line leading-relaxed">{site.contact || 'Chưa có thông tin liên hệ.'}</p>
-          </div>
-          {site.address && (
-            <div>
+        ))}
+
+        <aside className={cx('text-[15px]', formOn ? 'space-y-6' : 'grid gap-8 sm:grid-cols-2 lg:grid-cols-3')}>
+          {!hasInfo && !site.contact && <p className="text-ink-2">Chưa có thông tin liên hệ.</p>}
+          {people.length > 0 && (
+            <section>
+              <h2 className="font-semibold text-ink">Ban liên lạc</h2>
+              <ul className="mt-3 space-y-3">
+                {people.map((p) => (
+                  <li key={p.name + p.phone} className="flex items-center gap-3">
+                    <span aria-hidden className="size-10 shrink-0 rounded-full bg-sunken inline-flex items-center justify-center font-serif font-semibold text-ink-2">{initials(p.name)}</span>
+                    <span className="min-w-0 flex-1 leading-snug">
+                      <span className="block font-medium text-ink">{p.name}</span>
+                      {p.role && <span className="block text-sm text-ink-2">{p.role}</span>}
+                    </span>
+                    {p.phone && (
+                      <a href={tel(p.phone)} aria-label={`Gọi ${p.name}, ${p.phone}`} className="inline-flex items-center gap-1.5 min-h-10 px-3 rounded-lg border border-line-strong text-sm font-medium tabular-nums text-ink whitespace-nowrap transition-colors hover:bg-sunken hover:border-ink">
+                        <Phone aria-hidden className="size-4" />{p.phone}
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {(site.contact_email || site.contact_zalo || site.contact_facebook) && (
+            <section>
+              <h2 className="font-semibold text-ink">Kênh liên hệ</h2>
+              <div className="mt-3 grid gap-2">
+                {site.contact_email && <a href={`mailto:${site.contact_email}`} className={chan}><Mail aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1 min-w-0 break-all">{site.contact_email}</span></a>}
+                {site.contact_zalo && <a href={site.contact_zalo} target="_blank" rel="noopener noreferrer" className={chan}><MessageCircle aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1">Nhóm Zalo của họ</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
+                {site.contact_facebook && <a href={site.contact_facebook} target="_blank" rel="noopener noreferrer" className={chan}><ThumbsUp aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1">Facebook</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
+              </div>
+            </section>
+          )}
+          {(site.address || site.contact) && (
+            <section>
               <h2 className="font-semibold text-ink">Nhà thờ họ</h2>
-              <p className="mt-2 text-ink-2 leading-relaxed">{site.address}</p>
-            </div>
+              {site.address && <p className="mt-3 flex gap-2 text-ink-2 leading-relaxed"><MapPin aria-hidden className="size-4 shrink-0 mt-1" />{site.address}</p>}
+              {site.contact && <p className="mt-2 text-ink-2 whitespace-pre-line leading-relaxed">{site.contact}</p>}
+            </section>
           )}
         </aside>
       </div>
+      {site.map_embed && (
+        <iframe title="Bản đồ nhà thờ họ" className="mt-10 w-full h-80 rounded-xl border border-line" loading="lazy"
+          src={site.map_embed.startsWith('http') ? site.map_embed : `https://www.google.com/maps?q=${encodeURIComponent(site.map_embed)}&output=embed`} />
+      )}
     </Container>
   );
 }

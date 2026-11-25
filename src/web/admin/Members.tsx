@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { Download, Plus, Save, SearchX, Trash2, Upload, UserPlus, Users } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, useApi } from '../lib/api.ts';
 import type { MemberBrief } from '../lib/types.ts';
@@ -6,7 +7,7 @@ import { lifespan } from '../lib/format.ts';
 import { fold } from '../../shared/slug.ts';
 import { solarToLunar } from '../../shared/lunar.ts';
 import {
-  Avatar, Badge, Button, EmptyState, ErrorState, Field, Input, Loading, MemberPicker, Modal, PageHeader, SearchInput, Segmented, Select,
+  Avatar, Badge, Button, EmptyState, ErrorState, Field, Input, LinkButton, Loading, MemberPicker, Modal, PageHeader, SearchInput, Segmented, Select,
   Switch, useToast,
 } from '../components/ui.tsx';
 import { DateInput, LunarDayMonth } from '../components/DateInput.tsx';
@@ -36,12 +37,12 @@ export function MembersAdmin() {
     <>
       <PageHeader title="Thành viên" subtitle={data ? `${data.length} người` : undefined}
         actions={<>
-          {isAdmin && <Button onClick={() => setImporting(true)}>Nhập từ Excel</Button>}
-          {isAdmin && !!data?.length && <Button loading={exporting} onClick={async () => {
+          {isAdmin && <Button icon={<Upload aria-hidden />} onClick={() => setImporting(true)}>Nhập từ Excel</Button>}
+          {isAdmin && !!data?.length && <Button loading={exporting} icon={<Download aria-hidden />} onClick={async () => {
             setExporting(true);
             try { toast(`Đã xuất ${await exportExcel()} người ra file Excel.`); } catch (e: any) { toast(e.message, 'error'); } finally { setExporting(false); }
           }}>Xuất Excel</Button>}
-          <Link to="/admin/members/new" className="h-10 px-4 inline-flex items-center rounded-lg bg-accent text-white font-medium hover:bg-accent-hover">Thêm thành viên</Link>
+          <LinkButton to="/admin/members/new" variant="primary" icon={<UserPlus aria-hidden />}>Thêm thành viên</LinkButton>
         </>} />
       {isAdmin && <ImportDialog open={importing} existing={(data ?? []) as any} onClose={() => setImporting(false)} onDone={reload} />}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -52,9 +53,9 @@ export function MembersAdmin() {
         </Select>
       </div>
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? (
-        <EmptyState title="Chưa có thành viên" text="Bắt đầu bằng việc nhập thủy tổ (đời 1), sau đó thêm con cháu từ hồ sơ của từng người. Đã có danh sách sẵn thì dùng Nhập từ Excel ở góc trên."
+        <EmptyState icon={<Users />} title="Chưa có thành viên" text="Nhập thủy tổ trước, rồi thêm con cháu. Có sẵn danh sách thì dùng Nhập từ Excel."
           action={<Link to="/admin/members/new" className="text-accent font-medium">Nhập thủy tổ</Link>} />
-      ) : !list.length ? <EmptyState title="Không có kết quả" /> : (
+      ) : !list.length ? <EmptyState icon={<SearchX />} title="Không tìm thấy ai" text="Thử tên khác hoặc bỏ bộ lọc đời." /> : (
         <div className="rounded-xl border border-line bg-surface overflow-hidden">
           <ul className="md:hidden divide-y divide-line">
             {list.slice(page * PER, page * PER + PER).map((m) => (
@@ -401,7 +402,7 @@ export function MemberForm() {
             <ImageUpload value={f.photo_file_id} onChange={(v) => set('photo_file_id', v)} label="Ảnh" round />
           </Section>
           <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:bg-surface/95 max-lg:backdrop-blur max-lg:border-t max-lg:border-line max-lg:px-4 max-lg:pt-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-row-reverse lg:flex-col gap-2">
-            <Button type="submit" variant="primary" loading={busy} className="flex-1 lg:flex-none">{isNew ? 'Thêm thành viên' : 'Lưu thay đổi'}</Button>
+            <Button type="submit" variant="primary" loading={busy} icon={isNew ? <UserPlus aria-hidden /> : <Save aria-hidden />} className="flex-1 lg:flex-none">{isNew ? 'Thêm thành viên' : 'Lưu thay đổi'}</Button>
             <SaveMore busy={busy} canSibling={!!(f.father_id || f.mother_id)} onPick={(t) => save(t)} />
           </div>
           {!isNew && (
@@ -422,7 +423,7 @@ export function MemberForm() {
                     );
                   })}
                 </ul>
-                <Button type="button" size="sm" onClick={() => setSpouseOpen(true)}>Thêm {f.gender === 'male' ? 'vợ' : 'chồng'}</Button>
+                <Button type="button" size="sm" icon={<Plus aria-hidden />} onClick={() => setSpouseOpen(true)}>Thêm {f.gender === 'male' ? 'vợ' : 'chồng'}</Button>
               </Section>
               <Section title={`Con (${children.length})`}>
                 <ul className="space-y-0.5 mb-3">
@@ -457,7 +458,7 @@ export function MemberForm() {
       <Modal open={delOpen} onClose={() => setDelOpen(false)} title="Xóa thành viên?"
         footer={<>
           <Button onClick={() => setDelOpen(false)}>Hủy</Button>
-          <Button variant="danger" onClick={() => remove(children.length > 0)}>Xóa</Button>
+          <Button variant="danger" icon={<Trash2 aria-hidden />} onClick={() => remove(children.length > 0)}>Xóa</Button>
         </>}>
         <p className="text-ink-2">
           Xóa <b className="text-ink">{f.full_name}</b> khỏi phả đồ. Thao tác này không hoàn tác được.
@@ -607,11 +608,14 @@ function SpouseModal({ open, onClose, self, gender, members, nextOrder, onDone }
   );
 }
 
-export function Section({ title, hint, children }: { title: string; hint?: React.ReactNode; children: React.ReactNode }) {
+export function Section({ title, hint, children, icon }: { title: string; hint?: React.ReactNode; children: React.ReactNode; icon?: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-line bg-surface p-4 sm:p-5">
-      <h2 className="font-semibold text-ink">{title}</h2>
-      {hint && <p className="text-sm text-ink-3 mt-0.5">{hint}</p>}
+      <h2 className="flex items-center gap-2 font-semibold text-ink">
+        {icon && <span aria-hidden className="text-ink-2 [&_svg]:size-[18px]">{icon}</span>}
+        {title}
+      </h2>
+      {hint && <p className="text-sm text-ink-3 mt-1">{hint}</p>}
       <div className="mt-4">{children}</div>
     </section>
   );

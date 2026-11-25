@@ -98,3 +98,28 @@ html {
   .gp-drum { animation: gp-turn 420s linear infinite; }
 }
 @keyframes gp-turn { to { rotate: -360deg; } }
+
+/* Chuyển động nhỏ: hộp thoại, thông báo, thẻ. Tắt khi người dùng chọn giảm chuyển động. */
+@keyframes gp-fade { from { opacity: 0; } }
+@keyframes gp-pop { from { opacity: 0; transform: translateY(10px) scale(0.985); } }
+@keyframes gp-rise { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: no-preference) {
+  .gp-fade { animation: gp-fade 0.16s ease-out; }
+  .gp-pop { animation: gp-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .gp-rise { animation: gp-rise 0.22s ease-out; }
+}
+/* Thẻ bấm được: nhấc nhẹ khi rê chuột */
+.gp-card { transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s, background-color 0.15s; }
+.gp-card:hover { border-color: var(--color-line-strong); box-shadow: 0 6px 20px -8px rgb(25 25 25 / 0.18); transform: translateY(-2px); }
+.gp-card:active { transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) { .gp-card:hover { transform: none; } }
+/* Mũi tên trượt nhẹ trong thẻ hoặc nút khi rê chuột */
+.gp-arrow { transition: transform 0.15s; }
+:is(a, button):hover > .gp-arrow, .group:hover .gp-arrow { transform: translateX(3px); }
+
+/* Menu trang xem: gạch chân trượt ra khi rê chuột, giữ nguyên ở trang đang mở */
+.gp-nav::after { content: ''; position: absolute; left: 0.75rem; right: 0.75rem; bottom: 4px; height: 2px; border-radius: 2px; background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform 0.2s ease; }
+.gp-nav:hover::after, .gp-nav.is-active::after { transform: scaleX(1); }
+/* Rồng trên nền giấy dó */
+.gp-dragon { mix-blend-mode: multiply; }
+.gp-son-veil { background: radial-gradient(closest-side, rgb(122 46 42 / 0.9), rgb(122 46 42 / 0.6) 60%, rgb(122 46 42 / 0.25) 100%); }

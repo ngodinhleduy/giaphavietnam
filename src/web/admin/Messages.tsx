@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Inbox, MailOpen, Trash2 } from 'lucide-react';
 import { api, useApi } from '../lib/api.ts';
 import { Badge, Button, EmptyState, ErrorState, Loading, Modal, PageHeader, cx, useToast } from '../components/ui.tsx';
 import { when } from './Admins.tsx';
@@ -28,9 +29,9 @@ export function MessagesAdmin() {
   return (
     <>
       <PageHeader title="Hòm thư" subtitle={data ? `${data.total} thư${unread ? `, ${unread} chưa đọc ở trang này` : ''}` : undefined} />
-      <p className="-mt-3 mb-6 text-sm text-ink-2 max-w-2xl">Lời nhắn con cháu gửi từ trang Liên hệ. Hệ thống không gửi email: bạn trả lời qua số điện thoại hoặc email người gửi để lại.</p>
+      <p className="-mt-3 mb-6 text-sm text-ink-2 max-w-2xl">Lời nhắn gửi từ trang Liên hệ. Trả lời qua số điện thoại hoặc email người gửi để lại.</p>
       {loading && !data ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.rows.length ? (
-        <EmptyState title="Chưa có thư nào" text="Khi có người gửi lời nhắn từ trang Liên hệ, thư sẽ hiện ở đây." />
+        <EmptyState icon={<Inbox />} title="Chưa có thư nào" text="Lời nhắn gửi từ trang Liên hệ sẽ hiện ở đây." />
       ) : (
         <>
           <ul className="rounded-xl border border-line bg-surface divide-y divide-line">
@@ -64,8 +65,8 @@ export function MessagesAdmin() {
 
       <Modal open={!!open} onClose={() => setOpen(null)} title={open?.subject || 'Thư từ trang Liên hệ'} width="max-w-xl"
         footer={open && <>
-          <Button variant="ghost" className="text-danger mr-auto" onClick={() => { setRemoving(open); setOpen(null); }}>Xóa</Button>
-          <Button onClick={() => { mark(open, 0); setOpen(null); }}>Đánh dấu chưa đọc</Button>
+          <Button variant="ghost" className="text-danger mr-auto" icon={<Trash2 aria-hidden />} onClick={() => { setRemoving(open); setOpen(null); }}>Xóa</Button>
+          <Button icon={<MailOpen aria-hidden />} onClick={() => { mark(open, 0); setOpen(null); }}>Chưa đọc</Button>
           <Button variant="primary" onClick={() => setOpen(null)}>Đóng</Button>
         </>}>
         {open && (

@@ -2,13 +2,13 @@ import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, fileUrl, shrinkImage, useApi } from '../lib/api.ts';
 import { formatDate } from '../lib/format.ts';
-import { lunarToSolar, solarToLunar } from '../../shared/lunar.ts';
+import { CalendarDays, Check, FileText, Images, MapPin, Pencil, Plus, Repeat, Save, Trash2, UploadCloud } from 'lucide-react';
 import {
-  Badge, Button, Checkbox, EmptyState, ErrorState, Field, Input, Loading, Modal, PageHeader, Segmented, Select, Spinner, Switch, Textarea, cx, useToast,
+  Badge, Button, EmptyState, ErrorState, Field, Input, LinkButton, Loading, Modal, PageHeader, Segmented, Select, Spinner, Switch, Textarea, cx, useToast,
 } from '../components/ui.tsx';
 import { ImageUpload, useMe } from './AdminLayout.tsx';
 import { Section } from './Members.tsx';
-import { LUNAR_MONTHS } from '../components/DateInput.tsx';
+import { EventDatePicker } from '../components/DateInput.tsx';
 import { slugify } from '../../shared/slug.ts';
 const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
 
@@ -17,14 +17,16 @@ export function ArticlesAdmin() {
   const { data, error, loading, reload } = useApi<any[]>('/admin/articles');
   return (
     <>
-      <PageHeader title="Bài viết" actions={<Link to="/admin/articles/new" className="h-10 px-4 inline-flex items-center rounded-lg bg-accent text-white font-medium hover:bg-accent-hover">Viết bài</Link>} />
+      <PageHeader title="Bài viết" actions={<LinkButton to="/admin/articles/new" variant="primary" icon={<Plus aria-hidden />}>Viết bài</LinkButton>} />
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? (
-        <EmptyState title="Chưa có bài viết" text="Phả ký, lời nói đầu, lịch sử nhà thờ họ... đều nên là bài viết." />
+        <EmptyState icon={<FileText />} title="Chưa có bài viết" text="Phả ký, lời nói đầu, lịch sử nhà thờ họ nên viết thành bài."
+          action={<LinkButton to="/admin/articles/new" variant="primary" icon={<Plus aria-hidden />}>Viết bài đầu tiên</LinkButton>} />
       ) : (
-        <ul className="rounded-xl border border-line bg-surface divide-y divide-line">
+        <ul className="rounded-xl border border-line bg-surface divide-y divide-line overflow-hidden">
           {data.map((a) => (
             <li key={a.id}>
-              <Link to={`/admin/articles/${a.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-sunken/50">
+              <Link to={`/admin/articles/${a.id}`} className="flex items-center gap-4 px-4 sm:px-5 py-3.5 hover:bg-sunken/60 transition-colors">
+                <span aria-hidden className="hidden sm:inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-sunken text-ink-2"><FileText className="size-5" /></span>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{a.title}</p>
                   <p className="text-sm text-ink-2">{a.category_name ?? 'Chưa phân loại'} · {formatDate(a.updated_at.slice(0, 10))}{a.author_name ? ` · ${a.author_name}` : ''}</p>
@@ -126,12 +128,12 @@ export function ArticleForm() {
                 </Field>
               </details>
               <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:bg-surface/95 max-lg:backdrop-blur max-lg:border-t max-lg:border-line max-lg:px-4 max-lg:pt-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                <Button type="submit" variant="primary" className="w-full" loading={busy}>Lưu</Button>
+                <Button type="submit" variant="primary" className="w-full" icon={<Save aria-hidden />} loading={busy}>Lưu</Button>
               </div>
             </div>
           </Section>
           <Section title="Ảnh bìa"><ImageUpload value={f.cover_file_id} onChange={(v) => setF({ ...f, cover_file_id: v })} label="Ảnh bìa" /></Section>
-          {!isNew && <Button type="button" variant="danger" className="w-full" onClick={() => setDel(true)}>Xóa bài</Button>}
+          {!isNew && <Button type="button" variant="danger" className="w-full" icon={<Trash2 aria-hidden />} onClick={() => setDel(true)}>Xóa bài</Button>}
         </div>
       </form>
       <Modal open={del} onClose={() => setDel(false)} title="Xóa bài viết?"
@@ -143,22 +145,29 @@ export function ArticleForm() {
 }
 
 // ================= Events =================
-type Ev = { id?: number; title: string; description: string; calendar: 'solar' | 'lunar'; day: number | string; month: number | string; year: number | string | null; recurring: boolean; location: string };
-const EV0: Ev = { title: '', description: '', calendar: 'lunar', day: '', month: '', year: '', recurring: true, location: '' };
+type Ev = { id?: number; title: string; description: string; calendar: 'solar' | 'lunar'; day: number | null; month: number | null; year: number | null; recurring: boolean; location: string };
+const EV0: Ev = { title: '', description: '', calendar: 'lunar', day: null, month: null, year: null, recurring: true, location: '' };
 
 export function EventsAdmin() {
   const { data, error, loading, reload } = useApi<any[]>('/admin/events');
   const [edit, setEdit] = useState<Ev | null>(null);
+  const [removing, setRemoving] = useState<any | null>(null);
+  const [errs, setErrs] = useState<{ title?: string; date?: string }>({});
   const [busy, setBusy] = useState(false);
   const toast = useToast();
+  const open = (e: Ev) => { setErrs({}); setEdit(e); };
   const save = async () => {
     if (!edit) return;
+    const er = { title: edit.title.trim() ? undefined : 'Nhập tên sự kiện.', date: edit.day && edit.month ? undefined : 'Chọn một ngày trên lịch.' };
+    setErrs(er);
+    if (er.title) return document.getElementById('et')?.focus();
+    if (er.date) return;
     setBusy(true);
     try {
-      const body = { ...edit, recurring: edit.recurring ? 1 : 0, year: edit.recurring ? null : Number(edit.year) || null };
+      const body = { ...edit, recurring: edit.recurring ? 1 : 0, year: edit.recurring ? null : edit.year };
       if (edit.id) await api.put(`/admin/events/${edit.id}`, body);
       else await api.post('/admin/events', body);
-      toast('Đã lưu.');
+      toast(edit.id ? 'Đã lưu sự kiện.' : 'Đã thêm sự kiện.');
       setEdit(null);
       reload();
     } catch (e: any) {
@@ -167,66 +176,67 @@ export function EventsAdmin() {
       setBusy(false);
     }
   };
-  const hint = (() => {
-    if (!edit?.day || !edit?.month) return '';
-    const y = new Date().getFullYear();
-    if (edit.calendar === 'lunar') {
-      const s = lunarToSolar(Number(edit.day), Number(edit.month), Number(edit.year) || y);
-      return s ? `Năm ${Number(edit.year) || y} rơi vào ngày ${s[0]}/${s[1]}/${s[2]} dương lịch.` : '';
-    }
-    const l = solarToLunar(Number(edit.day), Number(edit.month), Number(edit.year) || y);
-    return `Tương ứng ${l.day}/${l.month} âm lịch.`;
-  })();
+  const when = (e: any) => `${e.calendar === 'lunar' ? `${e.day}/${e.month} âm lịch` : `${e.day}/${e.month}`}${e.year && !e.recurring ? `, năm ${e.year}` : ''}`;
   return (
     <>
-      <PageHeader title="Sự kiện" subtitle="Lễ tế, họp họ, ngày kỷ niệm. Ngày giỗ được tạo tự động từ hồ sơ thành viên."
-        actions={<Button variant="primary" onClick={() => setEdit({ ...EV0 })}>Thêm sự kiện</Button>} />
+      <PageHeader title="Sự kiện" subtitle="Lễ tế, họp họ, ngày kỷ niệm. Ngày giỗ tự lấy từ hồ sơ thành viên."
+        actions={<Button variant="primary" icon={<Plus aria-hidden />} onClick={() => open({ ...EV0 })}>Thêm sự kiện</Button>} />
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? (
-        <EmptyState title="Chưa có sự kiện" />
+        <EmptyState icon={<CalendarDays />} title="Chưa có sự kiện" text="Thêm lễ tế xuân, họp họ hoặc ngày kỷ niệm. Sự kiện âm lịch tự đổi sang ngày dương mỗi năm."
+          action={<Button variant="primary" icon={<Plus aria-hidden />} onClick={() => open({ ...EV0 })}>Thêm sự kiện</Button>} />
       ) : (
-        <ul className="rounded-xl border border-line bg-surface divide-y divide-line">
+        <ul className="rounded-xl border border-line bg-surface divide-y divide-line overflow-hidden">
           {data.map((e) => (
-            <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 sm:px-5 py-3">
+            <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 sm:px-5 py-3 hover:bg-sunken/50 transition-colors">
+              <span aria-hidden className="shrink-0 w-12 rounded-lg bg-sunken py-1.5 text-center">
+                <span className="block text-[11px] leading-none text-ink-2">Th {e.month}</span>
+                <span className="block mt-1 font-serif text-xl font-semibold leading-none">{e.day}</span>
+              </span>
               <div className="flex-1 min-w-[12rem]">
                 <p className="font-medium">{e.title}</p>
-                <p className="text-sm text-ink-2">{e.day}/{e.month}{e.year && !e.recurring ? `/${e.year}` : ''} {e.calendar === 'lunar' ? 'âm lịch' : 'dương lịch'}{e.recurring ? ', hằng năm' : ''}{e.location ? ` · ${e.location}` : ''}</p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
+                  <span>{when(e)}</span>
+                  {!!e.recurring && <span className="inline-flex items-center gap-1"><Repeat aria-hidden className="size-3.5" />Hằng năm</span>}
+                  {e.location && <span className="inline-flex items-center gap-1"><MapPin aria-hidden className="size-3.5" />{e.location}</span>}
+                </p>
               </div>
-              <Button size="sm" onClick={() => setEdit({ ...e, recurring: !!e.recurring, description: e.description ?? '', location: e.location ?? '' })}>Sửa</Button>
-              <Button size="sm" variant="ghost" aria-label={`Xóa ${e.title}`} onClick={async () => { if (confirm(`Xóa “${e.title}”?`)) { await api.del(`/admin/events/${e.id}`); reload(); } }}>Xóa</Button>
+              <Button size="sm" icon={<Pencil aria-hidden />} onClick={() => open({ ...e, day: Number(e.day), month: Number(e.month), year: e.year ? Number(e.year) : null, recurring: !!e.recurring, description: e.description ?? '', location: e.location ?? '' })}>Sửa</Button>
+              <Button size="sm" variant="ghost" className="hover:text-danger" icon={<Trash2 aria-hidden />} aria-label={`Xóa ${e.title}`} onClick={() => setRemoving(e)} />
             </li>
           ))}
         </ul>
       )}
-      <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Sửa sự kiện' : 'Thêm sự kiện'}
-        footer={<><Button onClick={() => setEdit(null)}>Hủy</Button><Button variant="primary" loading={busy} onClick={save}>Lưu</Button></>}>
+      <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Sửa sự kiện' : 'Thêm sự kiện'} width="max-w-3xl"
+        footer={<><Button onClick={() => setEdit(null)}>Hủy</Button><Button variant="primary" icon={<Check aria-hidden />} loading={busy} onClick={save}>Lưu sự kiện</Button></>}>
         {edit && (
-          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
-            <Field label="Tên sự kiện" htmlFor="et" required className="col-span-2 sm:col-span-3"><Input id="et" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
-            <Field label="Lịch" htmlFor="ec" className="col-span-2 sm:col-span-3">
-              <Segmented id="ec" label="Loại lịch" value={edit.calendar} onChange={(v) => setEdit({ ...edit, calendar: v })}
-                options={[{ value: 'lunar', label: 'Âm lịch' }, { value: 'solar', label: 'Dương lịch' }]} />
-            </Field>
-            <Field label="Ngày" htmlFor="ed" required>
-              <Select id="ed" value={String(edit.day)} onChange={(e) => setEdit({ ...edit, day: e.target.value })}>
-                <option value="">Chọn</option>
-                {Array.from({ length: edit.calendar === 'lunar' ? 30 : 31 }, (_, i) => <option key={i} value={i + 1}>{edit.calendar === 'lunar' && i < 10 ? `Mùng ${i + 1}` : i + 1}</option>)}
-              </Select>
-            </Field>
-            <Field label="Tháng" htmlFor="em" required>
-              <Select id="em" value={String(edit.month)} onChange={(e) => setEdit({ ...edit, month: e.target.value })}>
-                <option value="">Chọn</option>
-                {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{edit.calendar === 'lunar' ? `Tháng ${LUNAR_MONTHS[i]}` : `Tháng ${i + 1}`}</option>)}
-              </Select>
-            </Field>
-            <div className="col-span-2 sm:col-span-3 flex flex-wrap items-center gap-4">
-              <Checkbox label="Lặp lại hằng năm" checked={edit.recurring} onChange={(v) => setEdit({ ...edit, recurring: v })} />
-              {!edit.recurring && <Input aria-label="Năm" placeholder="Năm" type="number" inputMode="numeric" className="w-28" value={edit.year ?? ''} onChange={(e) => setEdit({ ...edit, year: e.target.value })} />}
+          <form className="grid gap-x-6 gap-y-4 md:grid-cols-[minmax(0,1fr)_21rem]" onSubmit={(e) => { e.preventDefault(); save(); }}>
+            <div className="space-y-4 md:order-1">
+              <Field label="Tên sự kiện" htmlFor="et" required error={errs.title}>
+                <Input id="et" value={edit.title} aria-invalid={!!errs.title} placeholder="Ví dụ: Lễ tế xuân"
+                  onChange={(e) => { setEdit({ ...edit, title: e.target.value }); if (errs.title) setErrs({ ...errs, title: undefined }); }} />
+              </Field>
+              <Switch label="Lặp lại hằng năm" checked={edit.recurring} onChange={(v) => setEdit({ ...edit, recurring: v })}
+                description={edit.recurring ? 'Mỗi năm tự hiện lại đúng ngày này.' : 'Chỉ diễn ra một lần, đúng năm đã chọn trên lịch.'} />
+              <Field label="Địa điểm" htmlFor="el" optional><Input id="el" value={edit.location} placeholder="Nhà thờ họ" onChange={(e) => setEdit({ ...edit, location: e.target.value })} /></Field>
+              <Field label="Mô tả" htmlFor="eds" optional><Textarea id="eds" rows={4} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
             </div>
-            {hint && <p className="col-span-2 sm:col-span-3 text-sm text-ink-2 -mt-2">{hint}</p>}
-            <Field label="Địa điểm" htmlFor="el" optional className="col-span-2 sm:col-span-3"><Input id="el" value={edit.location} onChange={(e) => setEdit({ ...edit, location: e.target.value })} /></Field>
-            <Field label="Mô tả" htmlFor="eds" optional className="col-span-2 sm:col-span-3"><Textarea id="eds" rows={3} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
-          </div>
+            <div className="md:order-2">
+              <p className="text-sm font-medium text-ink mb-1.5">Ngày<span className="text-danger ml-0.5" aria-hidden>*</span></p>
+              <EventDatePicker recurring={edit.recurring} invalid={!!errs.date}
+                value={{ calendar: edit.calendar, day: edit.day, month: edit.month, year: edit.year }}
+                onChange={(v) => { setEdit({ ...edit, ...v }); if (errs.date) setErrs({ ...errs, date: undefined }); }} />
+              {errs.date && <p role="alert" className="mt-1.5 text-sm text-danger">{errs.date}</p>}
+            </div>
+            <button type="submit" hidden />
+          </form>
         )}
+      </Modal>
+      <Modal open={!!removing} onClose={() => setRemoving(null)} title="Xóa sự kiện?"
+        footer={<><Button onClick={() => setRemoving(null)}>Hủy</Button><Button variant="danger" icon={<Trash2 aria-hidden />} onClick={async () => {
+          try { await api.del(`/admin/events/${removing.id}`); toast('Đã xóa sự kiện.'); reload(); } catch (e: any) { toast(e.message, 'error'); }
+          setRemoving(null);
+        }}>Xóa</Button></>}>
+        <p className="text-ink-2">Sự kiện <b className="text-ink">{removing?.title}</b> sẽ bị xóa khỏi lịch.</p>
       </Modal>
     </>
   );
@@ -245,13 +255,14 @@ export function AlbumsAdmin() {
   };
   return (
     <>
-      <PageHeader title="Album ảnh" actions={<Button variant="primary" onClick={() => setOpen(true)}>Tạo album</Button>} />
-      {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? <EmptyState title="Chưa có album" /> : (
+      <PageHeader title="Album ảnh" actions={<Button variant="primary" icon={<Plus aria-hidden />} onClick={() => setOpen(true)}>Tạo album</Button>} />
+      {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? <EmptyState icon={<Images />} title="Chưa có album" text="Gom ảnh lễ tế, họp họ, ảnh tư liệu theo từng album."
+        action={<Button variant="primary" icon={<Plus aria-hidden />} onClick={() => setOpen(true)}>Tạo album</Button>} /> : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {data.map((a) => (
             <li key={a.id}>
-              <Link to={`/admin/albums/${a.id}`} className="block rounded-xl border border-line bg-surface overflow-hidden hover:shadow-sm">
-                <div className="aspect-[4/3] bg-sunken">{a.cover && <img src={fileUrl(a.cover)} alt="" className="w-full h-full object-cover" />}</div>
+              <Link to={`/admin/albums/${a.id}`} className="gp-card group block rounded-xl border border-line bg-surface overflow-hidden">
+                <div className="aspect-[4/3] bg-sunken overflow-hidden flex items-center justify-center text-line-strong">{a.cover ? <img src={fileUrl(a.cover)} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" /> : <Images aria-hidden className="size-10" />}</div>
                 <div className="p-4"><p className="font-medium">{a.title}</p><p className="text-sm text-ink-2">{a.photo_count} ảnh</p></div>
               </Link>
             </li>
@@ -312,7 +323,7 @@ export function AlbumAdmin() {
         {progress ? (
           <><Spinner /><span className="text-ink-2">Đang tải {progress.done}/{progress.total}...</span></>
         ) : (
-          <><span className="font-medium"><span className="pointer-coarse:hidden">Kéo thả ảnh vào đây hoặc bấm để chọn</span><span className="hidden pointer-coarse:inline">Bấm để chọn ảnh</span></span><span className="text-sm text-ink-3">Ảnh được thu nhỏ còn tối đa 2000px trước khi tải lên.</span></>
+          <><UploadCloud aria-hidden className="size-7 text-ink-2 mb-1" /><span className="font-medium"><span className="pointer-coarse:hidden">Kéo thả ảnh vào đây hoặc bấm để chọn</span><span className="hidden pointer-coarse:inline">Bấm để chọn ảnh</span></span><span className="text-sm text-ink-3">Ảnh được thu nhỏ còn tối đa 2000px trước khi tải lên.</span></>
         )}
         <input type="file" accept="image/*" multiple className="sr-only" disabled={!!progress} onChange={(e) => e.target.files && upload(e.target.files)} />
       </label>

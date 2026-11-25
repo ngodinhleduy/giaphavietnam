@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cx, Input, Select } from './ui.tsx';
-import { solarToLunar, formatLunar } from '../../shared/lunar.ts';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { dayInfo, formatLunar, lunarToSolar, solarToLunar, type DayInfo } from '../../shared/lunar.ts';
 
 /**
  * Ô nhập ngày cho gia phả. Giá trị lưu: '' | 'YYYY' | 'YYYY-MM-DD'.
@@ -105,7 +106,7 @@ export function DateInput({ id, value, onChange, showLunar, placeholder = 'dd/mm
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(text); } if (e.key === 'ArrowDown' && e.altKey) setOpen(true); }} />
         <button type="button" aria-label="Mở lịch" aria-expanded={open} aria-controls={popId} onClick={() => setOpen((v) => !v)}
           className="absolute right-1 top-1/2 -translate-y-1/2 size-9 inline-flex items-center justify-center rounded-md text-ink-2 hover:text-ink hover:bg-sunken cursor-pointer">
-          <svg viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="4.5" width="14" height="12.5" rx="2" /><path d="M3 8.5h14M7 2.5v4M13 2.5v4" /></svg>
+          <CalendarDays aria-hidden className="size-5" />
         </button>
       </div>
       {err ? <p id={`${popId}-err`} role="alert" className="mt-1.5 text-sm text-danger">{err}</p>
@@ -118,70 +119,185 @@ export function DateInput({ id, value, onChange, showLunar, placeholder = 'dd/mm
   );
 }
 
-function Calendar({ id, value, onPick, max }: { id: string; value: string; onPick: (v: string) => void; max?: string }) {
-  const today = new Date();
-  const init = value ? { y: +value.slice(0, 4), m: isFull(value) ? +value.slice(5, 7) : 1 } : { y: today.getFullYear(), m: today.getMonth() + 1 };
-  const [y, setY] = useState(init.y);
-  const [m, setM] = useState(init.m);
-  const [yearText, setYearText] = useState(String(init.y));
+/** Đầu lịch: lùi, tiến, chọn tháng, gõ năm. */
+function MonthNav({ y, m, set, minY, maxY }: { y: number; m: number; set: (y: number, m: number) => void; minY: number; maxY: number }) {
+  const [yearText, setYearText] = useState(String(y));
   useEffect(() => setYearText(String(y)), [y]);
-  const maxY = today.getFullYear() + 1;
-  const days = useMemo(() => {
-    const first = new Date(y, m - 1, 1);
-    const lead = (first.getDay() + 6) % 7; // tuần bắt đầu thứ hai
-    const count = new Date(y, m, 0).getDate();
-    return [...Array(lead).fill(null), ...Array.from({ length: count }, (_, i) => i + 1)];
-  }, [y, m]);
   const step = (d: number) => {
     let nm = m + d;
     let ny = y;
     if (nm < 1) { nm = 12; ny--; }
     if (nm > 12) { nm = 1; ny++; }
-    if (ny < MIN_YEAR || ny > maxY) return;
-    setM(nm);
-    setY(ny);
+    if (ny >= minY && ny <= maxY) set(ny, nm);
   };
-  const todayIso = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const nav = 'size-9 pointer-coarse:size-10 shrink-0 inline-flex items-center justify-center rounded-md text-ink-2 hover:bg-sunken hover:text-ink transition-colors cursor-pointer';
   return (
-    <div id={id} role="dialog" aria-label="Chọn ngày"
-      className="absolute z-40 mt-1 left-0 w-[19.5rem] max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface shadow-xl p-3">
-      <div className="flex items-center gap-1.5">
-        <button type="button" onClick={() => step(-1)} aria-label="Tháng trước" className="size-9 shrink-0 rounded-md hover:bg-sunken cursor-pointer">‹</button>
-        <Select aria-label="Tháng" value={m} onChange={(e) => setM(+e.target.value)} className="flex-1 w-auto h-9 pointer-coarse:h-10 text-sm">
-          {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>Tháng {i + 1}</option>)}
-        </Select>
-        <Input aria-label="Năm" inputMode="numeric" value={yearText} className="w-[4.75rem] h-9 pointer-coarse:h-10 text-sm text-center px-1"
-          onChange={(e) => {
-            setYearText(e.target.value);
-            const n = +e.target.value;
-            if (/^\d{4}$/.test(e.target.value) && n >= MIN_YEAR && n <= maxY) setY(n);
-          }} />
-        <button type="button" onClick={() => step(1)} aria-label="Tháng sau" className="size-9 shrink-0 rounded-md hover:bg-sunken cursor-pointer">›</button>
+    <div className="flex items-center gap-1.5">
+      <button type="button" onClick={() => step(-1)} aria-label="Tháng trước" className={nav}><ChevronLeft aria-hidden className="size-5" /></button>
+      <Select aria-label="Tháng" value={m} onChange={(e) => set(y, +e.target.value)} className="flex-1 w-auto h-9 pointer-coarse:h-10 text-sm">
+        {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>Tháng {i + 1}</option>)}
+      </Select>
+      <Input aria-label="Năm" inputMode="numeric" value={yearText} className="w-[4.75rem] h-9 pointer-coarse:h-10 text-sm text-center px-1"
+        onChange={(e) => {
+          setYearText(e.target.value);
+          const n = +e.target.value;
+          if (/^\d{4}$/.test(e.target.value) && n >= minY && n <= maxY) set(n, m);
+        }} />
+      <button type="button" onClick={() => step(1)} aria-label="Tháng sau" className={nav}><ChevronRight aria-hidden className="size-5" /></button>
+    </div>
+  );
+}
+
+type Cell = { d: number; iso: string; info: DayInfo };
+/**
+ * Lưới một tháng. Dưới mỗi ngày dương là ngày âm; mùng 1, rằm và ngày lễ tô đỏ.
+ * Ngày đầu tháng âm ghi kèm tháng (ví dụ 1/2) để biết đang ở tháng âm nào.
+ */
+function MonthGrid({ y, m, selected, disabled, onPick, onHover }: {
+  y: number; m: number; selected: (c: Cell) => boolean; disabled?: (c: Cell) => boolean;
+  onPick: (c: Cell) => void; onHover?: (c: Cell | null) => void;
+}) {
+  const cells = useMemo(() => {
+    const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7; // tuần bắt đầu thứ hai
+    const count = new Date(y, m, 0).getDate();
+    const list: (Cell | null)[] = Array(lead).fill(null);
+    for (let d = 1; d <= count; d++) list.push({ d, iso: `${y}-${pad(m)}-${pad(d)}`, info: dayInfo(d, m, y) });
+    return list;
+  }, [y, m]);
+  const t = new Date();
+  const todayIso = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+  return (
+    <>
+      <div className="grid grid-cols-7 mt-2 text-center text-xs font-medium text-ink-2" aria-hidden>
+        {WEEK.map((w) => <span key={w} className={cx('h-7 inline-flex items-center justify-center', w === 'CN' && 'text-danger')}>{w}</span>)}
       </div>
-      <div className="grid grid-cols-7 mt-2 text-center text-xs text-ink-3">
-        {WEEK.map((w) => <span key={w} className="h-8 inline-flex items-center justify-center">{w}</span>)}
-      </div>
-      <div className="grid grid-cols-7 gap-0.5" role="grid">
-        {days.map((d, i) => {
-          if (!d) return <span key={`e${i}`} />;
-          const iso = `${y}-${pad(m)}-${pad(d)}`;
-          const sel = iso === value;
-          const disabled = !!max && iso > max;
+      <div className="grid grid-cols-7 gap-0.5" onMouseLeave={() => onHover?.(null)}>
+        {cells.map((c, i) => {
+          if (!c) return <span key={`e${i}`} />;
+          const { lunar, mark } = c.info;
+          const sel = selected(c);
+          const off = disabled?.(c) ?? false;
           return (
-            <button key={iso} type="button" disabled={disabled} onClick={() => onPick(iso)} aria-label={`${d}/${m}/${y}`} aria-pressed={sel}
-              className={cx('h-9 pointer-coarse:h-10 rounded-md text-sm tabular-nums cursor-pointer disabled:text-line-strong disabled:cursor-not-allowed',
-                sel ? 'bg-accent text-white font-semibold' : iso === todayIso ? 'ring-1 ring-inset ring-accent text-accent' : 'hover:bg-sunken text-ink')}>
-              {d}
+            <button key={c.iso} type="button" disabled={off} aria-pressed={sel} title={mark || undefined}
+              aria-label={`${c.d}/${m}/${y}, âm lịch ${lunar.day}/${lunar.month}${lunar.leap ? ' nhuận' : ''}${mark ? `, ${mark}` : ''}`}
+              onClick={() => onPick(c)} onMouseEnter={() => onHover?.(c)} onFocus={() => onHover?.(c)}
+              className={cx('h-11 rounded-md flex flex-col items-center justify-center leading-none tabular-nums cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                sel ? 'bg-accent text-white' : c.iso === todayIso ? 'ring-1 ring-inset ring-accent hover:bg-sunken' : 'hover:bg-sunken',
+                !sel && (mark ? 'text-danger' : 'text-ink'))}>
+              <span className={cx('text-sm', (sel || mark) && 'font-semibold')}>{c.d}</span>
+              <span className={cx('mt-1 text-[11px]', sel ? 'text-white' : mark ? 'text-danger font-medium' : 'text-ink-2')}>
+                {lunar.day === 1 ? `1/${lunar.month}` : lunar.day}
+              </span>
             </button>
           );
         })}
       </div>
-      <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-line">
+    </>
+  );
+}
+
+function Calendar({ id, value, onPick, max }: { id: string; value: string; onPick: (v: string) => void; max?: string }) {
+  const today = new Date();
+  const init = value ? { y: +value.slice(0, 4), m: isFull(value) ? +value.slice(5, 7) : 1 } : { y: today.getFullYear(), m: today.getMonth() + 1 };
+  const [ym, setYm] = useState(init);
+  const [hover, setHover] = useState<Cell | null>(null);
+  const { y, m } = ym;
+  return (
+    <div id={id} role="dialog" aria-label="Chọn ngày"
+      className="gp-pop absolute z-40 mt-1 left-0 w-[21rem] max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface shadow-xl p-3">
+      <MonthNav y={y} m={m} set={(ny, nm) => setYm({ y: ny, m: nm })} minY={MIN_YEAR} maxY={today.getFullYear() + 1} />
+      <MonthGrid y={y} m={m} selected={(c) => c.iso === value} disabled={(c) => !!max && c.iso > max} onPick={(c) => onPick(c.iso)} onHover={setHover} />
+      <p className="mt-2 h-5 text-xs text-ink-2 truncate" aria-hidden>
+        {hover ? <>{formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Số nhỏ là ngày âm. Màu đỏ: mùng 1, rằm, ngày lễ.'}
+      </p>
+      <div className="flex items-center justify-between gap-2 mt-1 pt-2 border-t border-line">
         <button type="button" onClick={() => onPick(String(y))} className="h-9 px-2 rounded-md text-sm font-medium text-accent hover:bg-accent-soft cursor-pointer">
           Chỉ biết năm {y}
         </button>
         <button type="button" onClick={() => onPick('')} className="h-9 px-2 rounded-md text-sm text-ink-2 hover:bg-sunken cursor-pointer">Xóa</button>
       </div>
+    </div>
+  );
+}
+
+export type EventDate = { calendar: 'lunar' | 'solar'; day: number | null; month: number | null; year: number | null };
+const WEEKDAY = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
+/**
+ * Chọn ngày cho sự kiện ngay trên lịch tháng. Loại lịch (âm hoặc dương) chọn ở đầu lịch:
+ * cùng một ô ngày, lưu theo âm lịch thì sự kiện lặp theo ngày âm, lưu theo dương lịch thì lặp theo ngày dương.
+ */
+export function EventDatePicker({ value, onChange, recurring, invalid }: {
+  value: EventDate; onChange: (v: EventDate) => void; recurring: boolean; invalid?: boolean;
+}) {
+  const today = new Date();
+  const thisYear = today.getFullYear();
+  // Ngày dương ứng với lựa chọn hiện tại, trong năm đã lưu hoặc năm nay
+  const solarOf = (v: EventDate, year: number): [number, number, number] | null => {
+    if (!v.day || !v.month) return null;
+    if (v.calendar === 'solar') return [v.day, v.month, year];
+    return lunarToSolar(v.day, v.month, year);
+  };
+  const first = solarOf(value, value.year || thisYear);
+  const [ym, setYm] = useState(first ? { y: first[2], m: first[1] } : { y: thisYear, m: today.getMonth() + 1 });
+  const [hover, setHover] = useState<Cell | null>(null);
+  const { y, m } = ym;
+  const lunar = value.calendar === 'lunar';
+
+  const selected = (c: Cell) => {
+    if (!value.day || !value.month) return false;
+    const l = c.info.lunar;
+    const same = lunar ? l.day === value.day && l.month === value.month && !l.leap : c.d === value.day && m === value.month;
+    if (!same || recurring || !value.year) return same;
+    return lunar ? l.year === value.year : y === value.year;
+  };
+  const pick = (c: Cell) => {
+    const l = c.info.lunar;
+    onChange(lunar ? { calendar: 'lunar', day: l.day, month: l.month, year: l.year } : { calendar: 'solar', day: c.d, month: m, year: y });
+  };
+  const switchTo = (cal: 'lunar' | 'solar') => {
+    if (cal === value.calendar) return;
+    // Giữ nguyên ngày đã chọn trên lịch, chỉ đổi cách lưu
+    const s = solarOf(value, value.year || y);
+    if (!s) return onChange({ ...value, calendar: cal });
+    if (cal === 'solar') return onChange({ calendar: 'solar', day: s[0], month: s[1], year: s[2] });
+    const l = solarToLunar(s[0], s[1], s[2]);
+    onChange({ calendar: 'lunar', day: l.day, month: l.month, year: l.year });
+  };
+
+  const next = solarOf(value, recurring ? y : value.year || y);
+  const summary = !value.day || !value.month ? null : lunar
+    ? `${value.day < 11 ? `Mùng ${value.day}` : `Ngày ${value.day}`} tháng ${LUNAR_MONTHS[value.month - 1]} âm lịch`
+    : `Ngày ${value.day} tháng ${value.month} dương lịch`;
+  return (
+    <div className={cx('rounded-xl border bg-surface p-3', invalid ? 'border-danger' : 'border-line-strong')}>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div role="radiogroup" aria-label="Lưu ngày theo lịch" className="inline-flex p-1 rounded-lg bg-sunken">
+          {([['lunar', 'Âm lịch'], ['solar', 'Dương lịch']] as const).map(([k, l]) => (
+            <button key={k} type="button" role="radio" aria-checked={value.calendar === k} onClick={() => switchTo(k)}
+              className={cx('h-8 pointer-coarse:h-10 px-3 rounded-md text-sm font-medium cursor-pointer transition-colors', value.calendar === k ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink')}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <button type="button" onClick={() => setYm({ y: thisYear, m: today.getMonth() + 1 })}
+          className="h-8 pointer-coarse:h-10 px-2.5 rounded-md text-sm font-medium text-ink-2 hover:bg-sunken hover:text-ink cursor-pointer transition-colors">Hôm nay</button>
+      </div>
+      <MonthNav y={y} m={m} set={(ny, nm) => setYm({ y: ny, m: nm })} minY={MIN_YEAR} maxY={thisYear + 50} />
+      <MonthGrid y={y} m={m} selected={selected} onPick={pick} onHover={setHover} />
+      <p className="mt-2 h-5 text-xs text-ink-2 truncate" aria-hidden>
+        {hover ? <>{hover.d}/{m}/{y} · {formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Số nhỏ là ngày âm. Màu đỏ: mùng 1, rằm, ngày lễ.'}
+      </p>
+      <p role="status" className="mt-1 pt-2.5 border-t border-line text-sm">
+        {!summary ? <span className="text-ink-2">Bấm một ngày trên lịch để chọn.</span> : (
+          <>
+            <span className="font-semibold text-ink">{summary}</span>
+            {next && <span className="text-ink-2">{lunar
+              ? ` · năm ${next[2]} là ${WEEKDAY[new Date(next[2], next[1] - 1, next[0]).getDay()].toLowerCase()} ${next[0]}/${next[1]}/${next[2]}`
+              : ` · ${WEEKDAY[new Date(next[2], next[1] - 1, next[0]).getDay()].toLowerCase()}, âm lịch ${(() => { const l = solarToLunar(next[0], next[1], next[2]); return `${l.day}/${l.month}`; })()}`}</span>}
+          </>
+        )}
+      </p>
     </div>
   );
 }

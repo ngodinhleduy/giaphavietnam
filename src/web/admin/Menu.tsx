@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, Plus, RotateCcw, Save } from 'lucide-react';
 import { api, useApi } from '../lib/api.ts';
 import { MENU_PAGES, defaultMenu, type MenuItem } from '../../shared/menu.ts';
 import { Badge, Button, ErrorState, Field, Input, Loading, PageHeader, Select, Switch, useToast } from '../components/ui.tsx';
@@ -51,11 +52,11 @@ export function MenuAdmin() {
     <>
       <PageHeader title="Menu website" subtitle="Thanh menu ở đầu trang xem"
         actions={<>
-          <Button onClick={() => setItems(defaultMenu())}>Về mặc định</Button>
-          <Button variant="primary" loading={busy} disabled={!dirty} onClick={save}>Lưu menu</Button>
+          <Button icon={<RotateCcw aria-hidden />} onClick={() => setItems(defaultMenu())}>Về mặc định</Button>
+          <Button variant="primary" icon={<Save aria-hidden />} loading={busy} disabled={!dirty} onClick={save}>Lưu menu</Button>
         </>} />
       <div className="grid gap-6 xl:grid-cols-[1fr_22rem] items-start max-w-[72rem]">
-        <Section title={`Các mục (${shown} đang hiện)`} hint="Dùng nút Lên và Xuống để đổi thứ tự. Trên điện thoại menu hiện dạng danh sách dọc, nên giữ tối đa 7 mục.">
+        <Section title={`Các mục (${shown} đang hiện)`} hint="Dùng mũi tên để đổi thứ tự. Nên giữ tối đa 7 mục.">
           <p className="sr-only" role="status">{moved}</p>
           <ol className="divide-y divide-line -mx-1">
             {items.map((it, i) => {
@@ -71,8 +72,8 @@ export function MenuAdmin() {
                     </p>
                   </div>
                   <div className="flex gap-1 row-span-2 sm:row-span-1 self-start sm:self-center">
-                    <Button size="sm" disabled={i === 0} aria-label={`Đưa ${it.label} lên`} onClick={() => move(i, -1)}>Lên</Button>
-                    <Button size="sm" disabled={i === items.length - 1} aria-label={`Đưa ${it.label} xuống`} onClick={() => move(i, 1)}>Xuống</Button>
+                    <Button size="sm" className="px-2" disabled={i === 0} aria-label={`Đưa ${it.label} lên`} icon={<ChevronUp aria-hidden />} onClick={() => move(i, -1)} />
+                    <Button size="sm" className="px-2" disabled={i === items.length - 1} aria-label={`Đưa ${it.label} xuống`} icon={<ChevronDown aria-hidden />} onClick={() => move(i, 1)} />
                   </div>
                   <div className="flex items-center gap-2 sm:justify-end">
                     {isHome ? <Badge>Luôn hiện</Badge> : <Switch label="Hiện" checked={it.visible} onChange={(v) => set(i, { visible: v })} />}
@@ -105,7 +106,7 @@ export function MenuAdmin() {
               <Field label="Địa chỉ" htmlFor="ml-url" error={linkErr || undefined}>
                 <Input id="ml-url" inputMode="url" placeholder="https://..." value={link.target} onChange={(e) => setLink({ ...link, target: e.target.value })} aria-invalid={!!linkErr} />
               </Field>
-              <Button onClick={addLink}>Thêm vào menu</Button>
+              <Button icon={<Plus aria-hidden />} onClick={addLink}>Thêm vào menu</Button>
             </div>
           </Section>
         </div>

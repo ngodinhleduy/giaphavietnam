@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowUpFromLine, HeartHandshake, ListTree, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, useApi } from '../lib/api.ts';
 import { CHILD_TYPE_LABEL, type Gender, type Marriage, type MemberBrief } from '../lib/types.ts';
 import { lifespan } from '../lib/format.ts';
 import { FamilyTree, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
 import {
-  Avatar, Badge, Button, Checkbox, ErrorState, Field, Input, Loading, Modal, SearchInput, Segmented, Select, rankByName, useToast,
+  Avatar, Badge, Button, Checkbox, ErrorState, Field, Input, LinkButton, Loading, Modal, SearchInput, Segmented, Select, rankByName, useToast,
 } from '../components/ui.tsx';
 
 type TreeData = { members: MemberBrief[]; marriages: Marriage[] };
@@ -222,12 +223,12 @@ function Panel({ m, model, kids, why, onClose, onGo, onAct, onFocus }: {
         {!!m.is_hidden && <Badge>Ẩn trên website</Badge>}
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Button variant="primary" onClick={() => onAct('child')}>Thêm con</Button>
-        <Link to={`/admin/members/${m.id}`} className="h-10 pointer-coarse:h-11 inline-flex items-center justify-center rounded-lg border border-line-strong bg-surface text-[15px] font-medium hover:bg-sunken">Sửa hồ sơ</Link>
-        {!!m.is_blood && <Button onClick={() => onAct('spouse')}>Thêm {m.gender === 'male' ? 'vợ' : 'chồng'}</Button>}
-        {kids.length > 0 && <Button onClick={onFocus}>Xem đời sau</Button>}
-        {!!m.is_blood && (!father || !mother) && <Button onClick={() => onAct('parent')}>{!father && !mother ? 'Thêm tổ tiên' : !father ? 'Thêm cha' : 'Thêm mẹ'}</Button>}
-        <Button variant="danger" disabled={!!why} onClick={() => onAct('delete')}>Xóa</Button>
+        <Button variant="primary" icon={<Plus aria-hidden />} onClick={() => onAct('child')}>Thêm con</Button>
+        <LinkButton to={`/admin/members/${m.id}`} icon={<Pencil aria-hidden />}>Sửa hồ sơ</LinkButton>
+        {!!m.is_blood && <Button icon={<HeartHandshake aria-hidden />} onClick={() => onAct('spouse')}>Thêm {m.gender === 'male' ? 'vợ' : 'chồng'}</Button>}
+        {kids.length > 0 && <Button icon={<ListTree aria-hidden />} onClick={onFocus}>Xem đời sau</Button>}
+        {!!m.is_blood && (!father || !mother) && <Button icon={<ArrowUpFromLine aria-hidden />} onClick={() => onAct('parent')}>{!father && !mother ? 'Thêm tổ tiên' : !father ? 'Thêm cha' : 'Thêm mẹ'}</Button>}
+        <Button variant="danger" icon={<Trash2 aria-hidden />} disabled={!!why} onClick={() => onAct('delete')}>Xóa</Button>
       </div>
       {why && <p className="mt-2 text-xs text-ink-2">{why}</p>}
       <div className="mt-4 pt-3 border-t border-line grid gap-3">

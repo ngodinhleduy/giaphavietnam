@@ -177,3 +177,19 @@ export function nextSolarOfLunar(day: number, month: number, from: Date): Date |
 export function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
+
+// ---------- Ngày đáng chú ý trên lịch: mùng 1, rằm và các ngày lễ ----------
+const LUNAR_FEASTS: Record<string, string> = {
+  '1/1': 'Tết Nguyên đán', '2/1': 'Tết Nguyên đán', '3/1': 'Tết Nguyên đán', '15/1': 'Rằm tháng Giêng',
+  '10/3': 'Giỗ Tổ Hùng Vương', '15/4': 'Lễ Phật đản', '5/5': 'Tết Đoan Ngọ', '15/7': 'Lễ Vu Lan',
+  '15/8': 'Tết Trung thu', '23/12': 'Ông Công, ông Táo',
+};
+const SOLAR_FEASTS: Record<string, string> = {
+  '1/1': 'Tết Dương lịch', '30/4': 'Ngày Thống nhất', '1/5': 'Quốc tế Lao động', '2/9': 'Quốc khánh',
+};
+export type DayInfo = { lunar: LunarDate; /** Tên ngày lễ, "Mùng 1" hoặc "Rằm"; rỗng nếu là ngày thường */ mark: string };
+export function dayInfo(dd: number, mm: number, yy: number): DayInfo {
+  const lunar = solarToLunar(dd, mm, yy);
+  const feast = (!lunar.leap && LUNAR_FEASTS[`${lunar.day}/${lunar.month}`]) || SOLAR_FEASTS[`${dd}/${mm}`] || '';
+  return { lunar, mark: feast || (lunar.day === 1 ? 'Mùng 1' : lunar.day === 15 ? 'Rằm' : '') };
+}

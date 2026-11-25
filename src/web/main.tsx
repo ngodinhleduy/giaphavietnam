@@ -33,6 +33,8 @@ const LogsAdmin = L(() => import('./admin/Logs.tsx'), 'LogsAdmin');
 const MessagesAdmin = L(() => import('./admin/Messages.tsx'), 'MessagesAdmin');
 const MenuAdmin = L(() => import('./admin/Menu.tsx'), 'MenuAdmin');
 const AccountPage = L(() => import('./admin/Settings.tsx'), 'AccountPage');
+const AppearanceAdmin = L(() => import('./admin/Settings.tsx'), 'AppearanceAdmin');
+const ContactAdmin = L(() => import('./admin/Settings.tsx'), 'ContactAdmin');
 
 function NotFound() {
   return (
@@ -76,6 +78,8 @@ createRoot(document.getElementById('root')!).render(
             <Route path="albums/:id" element={<AlbumAdmin />} />
             <Route path="admins" element={<AdminsAdmin />} />
             <Route path="settings" element={<SettingsAdmin />} />
+            <Route path="appearance" element={<AppearanceAdmin />} />
+            <Route path="contact" element={<ContactAdmin />} />
             <Route path="menu" element={<MenuAdmin />} />
             <Route path="messages" element={<MessagesAdmin />} />
             <Route path="account" element={<AccountPage />} />

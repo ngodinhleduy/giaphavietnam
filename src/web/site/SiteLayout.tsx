@@ -2,9 +2,11 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useApi, fileUrl } from '../lib/api.ts';
 import type { Site } from '../lib/types.ts';
+import { ArrowUpRight, Eye, MapPin, Menu as MenuIcon, MessageSquareText, Phone, X } from 'lucide-react';
 import { cx, Loading, ErrorState } from '../components/ui.tsx';
+import { TEMPLATES, parsePeople, templateOf, type TemplateId } from '../../shared/site.ts';
 
-const SiteCtx = createContext<{ site: Site; reload: () => void } | null>(null);
+const SiteCtx = createContext<{ site: Site; reload: () => void; template: TemplateId } | null>(null);
 export const useSite = () => useContext(SiteCtx)!;
 
 import { defaultMenu, menuLinks, type MenuLink } from '../../shared/menu.ts';
@@ -18,9 +20,9 @@ function MenuEntry({ n, mobile }: { n: MenuLink; mobile?: boolean }) {
   const onPath = path === '/' ? loc.pathname === '/' : loc.pathname === path || loc.pathname.startsWith(path + '/');
   const active = !n.external && onPath && (loc.pathname === path ? (want ?? '') === (path === '/bai-viet' ? have ?? '' : want ?? '') : !want);
   const cls = mobile
-    ? cx('flex h-12 items-center px-3 rounded-lg font-medium', active ? 'text-accent bg-accent-soft' : 'text-ink')
-    : cx('px-3 h-10 inline-flex items-center rounded-lg text-[15px] font-medium max-lg:px-2.5 whitespace-nowrap', active ? 'text-accent bg-accent-soft' : 'text-ink-2 hover:text-ink hover:bg-sunken');
-  if (n.external) return <a href={n.to} target="_blank" rel="noopener noreferrer" className={cls}>{n.label}<span className="sr-only"> (mở trang khác)</span></a>;
+    ? cx('flex h-12 items-center gap-1.5 px-3 rounded-lg font-medium transition-colors', active ? 'text-accent bg-accent-soft' : 'text-ink hover:bg-sunken')
+    : cx('gp-nav relative px-3 h-10 inline-flex items-center gap-1 rounded-lg text-[15px] font-medium max-lg:px-2.5 whitespace-nowrap transition-colors', active ? 'text-ink is-active' : 'text-ink-2 hover:text-ink');
+  if (n.external) return <a href={n.to} target="_blank" rel="noopener noreferrer" className={cls}>{n.label}<ArrowUpRight aria-hidden className="size-3.5" /><span className="sr-only"> (mở trang khác)</span></a>;
   return <Link to={n.to} aria-current={active ? 'page' : undefined} className={cls}>{n.label}</Link>;
 }
 
@@ -33,20 +35,42 @@ export function SiteLayout() {
     if (site) document.title = site.site_name;
   }, [site]);
 
+  // Xem thử mẫu từ trang quản trị: /?mau=<id>. Giữ trong phiên của tab này, không ảnh hưởng người khác.
+  const [preview, setPreview] = useState<string | null>(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('mau');
+      if (q) sessionStorage.setItem('gp-mau', q);
+      return sessionStorage.getItem('gp-mau');
+    } catch { return null; }
+  });
+  const stopPreview = () => { try { sessionStorage.removeItem('gp-mau'); } catch { /* bỏ qua */ } setPreview(null); };
+
   if (error) return <div className="max-w-xl mx-auto p-6"><ErrorState error={error} onRetry={reload} /></div>;
   if (!site) return <Loading />;
+  const template = templateOf(preview && TEMPLATES.some((t) => t.id === preview) ? preview : site.template);
+  const previewing = !!preview && template !== templateOf(site.template);
+  const people = parsePeople(site.contact_people);
   const NAV = site.menu?.length ? site.menu : menuLinks(defaultMenu(), new Set());
 
   return (
-    <SiteCtx.Provider value={{ site, reload }}>
+    <SiteCtx.Provider value={{ site, reload, template }}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 bg-surface p-2 z-50">Bỏ qua menu</a>
+      {previewing && (
+        <div role="status" className="no-print bg-ink text-white text-sm">
+          <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 min-h-11 py-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Eye aria-hidden className="size-4 shrink-0" />
+            <span className="flex-1 min-w-0">Đang xem thử mẫu <b className="font-semibold">{TEMPLATES.find((t) => t.id === template)?.name}</b>. Người khác vẫn thấy mẫu cũ.</span>
+            <button onClick={stopPreview} className="h-8 px-3 rounded-md bg-white/15 hover:bg-white/25 font-medium cursor-pointer transition-colors">Thoát xem thử</button>
+          </div>
+        </div>
+      )}
       <header className="sticky top-0 z-40 bg-bg/95 backdrop-blur border-b border-line no-print pt-[env(safe-area-inset-top)]">
         <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4 lg:gap-6">
-          <Link to="/" className="flex items-center gap-3 min-w-0">
+          <Link to="/" className="group flex items-center gap-3 min-w-0">
             {site.logo_file_id ? (
               <img src={fileUrl(site.logo_file_id)} alt="" className="size-9 rounded-full object-cover" />
             ) : (
-              <span className="size-9 rounded-full bg-accent text-white inline-flex items-center justify-center font-serif font-semibold">
+              <span className="size-9 rounded-full bg-accent text-white inline-flex items-center justify-center font-serif font-semibold transition-transform group-hover:scale-105">
                 {site.site_name.trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || 'G'}
               </span>
             )}
@@ -55,13 +79,13 @@ export function SiteLayout() {
           <nav className="hidden md:flex items-center gap-1 ml-auto" aria-label="Chính">
             {NAV.map((n) => <MenuEntry key={n.to + n.label} n={n} />)}
           </nav>
-          <button className="md:hidden ml-auto size-10 inline-flex items-center justify-center rounded-lg hover:bg-sunken cursor-pointer"
-            aria-label="Mở menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
-            <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          <button className="md:hidden ml-auto size-10 inline-flex items-center justify-center rounded-lg hover:bg-sunken cursor-pointer transition-colors"
+            aria-label={menu ? 'Đóng menu' : 'Mở menu'} aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
+            {menu ? <X aria-hidden className="size-6" /> : <MenuIcon aria-hidden className="size-6" />}
           </button>
         </div>
         {menu && (
-          <nav className="md:hidden border-t border-line bg-surface px-4 py-2" aria-label="Chính (di động)">
+          <nav className="gp-rise md:hidden border-t border-line bg-surface px-4 py-2" aria-label="Chính (di động)">
             {NAV.map((n) => <MenuEntry key={n.to + n.label} n={n} mobile />)}
           </nav>
         )}
@@ -85,8 +109,16 @@ export function SiteLayout() {
           </div>
           <div>
             <p className="font-medium text-ink">Liên hệ</p>
-            <p className="mt-2 text-ink-2 whitespace-pre-line leading-relaxed">{site.contact || site.address || 'Ban liên lạc dòng họ'}</p>
-            <Link to="/lien-he" className="inline-flex items-center min-h-9 pointer-coarse:min-h-11 mt-1 text-ink underline underline-offset-4 decoration-line-strong hover:decoration-ink">Gửi lời nhắn</Link>
+            <ul className="mt-2 space-y-2 text-ink-2 leading-relaxed">
+              {site.address && <li className="flex gap-2"><MapPin aria-hidden className="size-4 shrink-0 mt-1" /><span>{site.address}</span></li>}
+              {people.filter((p) => p.phone).slice(0, 2).map((p) => (
+                <li key={p.name + p.phone} className="flex gap-2"><Phone aria-hidden className="size-4 shrink-0 mt-1" />
+                  <span>{p.name} · <a href={`tel:${p.phone.replace(/[^\d+]/g, '')}`} className="text-ink hover:underline underline-offset-4">{p.phone}</a></span></li>
+              ))}
+              {site.contact && <li className="whitespace-pre-line">{site.contact}</li>}
+              {!site.address && !people.length && !site.contact && <li>Ban liên lạc dòng họ</li>}
+            </ul>
+            <Link to="/lien-he" className="group inline-flex items-center gap-1.5 min-h-9 pointer-coarse:min-h-11 mt-2 font-medium text-ink"><MessageSquareText aria-hidden className="size-4" /><span className="underline underline-offset-4 decoration-line-strong group-hover:decoration-ink">{site.contact_form === '0' ? 'Trang Liên hệ' : 'Gửi lời nhắn'}</span></Link>
           </div>
         </div>
         <div className="border-t border-line">
