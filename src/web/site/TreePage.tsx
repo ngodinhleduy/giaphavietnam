@@ -7,7 +7,7 @@ import { fold } from '../../shared/slug.ts';
 import { Container, useSite } from './SiteLayout.tsx';
 import { FamilyTree, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
 import {
-  Avatar, Badge, Button, Checkbox, rankByName, EmptyState, ErrorState, Field, Input, Loading, MemberPicker, PageHeader, Select, cx,
+  Avatar, Badge, Button, Checkbox, PasswordInput, rankByName, SearchInput, EmptyState, ErrorState, Field, Input, Loading, MemberPicker, PageHeader, Select, cx,
 } from '../components/ui.tsx';
 
 type TreeData = { members: MemberBrief[]; marriages: Marriage[] };
@@ -56,7 +56,7 @@ function Gate({ onUnlocked }: { onUnlocked: () => void }) {
         <h1 className="mt-4 font-serif text-2xl font-semibold">Phả đồ dòng họ</h1>
         <p className="mt-2 text-ink-2">Phả đồ chỉ dành cho con cháu trong họ. Nhập mã bảo mật do ban liên lạc cung cấp.</p>
         <Field label="Mã bảo mật" htmlFor="pc" error={err} className="mt-6">
-          <Input id="pc" type="password" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} autoFocus
+          <PasswordInput id="pc" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} autoFocus
             aria-invalid={!!err} />
         </Field>
         <Button type="submit" variant="primary" className="w-full mt-5" loading={busy} disabled={!code}>Xem phả đồ</Button>
@@ -140,7 +140,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
         <Container size="wide" className="pb-6">
           <div className="flex flex-wrap items-center gap-2 py-3 no-print">
             <div className="relative flex-1 min-w-0 md:flex-none md:w-72">
-              <Input placeholder="Tìm tên, không cần dấu" value={q} onChange={(e) => setQ(e.target.value)}
+              <SearchInput placeholder="Tìm tên, không cần dấu" value={q} onChange={setQ}
                 aria-label="Tìm thành viên" onKeyDown={(e) => { if (e.key === 'Enter' && matches[0]) { revealAndCenter(matches[0].id); setQ(''); } if (e.key === 'Escape') setQ(''); }} />
               {q.length >= 2 && (
                 <ul className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-line bg-surface shadow-lg py-1">
@@ -319,7 +319,7 @@ function MemberGrid({ members, maxGen }: { members: MemberBrief[]; maxGen: numbe
   return (
     <Container size="wide" className="py-6">
       <div className="flex flex-wrap gap-2 mb-5">
-        <Input className="w-full sm:w-72" placeholder="Tìm tên" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Tìm tên" />
+        <SearchInput className="w-full sm:w-72" placeholder="Tìm tên" value={q} onChange={setQ} aria-label="Tìm tên" />
         <Select className="flex-1 sm:flex-none w-auto" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="Lọc theo đời">
           <option value="">Mọi đời</option>
           {Array.from({ length: maxGen }, (_, i) => <option key={i} value={i + 1}>Đời {i + 1}</option>)}

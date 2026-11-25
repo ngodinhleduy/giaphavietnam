@@ -283,6 +283,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     await new Promise((r) => setTimeout(r, 300));
     const u = await db(c).first<any>('SELECT * FROM admins WHERE username = ?', [String(username ?? '').trim()]);
     if (!u || !(await verifyPassword(String(password ?? ''), u.password_hash))) throw bad('Sai tên đăng nhập hoặc mật khẩu.');
+    await db(c).run("UPDATE admins SET last_login_at = datetime('now') WHERE id = ?", [u.id]);
     const token = await signToken({ sub: String(u.id), role: 'admin', exp: Date.now() + 7 * DAY }, c.get('deps').secret);
     setCookie(c, ADMIN_COOKIE, token, { httpOnly: true, sameSite: 'Lax', secure: secure(c), path: '/', maxAge: 7 * 86400 });
     return c.json({ id: u.id, username: u.username, display_name: u.display_name });
@@ -655,26 +656,51 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   });
 
   // Admins
-  app.get('/admin/admins', async (c) => c.json(await db(c).all('SELECT id, username, display_name, created_at FROM admins')));
+  app.get('/admin/admins', async (c) =>
+    c.json(await db(c).all('SELECT id, username, display_name, created_at, last_login_at FROM admins ORDER BY id')),
+  );
+  const validUsername = (u: string) => /^[a-zA-Z0-9._-]{3,32}$/.test(u);
   app.post('/admin/admins', async (c) => {
     const b = await c.req.json<any>();
-    if (!b.username?.trim() || String(b.password ?? '').length < 8) throw bad('Tên đăng nhập bắt buộc, mật khẩu tối thiểu 8 ký tự.');
+    const username = String(b.username ?? '').trim();
+    if (!validUsername(username)) throw bad('Tên đăng nhập 3-32 ký tự, chỉ gồm chữ không dấu, số, dấu chấm, gạch dưới, gạch ngang.');
+    if (String(b.password ?? '').length < 8) throw bad('Mật khẩu tối thiểu 8 ký tự.');
+    if (await db(c).first('SELECT 1 FROM admins WHERE username = ?', [username])) throw bad('Tên đăng nhập đã tồn tại.');
     const r = await db(c).run('INSERT INTO admins (username, password_hash, display_name) VALUES (?, ?, ?)', [
-      b.username.trim(), await hashPassword(b.password), b.display_name || b.username,
+      username, await hashPassword(b.password), String(b.display_name ?? '').trim() || username,
     ]);
     return c.json({ id: r.lastId });
+  });
+  app.put('/admin/admins/:id', async (c) => {
+    const b = await c.req.json<any>();
+    const name = String(b.display_name ?? '').trim();
+    if (!name) throw bad('Tên hiển thị không được để trống.');
+    await db(c).run('UPDATE admins SET display_name = ? WHERE id = ?', [name, c.req.param('id')]);
+    return c.json({ ok: true });
+  });
+  // Đặt lại mật khẩu cho người khác (không cần mật khẩu cũ)
+  app.put('/admin/admins/:id/password', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (id === c.get('adminId')) throw bad('Đổi mật khẩu của chính bạn ở mục Tài khoản của bạn.');
+    const b = await c.req.json<any>();
+    if (String(b.password ?? '').length < 8) throw bad('Mật khẩu tối thiểu 8 ký tự.');
+    await db(c).run('UPDATE admins SET password_hash = ? WHERE id = ?', [await hashPassword(b.password), id]);
+    return c.json({ ok: true });
   });
   app.put('/admin/password', async (c) => {
     const b = await c.req.json<any>();
     const u = await db(c).first<any>('SELECT * FROM admins WHERE id = ?', [c.get('adminId')]);
     if (!(await verifyPassword(String(b.current ?? ''), u.password_hash))) throw bad('Mật khẩu hiện tại không đúng.');
     if (String(b.next ?? '').length < 8) throw bad('Mật khẩu mới tối thiểu 8 ký tự.');
+    if (b.next === b.current) throw bad('Mật khẩu mới phải khác mật khẩu hiện tại.');
     await db(c).run('UPDATE admins SET password_hash = ? WHERE id = ?', [await hashPassword(b.next), u.id]);
     return c.json({ ok: true });
   });
   app.delete('/admin/admins/:id', async (c) => {
     const id = Number(c.req.param('id'));
     if (id === c.get('adminId')) throw bad('Không thể tự xóa tài khoản đang đăng nhập.');
+    const n = await db(c).first<{ n: number }>('SELECT COUNT(*) AS n FROM admins');
+    if ((n?.n ?? 0) <= 1) throw bad('Phải còn ít nhất một người quản trị.');
     await db(c).run('DELETE FROM admins WHERE id = ?', [id]);
     return c.json({ ok: true });
   });

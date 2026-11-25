@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type FormEvent } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { api, fileUrl, shrinkImage } from '../lib/api.ts';
-import { Button, Field, Input, Loading, Spinner, cx, useToast } from '../components/ui.tsx';
+import { Button, Field, Input, Loading, PasswordInput, Spinner, cx, useToast } from '../components/ui.tsx';
 
 type Me = { id: number; username: string; display_name: string };
 const MeCtx = createContext<Me | null>(null);
@@ -13,6 +13,7 @@ const NAV = [
   { to: '/admin/articles', label: 'Bài viết' },
   { to: '/admin/events', label: 'Sự kiện' },
   { to: '/admin/albums', label: 'Album ảnh' },
+  { to: '/admin/admins', label: 'Quản trị viên' },
   { to: '/admin/settings', label: 'Cài đặt' },
 ];
 
@@ -109,7 +110,7 @@ function Login({ setup, onDone }: { setup: boolean; onDone: () => void }) {
           </Field>
         )}
         <Field label="Mật khẩu" htmlFor="p" hint={setup ? 'Tối thiểu 8 ký tự.' : undefined}>
-          <Input id="p" type="password" autoComplete={setup ? 'new-password' : 'current-password'} value={f.password}
+          <PasswordInput id="p" autoComplete={setup ? 'new-password' : 'current-password'} value={f.password}
             onChange={(e) => setF({ ...f, password: e.target.value })} />
         </Field>
         {err && <p role="alert" className="text-sm text-danger">{err}</p>}
@@ -138,18 +139,22 @@ export function ImageUpload({ value, onChange, label = 'Ảnh', round }: {
       setBusy(false);
     }
   };
+  const [drag, setDrag] = useState(false);
   return (
-    <div className="flex items-center gap-4">
+    <div className={cx('flex items-center gap-4 rounded-xl p-2 -m-2 transition-colors', drag && 'bg-accent-soft ring-2 ring-accent/40')}
+      onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+      onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files?.[0]); }}>
       <div className={cx('size-20 bg-sunken border border-line overflow-hidden flex items-center justify-center shrink-0', round ? 'rounded-full' : 'rounded-lg')}>
-        {busy ? <Spinner /> : value ? <img src={fileUrl(value)} alt="" className="w-full h-full object-cover" /> : <span className="text-xs text-ink-3">Chưa có</span>}
+        {busy ? <Spinner /> : value ? <img src={fileUrl(value)} alt="" className="w-full h-full object-cover" /> : <span className="text-xs text-ink-3 text-center px-1">Kéo ảnh vào</span>}
       </div>
-      <div className="flex gap-2">
-        <label className="h-9 pointer-coarse:h-11 px-3 inline-flex items-center rounded-lg border border-line-strong bg-surface text-sm font-medium cursor-pointer hover:bg-sunken focus-within:ring-2 focus-within:ring-accent">
+      <div className="flex flex-wrap items-center gap-2">
+        <label title="Bấm để chọn hoặc kéo thả ảnh vào đây" className="h-9 pointer-coarse:h-11 px-3 inline-flex items-center rounded-lg border border-line-strong bg-surface text-sm font-medium cursor-pointer hover:bg-sunken focus-within:ring-2 focus-within:ring-accent">
           {value ? 'Đổi ' + label.toLowerCase() : 'Tải ' + label.toLowerCase()}
           <input type="file" accept="image/*" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
         </label>
         {value && <Button size="sm" variant="ghost" onClick={() => onChange(null)}>Gỡ</Button>}
       </div>
+      <span className="sr-only">Hoặc kéo thả ảnh vào đây</span>
     </div>
   );
 }

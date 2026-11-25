@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, useApi } from '../lib/api.ts';
-import { Badge, Button, ErrorState, Field, Input, Loading, PageHeader, Textarea, useToast } from '../components/ui.tsx';
-import { ImageUpload } from './AdminLayout.tsx';
+import { Badge, Button, ErrorState, Field, Input, Loading, PageHeader, PasswordInput, StrengthMeter, Textarea, generatePassword, useToast } from '../components/ui.tsx';
+import { ImageUpload, useMe } from './AdminLayout.tsx';
 import { Section } from './Members.tsx';
 
 export function SettingsAdmin() {
@@ -54,11 +54,14 @@ function PasscodeSection({ hasPasscode, onSave }: { hasPasscode: boolean; onSave
   const [code, setCode] = useState('');
   return (
     <Section title="Mã bảo mật phả đồ" hint="Người xem phải nhập mã này mới thấy cây phả hệ, hồ sơ và ngày giỗ. Bài viết, sự kiện và album vẫn công khai.">
-      <p className="mb-3">{hasPasscode ? <Badge tone="success">Đang bật</Badge> : <Badge tone="accent">Đang tắt: ai cũng xem được phả đồ</Badge>}</p>
-      <div className="flex flex-wrap gap-2 items-end [&>div:first-child]:max-sm:w-full">
-        <Field label={hasPasscode ? 'Mã mới' : 'Đặt mã'} htmlFor="pc" hint="Tối thiểu 4 ký tự. Đổi mã sẽ đăng xuất mọi người đang xem.">
-          <Input id="pc" type="text" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} className="w-full sm:w-64" />
-        </Field>
+      <p className="mb-4">{hasPasscode ? <Badge tone="success">Đang bật</Badge> : <Badge tone="accent">Đang tắt: ai có link cũng xem được phả đồ</Badge>}</p>
+      <Field label={hasPasscode ? 'Mã mới' : 'Đặt mã'} htmlFor="pc" hint="Tối thiểu 4 ký tự, dễ đọc qua điện thoại. Đổi mã sẽ khóa lại phả đồ với mọi người đang xem.">
+        <div className="flex flex-wrap gap-2">
+          <PasswordInput id="pc" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} className="w-full sm:w-64" />
+          <Button type="button" onClick={() => setCode(generatePassword(6).toLowerCase())}>Tạo ngẫu nhiên</Button>
+        </div>
+      </Field>
+      <div className="flex flex-wrap gap-2 mt-4">
         <Button variant="primary" disabled={code.length < 4} onClick={async () => { await onSave({ passcode: code }); setCode(''); }}>Lưu mã</Button>
         {hasPasscode && <Button variant="danger" onClick={() => confirm('Tắt mã bảo mật? Ai có link cũng sẽ xem được phả đồ.') && onSave({ passcode: '' })}>Tắt mã</Button>}
       </div>
@@ -78,42 +81,41 @@ function StorageSection() {
 }
 
 function AccountSection() {
-  const admins = useApi<any[]>('/admin/admins');
-  const [pw, setPw] = useState({ current: '', next: '' });
-  const [nu, setNu] = useState({ username: '', password: '', display_name: '' });
+  const me = useMe();
+  const [name, setName] = useState(me?.display_name ?? '');
+  const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
+  const [busy, setBusy] = useState(false);
   const toast = useToast();
-  const run = async (fn: () => Promise<unknown>, ok: string) => {
-    try {
-      await fn();
-      toast(ok);
-    } catch (e: any) {
-      toast(e.message, 'error');
-    }
-  };
+  const mismatch = !!pw.confirm && pw.next !== pw.confirm;
   return (
-    <Section title="Tài khoản quản trị">
-      <ul className="divide-y divide-line border border-line rounded-lg mb-5">
-        {admins.data?.map((a) => (
-          <li key={a.id} className="flex items-center justify-between gap-2 px-4 min-h-12 py-1">
-            <span className="min-w-0 truncate">{a.display_name} <span className="text-ink-3 text-sm">@{a.username}</span></span>
-            <Button size="sm" variant="ghost" onClick={() => confirm(`Xóa tài khoản ${a.username}?`) && run(async () => { await api.del(`/admin/admins/${a.id}`); admins.reload(); }, 'Đã xóa.')}>Xóa</Button>
-          </li>
-        ))}
-      </ul>
-      <div className="grid gap-6 sm:grid-cols-2">
+    <Section title="Tài khoản của bạn" hint={`Đăng nhập với tên @${me?.username ?? ''}. Thêm hoặc quản lý người khác ở mục Quản trị viên.`}>
+      <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-3">
-          <p className="font-medium text-sm">Đổi mật khẩu của bạn</p>
-          <Input type="password" aria-label="Mật khẩu hiện tại" placeholder="Mật khẩu hiện tại" autoComplete="current-password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
-          <Input type="password" aria-label="Mật khẩu mới" placeholder="Mật khẩu mới (8+ ký tự)" autoComplete="new-password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
-          <Button onClick={() => run(async () => { await api.put('/admin/password', pw); setPw({ current: '', next: '' }); }, 'Đã đổi mật khẩu.')}>Đổi mật khẩu</Button>
+          <Field label="Tên hiển thị" htmlFor="me-name">
+            <Input id="me-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Button disabled={!name.trim() || name === me?.display_name} onClick={async () => {
+            try { await api.put(`/admin/admins/${me!.id}`, { display_name: name }); toast('Đã lưu. Tải lại trang để cập nhật tên.'); } catch (e: any) { toast(e.message, 'error'); }
+          }}>Lưu tên</Button>
         </div>
-        <div className="space-y-3">
-          <p className="font-medium text-sm">Thêm người quản trị</p>
-          <Input aria-label="Tên đăng nhập" placeholder="Tên đăng nhập" value={nu.username} onChange={(e) => setNu({ ...nu, username: e.target.value })} />
-          <Input aria-label="Tên hiển thị" placeholder="Tên hiển thị" value={nu.display_name} onChange={(e) => setNu({ ...nu, display_name: e.target.value })} />
-          <Input type="password" aria-label="Mật khẩu" placeholder="Mật khẩu (8+ ký tự)" autoComplete="new-password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} />
-          <Button onClick={() => run(async () => { await api.post('/admin/admins', nu); setNu({ username: '', password: '', display_name: '' }); admins.reload(); }, 'Đã thêm.')}>Thêm</Button>
-        </div>
+        <form className="space-y-3" onSubmit={async (e) => {
+          e.preventDefault();
+          if (mismatch) return;
+          setBusy(true);
+          try { await api.put('/admin/password', { current: pw.current, next: pw.next }); setPw({ current: '', next: '', confirm: '' }); toast('Đã đổi mật khẩu.'); }
+          catch (err: any) { toast(err.message, 'error'); } finally { setBusy(false); }
+        }}>
+          <Field label="Mật khẩu hiện tại" htmlFor="me-cur" required>
+            <PasswordInput id="me-cur" autoComplete="current-password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
+          </Field>
+          <Field label="Mật khẩu mới" htmlFor="me-new" required hint={<StrengthMeter value={pw.next} />}>
+            <PasswordInput id="me-new" autoComplete="new-password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
+          </Field>
+          <Field label="Nhập lại mật khẩu mới" htmlFor="me-conf" required error={mismatch ? 'Hai mật khẩu chưa khớp.' : undefined}>
+            <PasswordInput id="me-conf" autoComplete="new-password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} aria-invalid={mismatch} />
+          </Field>
+          <Button type="submit" variant="primary" loading={busy} disabled={!pw.current || pw.next.length < 8 || pw.next !== pw.confirm}>Đổi mật khẩu</Button>
+        </form>
       </div>
     </Section>
   );

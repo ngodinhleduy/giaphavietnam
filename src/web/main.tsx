@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes, Link } from 'react-router-dom';
 import './index.css';
@@ -11,11 +11,22 @@ import { ArticlePage, ArticlesPage } from './site/Articles.tsx';
 import { EventsPage } from './site/Events.tsx';
 import { AlbumPage, AlbumsPage } from './site/Albums.tsx';
 import { PrivacyPage } from './site/Privacy.tsx';
-import { AdminLayout } from './admin/AdminLayout.tsx';
-import { Dashboard } from './admin/Dashboard.tsx';
-import { MemberForm, MembersAdmin } from './admin/Members.tsx';
-import { AlbumAdmin, AlbumsAdmin, ArticleForm, ArticlesAdmin, EventsAdmin } from './admin/Content.tsx';
-import { SettingsAdmin } from './admin/Settings.tsx';
+import { Loading } from './components/ui.tsx';
+
+// Trang quản trị tải riêng (có trình soạn thảo), trang xem không phải tải phần này
+const L = <T extends Record<string, any>>(f: () => Promise<T>, name: keyof T) =>
+  lazy(() => f().then((m) => ({ default: m[name] as React.ComponentType })));
+const AdminLayout = L(() => import('./admin/AdminLayout.tsx'), 'AdminLayout');
+const Dashboard = L(() => import('./admin/Dashboard.tsx'), 'Dashboard');
+const MembersAdmin = L(() => import('./admin/Members.tsx'), 'MembersAdmin');
+const MemberForm = L(() => import('./admin/Members.tsx'), 'MemberForm');
+const ArticlesAdmin = L(() => import('./admin/Content.tsx'), 'ArticlesAdmin');
+const ArticleForm = L(() => import('./admin/Content.tsx'), 'ArticleForm');
+const EventsAdmin = L(() => import('./admin/Content.tsx'), 'EventsAdmin');
+const AlbumsAdmin = L(() => import('./admin/Content.tsx'), 'AlbumsAdmin');
+const AlbumAdmin = L(() => import('./admin/Content.tsx'), 'AlbumAdmin');
+const SettingsAdmin = L(() => import('./admin/Settings.tsx'), 'SettingsAdmin');
+const AdminsAdmin = L(() => import('./admin/Admins.tsx'), 'AdminsAdmin');
 
 function NotFound() {
   return (
@@ -31,6 +42,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ToastProvider>
       <BrowserRouter>
+        <Suspense fallback={<Loading />}>
         <Routes>
           <Route element={<SiteLayout />}>
             <Route index element={<Home />} />
@@ -53,9 +65,11 @@ createRoot(document.getElementById('root')!).render(
             <Route path="events" element={<EventsAdmin />} />
             <Route path="albums" element={<AlbumsAdmin />} />
             <Route path="albums/:id" element={<AlbumAdmin />} />
+            <Route path="admins" element={<AdminsAdmin />} />
             <Route path="settings" element={<SettingsAdmin />} />
           </Route>
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </ToastProvider>
   </StrictMode>,

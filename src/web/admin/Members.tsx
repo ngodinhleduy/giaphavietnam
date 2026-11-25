@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, useApi } from '../lib/api.ts';
 import type { MemberBrief } from '../lib/types.ts';
@@ -6,9 +6,11 @@ import { lifespan } from '../lib/format.ts';
 import { fold } from '../../shared/slug.ts';
 import { solarToLunar } from '../../shared/lunar.ts';
 import {
-  Avatar, Badge, Button, Checkbox, EmptyState, ErrorState, Field, Input, Loading, MemberPicker, Modal, PageHeader, Select,
-  Textarea, useToast,
+  Avatar, Badge, Button, EmptyState, ErrorState, Field, Input, Loading, MemberPicker, Modal, PageHeader, SearchInput, Segmented, Select,
+  Switch, useToast,
 } from '../components/ui.tsx';
+import { DateInput, LunarDayMonth } from '../components/DateInput.tsx';
+const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
 import { ImageUpload } from './AdminLayout.tsx';
 
 type Row = MemberBrief & { father_name: string | null; mother_name: string | null; updated_at: string };
@@ -30,7 +32,7 @@ export function MembersAdmin() {
       <PageHeader title="Thành viên" subtitle={data ? `${data.length} người` : undefined}
         actions={<Link to="/admin/members/new" className="h-10 px-4 inline-flex items-center rounded-lg bg-accent text-white font-medium hover:bg-accent-hover">Thêm thành viên</Link>} />
       <div className="flex flex-wrap gap-2 mb-4">
-        <Input className="flex-1 sm:flex-none sm:w-80" placeholder="Tìm tên (không cần dấu)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Tìm" />
+        <SearchInput className="flex-1 sm:flex-none sm:w-80" placeholder="Tìm tên (không cần dấu)" value={q} onChange={setQ} aria-label="Tìm thành viên" />
         <Select className="w-auto" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="Đời">
           <option value="">Mọi đời</option>
           {Array.from({ length: maxGen }, (_, i) => <option key={i} value={i + 1}>Đời {i + 1}</option>)}
@@ -112,6 +114,10 @@ const EMPTY: Form = {
   occupation: '', burial_place: '', bio: '', photo_file_id: null, generation: '',
 };
 type MarriageRow = { id: number; husband_id: number; wife_id: number; husband_name: string; wife_name: string; order_no: number };
+type Then = 'stay' | 'child' | 'sibling';
+
+const ORDER_LABEL = (n: number) => (n === 1 ? 'Con trưởng (thứ 1)' : n === 2 ? 'Con thứ 2' : `Con thứ ${n}`);
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export function MemberForm() {
   const { id } = useParams();
@@ -122,54 +128,90 @@ export function MemberForm() {
   const all = useApi<Row[]>('/admin/members');
   const detail = useApi<any>(isNew ? null : `/admin/members/${id}`);
   const [f, setF] = useState<Form>(EMPTY);
+  const [saved, setSaved] = useState<Form>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [spouseOpen, setSpouseOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
+  const [quick, setQuick] = useState<{ role: 'father' | 'mother'; name: string } | null>(null);
+  const [lunarAuto, setLunarAuto] = useState(false);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }));
 
   useEffect(() => {
     if (isNew) {
-      setF({
+      const init = {
         ...EMPTY,
         father_id: sp.get('father') ? Number(sp.get('father')) : null,
         mother_id: sp.get('mother') ? Number(sp.get('mother')) : null,
-        gender: sp.get('gender') === 'female' ? 'female' : 'male',
+        gender: (sp.get('gender') === 'female' ? 'female' : 'male') as Form['gender'],
         is_blood: sp.get('inlaw') !== '1',
-      });
+        birth_order: sp.get('order') ?? '',
+      };
+      setF(init);
+      setSaved(init);
     } else if (detail.data) {
       const d = detail.data;
       const s = (v: unknown) => (v == null ? '' : String(v));
-      setF({
+      const v: Form = {
         full_name: d.full_name, alias: s(d.alias), gender: d.gender, father_id: d.father_id, mother_id: d.mother_id,
         birth_order: s(d.birth_order), is_blood: !!d.is_blood, is_deceased: !!d.is_deceased, birth_date: s(d.birth_date),
         death_date: s(d.death_date), death_lunar_day: s(d.death_lunar_day), death_lunar_month: s(d.death_lunar_month),
         branch: s(d.branch), hometown: s(d.hometown), occupation: s(d.occupation), burial_place: s(d.burial_place),
         bio: s(d.bio), photo_file_id: d.photo_file_id, generation: s(d.generation),
-      });
+      };
+      setF(v);
+      setSaved(v);
     }
   }, [isNew, detail.data, sp]);
 
+  const dirty = JSON.stringify(f) !== JSON.stringify(saved);
+  // Cảnh báo khi rời trang mà chưa lưu
+  useEffect(() => {
+    if (!dirty) return;
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [dirty]);
+
   const members = all.data ?? [];
   const self = isNew ? null : Number(id);
+  const branches = useMemo(() => [...new Set(members.map((m) => m.branch).filter(Boolean))] as string[], [members]);
+  const father = members.find((m) => m.id === f.father_id);
+  const hasExtra = !!(f.alias || f.branch || f.hometown || f.occupation || f.burial_place || !f.is_blood);
+
+  // Ngày mất đầy đủ mà chưa có ngày giỗ thì tự điền
+  const onDeathDate = (v: string) => {
+    setF((x) => {
+      const n = { ...x, death_date: v };
+      const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m && (!x.death_lunar_day || lunarAuto)) {
+        const l = solarToLunar(+m[3], +m[2], +m[1]);
+        n.death_lunar_day = String(l.day);
+        n.death_lunar_month = String(l.month);
+        setLunarAuto(true);
+      }
+      return n;
+    });
+  };
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!f.full_name.trim()) e.full_name = 'Nhập họ tên.';
-    if (f.birth_date && !/^\d{4}(-\d{2}(-\d{2})?)?$/.test(f.birth_date)) e.birth_date = 'Dạng YYYY hoặc YYYY-MM-DD.';
-    if (f.death_date && !/^\d{4}(-\d{2}(-\d{2})?)?$/.test(f.death_date)) e.death_date = 'Dạng YYYY hoặc YYYY-MM-DD.';
-    if (!!f.death_lunar_day !== !!f.death_lunar_month) e.death_lunar = 'Cần đủ cả ngày và tháng.';
+    if (!f.full_name.trim()) e.full_name = 'Nhập họ và tên.';
+    if (!!f.death_lunar_day !== !!f.death_lunar_month) e.death_lunar = 'Chọn đủ cả ngày và tháng.';
+    if (f.birth_date && f.death_date && f.death_date.slice(0, 4) < f.birth_date.slice(0, 4)) e.death_date = 'Năm mất đang trước năm sinh.';
     setErrors(e);
+    if (Object.keys(e).length) document.getElementById(Object.keys(e)[0] === 'full_name' ? 'fn' : 'dd')?.focus();
     return !Object.keys(e).length;
   };
 
-  const save = async (e: FormEvent, then?: 'child') => {
-    e.preventDefault();
+  const save = async (then: Then = 'stay') => {
     if (!validate()) return;
     setBusy(true);
     const n = (v: string) => (v === '' ? null : Number(v));
     const body = {
-      ...f, birth_order: n(f.birth_order), death_lunar_day: n(f.death_lunar_day), death_lunar_month: n(f.death_lunar_month),
+      ...f, full_name: f.full_name.trim(), birth_order: n(f.birth_order), death_lunar_day: f.is_deceased ? n(f.death_lunar_day) : null,
+      death_lunar_month: f.is_deceased ? n(f.death_lunar_month) : null, death_date: f.is_deceased ? f.death_date : null,
+      burial_place: f.is_deceased ? f.burial_place : null,
       generation: n(f.generation), is_blood: f.is_blood ? 1 : 0, is_deceased: f.is_deceased ? 1 : 0,
       spouse_id: isNew ? (sp.get('spouse') ? Number(sp.get('spouse')) : null) : undefined,
     };
@@ -177,23 +219,28 @@ export function MemberForm() {
       let newId = self;
       if (isNew) newId = (await api.post<{ id: number }>('/admin/members', body)).id;
       else await api.put(`/admin/members/${id}`, body);
-      toast('Đã lưu.');
+      setSaved(f);
+      toast(`Đã lưu ${f.full_name.trim()}.`);
       all.reload();
-      if (then === 'child') nav(`/admin/members/new?${f.gender === 'male' ? 'father' : 'mother'}=${newId}`);
-      else if (isNew) nav(`/admin/members/${newId}`, { replace: true });
+      if (then === 'child') {
+        const mr = (detail.data?.marriages ?? []) as MarriageRow[];
+        const spouse = mr.length === 1 ? (mr[0].husband_id === newId ? mr[0].wife_id : mr[0].husband_id) : null;
+        const q = new URLSearchParams({ [f.gender === 'male' ? 'father' : 'mother']: String(newId) });
+        if (spouse) q.set(f.gender === 'male' ? 'mother' : 'father', String(spouse));
+        nav(`/admin/members/new?${q}`);
+      } else if (then === 'sibling') {
+        const q = new URLSearchParams();
+        if (f.father_id) q.set('father', String(f.father_id));
+        if (f.mother_id) q.set('mother', String(f.mother_id));
+        if (f.birth_order) q.set('order', String(Number(f.birth_order) + 1));
+        nav(`/admin/members/new?${q}`);
+      } else if (isNew) nav(`/admin/members/${newId}`, { replace: true });
       else detail.reload();
     } catch (err: any) {
       toast(err.message, 'error');
     } finally {
       setBusy(false);
     }
-  };
-
-  const fillLunar = () => {
-    const m = f.death_date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return toast('Cần ngày mất dương lịch đầy đủ (YYYY-MM-DD).', 'error');
-    const l = solarToLunar(Number(m[3]), Number(m[2]), Number(m[1]));
-    setF((x) => ({ ...x, death_lunar_day: String(l.day), death_lunar_month: String(l.month) }));
   };
 
   const remove = async (force = false) => {
@@ -210,93 +257,113 @@ export function MemberForm() {
   if (detail.error) return <ErrorState error={detail.error} />;
   const marriages: MarriageRow[] = detail.data?.marriages ?? [];
   const children = self ? members.filter((m) => m.father_id === self || m.mother_id === self) : [];
+  const childGen = Number(f.generation) || (father?.generation ? father.generation + 1 : 0);
 
   return (
     <>
       <nav className="text-sm text-ink-2 mb-3"><Link to="/admin/members" className="hover:text-accent">Thành viên</Link></nav>
       <PageHeader title={isNew ? 'Thêm thành viên' : f.full_name || 'Thành viên'}
-        subtitle={!isNew && f.generation ? `Đời thứ ${f.generation}` : undefined}
-        actions={!isNew ? <a href={`/thanh-vien/${id}`} target="_blank" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem trang</a> : undefined} />
+        subtitle={!isNew && f.generation ? `Đời thứ ${f.generation}${dirty ? ' · Có thay đổi chưa lưu' : ''}` : dirty && !isNew ? 'Có thay đổi chưa lưu' : undefined}
+        actions={!isNew ? <a href={`/thanh-vien/${id}`} target="_blank" rel="noreferrer" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem trang</a> : undefined} />
 
-      <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px] 2xl:grid-cols-[1fr_380px] max-w-[88rem] max-lg:pb-20" noValidate>
+      <form onSubmit={(e) => { e.preventDefault(); save(); }} noValidate
+        className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px] 2xl:grid-cols-[1fr_380px] max-w-[88rem] max-lg:pb-24">
         <div className="space-y-4 sm:space-y-6 min-w-0">
+          {/* ===== Chính ===== */}
           <Section title="Thông tin chính">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Họ và tên" htmlFor="fn" error={errors.full_name} className="sm:col-span-2">
-                <Input id="fn" value={f.full_name} onChange={(e) => set('full_name', e.target.value)} aria-invalid={!!errors.full_name} />
+              <Field label="Họ và tên" htmlFor="fn" required error={errors.full_name} className="sm:col-span-2">
+                <Input id="fn" value={f.full_name} onChange={(e) => set('full_name', e.target.value)} aria-invalid={!!errors.full_name}
+                  autoComplete="off" autoFocus={isNew} className="h-11 text-base" placeholder="Ví dụ: Ngô Đình An" />
               </Field>
-              <Field label="Tên khác (tự, húy, thụy)" htmlFor="al"><Input id="al" value={f.alias} onChange={(e) => set('alias', e.target.value)} /></Field>
-              <Field label="Giới tính" htmlFor="g">
-                <Select id="g" value={f.gender} onChange={(e) => set('gender', e.target.value as any)}>
-                  <option value="male">Nam</option><option value="female">Nữ</option>
-                </Select>
+              <Field label="Giới tính" htmlFor="g" required>
+                <Segmented id="g" label="Giới tính" value={f.gender} onChange={(v) => set('gender', v)}
+                  options={[{ value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }]} />
               </Field>
-              <div className="sm:col-span-2 flex flex-wrap gap-x-6">
-                <Checkbox label="Người mang huyết thống dòng họ" checked={f.is_blood} onChange={(v) => set('is_blood', v)} />
-                <Checkbox label="Đã mất" checked={f.is_deceased} onChange={(v) => set('is_deceased', v)} />
-              </div>
-            </div>
-          </Section>
-
-          <Section title="Cha mẹ" hint="Đời được tính tự động từ cha hoặc mẹ. Dâu, rể lấy theo đời của vợ hoặc chồng.">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Cha" htmlFor="fa">
-                <MemberPicker id="fa" members={members} value={f.father_id} onChange={(v) => set('father_id', v)}
-                  filter={(m) => m.gender === 'male' && m.id !== self} />
+              <Field label="Tình trạng" htmlFor="st">
+                <Segmented id="st" label="Tình trạng" value={f.is_deceased ? 'dead' : 'alive'} onChange={(v) => set('is_deceased', v === 'dead')}
+                  options={[{ value: 'alive', label: 'Còn sống' }, { value: 'dead', label: 'Đã mất' }]} />
               </Field>
-              <Field label="Mẹ" htmlFor="mo">
-                <MemberPicker id="mo" members={members} value={f.mother_id} onChange={(v) => set('mother_id', v)}
-                  filter={(m) => m.gender === 'female' && m.id !== self} />
+              <Field label="Ngày sinh" htmlFor="bd" hint="Không rõ ngày thì gõ năm, hoặc chọn “Chỉ biết năm” trong lịch.">
+                <DateInput id="bd" value={f.birth_date} onChange={(v) => set('birth_date', v)} max={todayIso()} />
               </Field>
-              <Field label="Con thứ mấy" htmlFor="bo" hint="Dùng để xếp anh em và tính vai trên dưới.">
-                <Input id="bo" type="number" min={1} value={f.birth_order} onChange={(e) => set('birth_order', e.target.value)} />
-              </Field>
-              {!f.father_id && !f.mother_id && f.is_blood && (
-                <Field label="Đời thứ" htmlFor="gen" hint="Chỉ cần nhập với thủy tổ hoặc người chưa rõ cha mẹ.">
-                  <Input id="gen" type="number" min={1} value={f.generation} onChange={(e) => set('generation', e.target.value)} />
+              {f.is_deceased && (
+                <Field label="Ngày mất" htmlFor="dd" error={errors.death_date}>
+                  <DateInput id="dd" value={f.death_date} onChange={onDeathDate} showLunar max={todayIso()} ariaInvalid={!!errors.death_date} />
+                </Field>
+              )}
+              {f.is_deceased && (
+                <Field label="Ngày giỗ (âm lịch)" htmlFor="ld" error={errors.death_lunar} className="sm:col-span-2"
+                  hint={lunarAuto ? 'Đã tự điền theo ngày mất. Sửa lại nếu gia đình giỗ ngày khác.' : 'Ngày giỗ hằng năm hiện trên lịch sự kiện.'}>
+                  <LunarDayMonth id="ld" day={f.death_lunar_day} month={f.death_lunar_month}
+                    onChange={(d, m) => { setLunarAuto(false); setF((x) => ({ ...x, death_lunar_day: d, death_lunar_month: m })); }} />
                 </Field>
               )}
             </div>
           </Section>
 
-          <Section title="Ngày tháng">
+          <Section title="Cha mẹ" hint="Gõ tên để tìm. Chưa có trong phả thì chọn “Thêm mới” ở cuối danh sách. Đời được tính tự động.">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Ngày sinh" htmlFor="bd" error={errors.birth_date} hint="YYYY-MM-DD, hoặc chỉ năm.">
-                <Input id="bd" placeholder="1950 hoặc 1950-03-21" value={f.birth_date} onChange={(e) => set('birth_date', e.target.value)} />
+              <Field label="Cha" htmlFor="fa">
+                <MemberPicker id="fa" members={members} value={f.father_id} onChange={(v) => set('father_id', v)}
+                  filter={(m) => m.gender === 'male' && m.id !== self} createLabel="Thêm cha mới"
+                  onCreate={(name) => setQuick({ role: 'father', name })} editHref={(i) => `/admin/members/${i}`} />
               </Field>
-              {f.is_deceased && (
-                <>
-                  <Field label="Ngày mất (dương lịch)" htmlFor="dd" error={errors.death_date}>
-                    <Input id="dd" placeholder="2015-04-21" value={f.death_date} onChange={(e) => set('death_date', e.target.value)} />
-                  </Field>
-                  <Field label="Ngày giỗ (âm lịch)" htmlFor="ld" error={errors.death_lunar} className="sm:col-span-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Input id="ld" type="number" inputMode="numeric" min={1} max={30} placeholder="Ngày" className="w-20 sm:w-24" value={f.death_lunar_day}
-                        onChange={(e) => set('death_lunar_day', e.target.value)} aria-label="Ngày âm lịch" />
-                      <span className="text-ink-2">tháng</span>
-                      <Input type="number" inputMode="numeric" min={1} max={12} placeholder="Tháng" className="w-20 sm:w-24" value={f.death_lunar_month}
-                        onChange={(e) => set('death_lunar_month', e.target.value)} aria-label="Tháng âm lịch" />
-                      <Button type="button" size="sm" variant="ghost" onClick={fillLunar}>Tính từ ngày mất</Button>
-                    </div>
-                  </Field>
-                  <Field label="Nơi an táng" htmlFor="bp" className="sm:col-span-2">
-                    <Input id="bp" value={f.burial_place} onChange={(e) => set('burial_place', e.target.value)} />
-                  </Field>
-                </>
+              <Field label="Mẹ" htmlFor="mo">
+                <MemberPicker id="mo" members={members} value={f.mother_id} onChange={(v) => set('mother_id', v)}
+                  filter={(m) => m.gender === 'female' && m.id !== self} createLabel="Thêm mẹ mới"
+                  onCreate={(name) => setQuick({ role: 'mother', name })} editHref={(i) => `/admin/members/${i}`} />
+              </Field>
+              <Field label="Thứ tự trong anh chị em" htmlFor="bo" hint="Dùng để xếp anh em và tính vai trên dưới khi tra xưng hô.">
+                <Select id="bo" value={f.birth_order} onChange={(e) => set('birth_order', e.target.value)}>
+                  <option value="">Chưa rõ</option>
+                  {Array.from({ length: 15 }, (_, i) => <option key={i} value={i + 1}>{ORDER_LABEL(i + 1)}</option>)}
+                </Select>
+              </Field>
+              {!f.father_id && !f.mother_id && f.is_blood && (
+                <Field label="Đời thứ" htmlFor="gen" hint="Chỉ nhập cho thủy tổ hoặc người chưa rõ cha mẹ. Người có cha mẹ được tính tự động.">
+                  <Input id="gen" type="number" inputMode="numeric" min={1} value={f.generation} onChange={(e) => set('generation', e.target.value)} />
+                </Field>
               )}
             </div>
           </Section>
 
-          <Section title="Thông tin thêm">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Chi / nhánh" htmlFor="br"><Input id="br" value={f.branch} onChange={(e) => set('branch', e.target.value)} /></Field>
+          <Section title="Tiểu sử" hint="Công trạng, học vị, chức tước, giai thoại... Có thể chèn ảnh và liên kết.">
+            <Suspense fallback={<div className="h-60 rounded-lg border border-line-strong bg-surface animate-pulse" />}>
+              <RichEditor id="bio" value={f.bio} onChange={(v) => set('bio', v)} placeholder="Viết vài dòng về cuộc đời của người này..." />
+            </Suspense>
+          </Section>
+
+          {/* ===== Phụ ===== */}
+          <details open={hasExtra} className="group rounded-xl border border-line bg-surface">
+            <summary className="flex items-center justify-between gap-3 px-4 sm:px-5 min-h-14 cursor-pointer list-none">
+              <span>
+                <span className="block font-semibold text-ink">Thông tin bổ sung</span>
+                <span className="block text-sm text-ink-3">Tên khác, chi, quê quán, nghề nghiệp{f.is_deceased ? ', nơi an táng' : ''}</span>
+              </span>
+              <svg viewBox="0 0 20 20" className="size-5 text-ink-2 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 8l5 5 5-5" /></svg>
+            </summary>
+            <div className="px-4 sm:px-5 pb-5 grid gap-4 sm:grid-cols-2 border-t border-line pt-4">
+              <Field label="Tên khác" htmlFor="al" hint="Tên tự, tên húy, thụy hiệu hoặc tên thường gọi.">
+                <Input id="al" value={f.alias} onChange={(e) => set('alias', e.target.value)} />
+              </Field>
+              <Field label="Chi / nhánh" htmlFor="br" hint={branches.length ? 'Chọn chi đã có hoặc gõ tên mới.' : undefined}>
+                <Input id="br" list="branch-list" value={f.branch} onChange={(e) => set('branch', e.target.value)} />
+                <datalist id="branch-list">{branches.map((b) => <option key={b} value={b} />)}</datalist>
+              </Field>
               <Field label="Quê quán" htmlFor="ht"><Input id="ht" value={f.hometown} onChange={(e) => set('hometown', e.target.value)} /></Field>
               <Field label="Nghề nghiệp" htmlFor="oc"><Input id="oc" value={f.occupation} onChange={(e) => set('occupation', e.target.value)} /></Field>
-              <Field label="Tiểu sử" htmlFor="bio" hint="Hỗ trợ Markdown: ## tiêu đề, **đậm**, - danh sách." className="sm:col-span-3">
-                <Textarea id="bio" rows={6} value={f.bio} onChange={(e) => set('bio', e.target.value)} />
-              </Field>
+              {f.is_deceased && (
+                <Field label="Nơi an táng" htmlFor="bp" className="sm:col-span-2">
+                  <Input id="bp" value={f.burial_place} onChange={(e) => set('burial_place', e.target.value)} placeholder="Ví dụ: Nghĩa trang họ, xứ Đồng Cả" />
+                </Field>
+              )}
+              <div className="sm:col-span-2 pt-1">
+                <Switch label="Mang huyết thống dòng họ" checked={f.is_blood} onChange={(v) => set('is_blood', v)}
+                  description="Tắt với con dâu, con rể. Người không mang huyết thống hiện cạnh vợ/chồng trên cây, viền nét đứt." />
+              </div>
             </div>
-          </Section>
+          </details>
         </div>
 
         <div className="space-y-4 sm:space-y-6 lg:sticky lg:top-6 self-start min-w-0">
@@ -305,38 +372,41 @@ export function MemberForm() {
           </Section>
           <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:bg-surface/95 max-lg:backdrop-blur max-lg:border-t max-lg:border-line max-lg:px-4 max-lg:pt-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-row-reverse lg:flex-col gap-2">
             <Button type="submit" variant="primary" loading={busy} className="flex-1 lg:flex-none">{isNew ? 'Thêm thành viên' : 'Lưu thay đổi'}</Button>
-            <Button type="button" disabled={busy} onClick={(e) => save(e as any, 'child')} className="flex-1 lg:flex-none">Lưu và thêm con</Button>
+            <SaveMore busy={busy} canSibling={!!(f.father_id || f.mother_id)} onPick={(t) => save(t)} />
           </div>
           {!isNew && (
             <>
-              <Section title="Vợ / chồng">
+              <Section title={f.gender === 'male' ? 'Vợ' : 'Chồng'}>
                 {!marriages.length && <p className="text-sm text-ink-3 mb-3">Chưa có.</p>}
-                <ul className="space-y-2 mb-3">
+                <ul className="space-y-1 mb-3">
                   {marriages.map((mr) => {
                     const otherId = mr.husband_id === self ? mr.wife_id : mr.husband_id;
                     const name = mr.husband_id === self ? mr.wife_name : mr.husband_name;
                     return (
-                      <li key={mr.id} className="flex items-center gap-2 text-[15px]">
+                      <li key={mr.id} className="flex items-center gap-2 text-[15px] min-h-10">
                         <Link to={`/admin/members/${otherId}`} className="flex-1 hover:text-accent truncate">{name}</Link>
-                        {marriages.length > 1 && <Badge>Thứ {mr.order_no}</Badge>}
+                        {marriages.length > 1 && <Badge>{mr.order_no === 1 ? 'Cả' : `Thứ ${mr.order_no}`}</Badge>}
                         <button type="button" aria-label={`Gỡ quan hệ với ${name}`} className="size-8 pointer-coarse:size-10 rounded-md text-ink-3 hover:bg-danger-soft hover:text-danger cursor-pointer"
-                          onClick={async () => { await api.del(`/admin/marriages/${mr.id}`); detail.reload(); }}>×</button>
+                          onClick={async () => { if (confirm(`Gỡ quan hệ hôn nhân với ${name}? Hồ sơ của ${name} vẫn được giữ.`)) { await api.del(`/admin/marriages/${mr.id}`); detail.reload(); } }}>×</button>
                       </li>
                     );
                   })}
                 </ul>
-                <Button type="button" size="sm" onClick={() => setSpouseOpen(true)}>Thêm vợ / chồng</Button>
+                <Button type="button" size="sm" onClick={() => setSpouseOpen(true)}>Thêm {f.gender === 'male' ? 'vợ' : 'chồng'}</Button>
               </Section>
               <Section title={`Con (${children.length})`}>
-                <ul className="space-y-1 mb-3">
+                <ul className="space-y-0.5 mb-3">
                   {children.map((c) => (
-                    <li key={c.id}><Link to={`/admin/members/${c.id}`} className="flex items-center min-h-9 pointer-coarse:min-h-11 text-[15px] hover:text-accent">{c.full_name}</Link></li>
+                    <li key={c.id}><Link to={`/admin/members/${c.id}`} className="flex items-center justify-between gap-2 min-h-9 pointer-coarse:min-h-11 text-[15px] hover:text-accent">
+                      <span className="truncate">{c.full_name}</span><span className="text-xs text-ink-3 shrink-0">{c.birth_order ? `Thứ ${c.birth_order}` : ''}</span>
+                    </Link></li>
                   ))}
                 </ul>
-                <Link to={`/admin/members/new?${f.gender === 'male' ? 'father' : 'mother'}=${self}${marriages.length === 1 ? `&${f.gender === 'male' ? 'mother' : 'father'}=${marriages[0].husband_id === self ? marriages[0].wife_id : marriages[0].husband_id}` : ''}`}
-                  className="h-8 pointer-coarse:h-10 px-3 inline-flex items-center rounded-lg border border-line-strong bg-surface text-sm font-medium hover:bg-sunken">
-                  Thêm con
-                </Link>
+                <Button type="button" size="sm" disabled={busy} onClick={() => (dirty ? save('child') : nav(`/admin/members/new?${new URLSearchParams({
+                  [f.gender === 'male' ? 'father' : 'mother']: String(self),
+                  ...(marriages.length === 1 ? { [f.gender === 'male' ? 'mother' : 'father']: String(marriages[0].husband_id === self ? marriages[0].wife_id : marriages[0].husband_id) } : {}),
+                  order: String(children.length + 1),
+                })}`))}>Thêm con</Button>
               </Section>
               <Button type="button" variant="danger" onClick={() => setDelOpen(true)}>Xóa thành viên</Button>
             </>
@@ -344,6 +414,12 @@ export function MemberForm() {
         </div>
       </form>
 
+      {quick && (
+        <QuickParentModal role={quick.role} initialName={quick.name} childGen={childGen}
+          spouseId={quick.role === 'father' ? f.mother_id : f.father_id}
+          onClose={() => setQuick(null)}
+          onCreated={(newId) => { set(quick.role === 'father' ? 'father_id' : 'mother_id', newId); setQuick(null); all.reload(); }} />
+      )}
       {!isNew && self && (
         <SpouseModal open={spouseOpen} onClose={() => setSpouseOpen(false)} self={self} gender={f.gender} members={members}
           nextOrder={marriages.length + 1} onDone={() => { setSpouseOpen(false); detail.reload(); all.reload(); }} />
@@ -362,16 +438,97 @@ export function MemberForm() {
   );
 }
 
+/** Nút phụ "Lưu và..." gom vào menu để không chiếm chỗ. */
+function SaveMore({ busy, canSibling, onPick }: { busy: boolean; canSibling: boolean; onPick: (t: Then) => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    setTimeout(() => window.addEventListener('click', close, { once: true }));
+    return () => window.removeEventListener('click', close);
+  }, [open]);
+  return (
+    <div className="relative flex-1 lg:flex-none">
+      <Button type="button" disabled={busy} className="w-full" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        Lưu và thêm…
+      </Button>
+      {open && (
+        <div className="absolute z-30 bottom-full mb-1 lg:bottom-auto lg:top-full lg:mt-1 left-0 right-0 rounded-lg border border-line bg-surface shadow-lg py-1">
+          <button type="button" onClick={() => onPick('child')} className="w-full text-left px-3 py-2.5 min-h-11 hover:bg-sunken cursor-pointer">
+            <span className="block text-[15px] font-medium">Thêm con</span><span className="block text-xs text-ink-3">Đi xuống đời tiếp theo</span>
+          </button>
+          <button type="button" disabled={!canSibling} onClick={() => onPick('sibling')} className="w-full text-left px-3 py-2.5 min-h-11 hover:bg-sunken cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+            <span className="block text-[15px] font-medium">Thêm anh chị em</span><span className="block text-xs text-ink-3">{canSibling ? 'Cùng cha mẹ, thứ tự tiếp theo' : 'Cần chọn cha hoặc mẹ trước'}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Tạo nhanh cha hoặc mẹ ngay trong form, có thể sửa đầy đủ sau. */
+function QuickParentModal({ role, initialName, childGen, spouseId, onClose, onCreated }: {
+  role: 'father' | 'mother'; initialName: string; childGen: number; spouseId: number | null;
+  onClose: () => void; onCreated: (id: number) => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [birth, setBirth] = useState('');
+  const [dead, setDead] = useState(false);
+  const [blood, setBlood] = useState(role === 'father');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const toast = useToast();
+  const label = role === 'father' ? 'cha' : 'mẹ';
+  const submit = async () => {
+    if (!name.trim()) { setErr('Nhập họ và tên.'); return; }
+    setBusy(true);
+    try {
+      const r = await api.post<{ id: number }>('/admin/members', {
+        full_name: name.trim(), gender: role === 'father' ? 'male' : 'female', birth_date: birth,
+        is_deceased: dead ? 1 : 0, is_blood: blood ? 1 : 0, generation: childGen > 1 ? childGen - 1 : null,
+      });
+      // Đã chọn người còn lại thì nối luôn quan hệ vợ chồng
+      if (spouseId) await api.post('/admin/marriages', { a: r.id, b: spouseId, order_no: 1 }).catch(() => {});
+      toast(`Đã thêm ${label} ${name.trim()}. Có thể bổ sung thông tin sau qua link “Sửa hồ sơ”.`);
+      onCreated(r.id);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal open onClose={onClose} title={`Thêm ${label} mới`} width="max-w-md"
+      footer={<><Button onClick={onClose}>Hủy</Button><Button variant="primary" loading={busy} onClick={submit}>Thêm và chọn</Button></>}>
+      <div className="space-y-4">
+        <Field label="Họ và tên" htmlFor="qp-name" required error={err}>
+          <Input id="qp-name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), submit())} />
+        </Field>
+        <Field label="Ngày sinh" htmlFor="qp-birth" optional>
+          <DateInput id="qp-birth" value={birth} onChange={setBirth} max={todayIso()} />
+        </Field>
+        <Segmented label="Tình trạng" value={dead ? 'dead' : 'alive'} onChange={(v) => setDead(v === 'dead')}
+          options={[{ value: 'alive', label: 'Còn sống' }, { value: 'dead', label: 'Đã mất' }]} />
+        <Switch label="Mang huyết thống dòng họ" checked={blood} onChange={setBlood}
+          description={role === 'mother' ? 'Thường tắt: mẹ là con dâu trong họ.' : 'Thường bật: cha là người trong họ.'} />
+        {spouseId && <p className="text-sm text-ink-3">Sẽ tự nối quan hệ vợ chồng với {role === 'father' ? 'mẹ' : 'cha'} đã chọn.</p>}
+      </div>
+    </Modal>
+  );
+}
+
 function SpouseModal({ open, onClose, self, gender, members, nextOrder, onDone }: {
   open: boolean; onClose: () => void; self: number; gender: 'male' | 'female'; members: MemberBrief[]; nextOrder: number; onDone: () => void;
 }) {
   const [mode, setMode] = useState<'new' | 'existing'>('new');
   const [name, setName] = useState('');
+  const [birth, setBirth] = useState('');
   const [pick, setPick] = useState<number | null>(null);
   const [order, setOrder] = useState(String(nextOrder));
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   const other = gender === 'male' ? 'female' : 'male';
+  const word = gender === 'male' ? 'vợ' : 'chồng';
   useEffect(() => { setOrder(String(nextOrder)); }, [nextOrder]);
   const submit = async () => {
     setBusy(true);
@@ -379,12 +536,13 @@ function SpouseModal({ open, onClose, self, gender, members, nextOrder, onDone }
       let sid = pick;
       if (mode === 'new') {
         if (!name.trim()) throw new Error('Nhập họ tên.');
-        sid = (await api.post<{ id: number }>('/admin/members', { full_name: name, gender: other, is_blood: 0, is_deceased: 0 })).id;
+        sid = (await api.post<{ id: number }>('/admin/members', { full_name: name.trim(), gender: other, birth_date: birth, is_blood: 0, is_deceased: 0 })).id;
       }
       if (!sid) throw new Error('Chọn một người.');
       await api.post('/admin/marriages', { a: self, b: sid, order_no: Number(order) || 1 });
       toast('Đã thêm.');
       setName('');
+      setBirth('');
       setPick(null);
       onDone();
     } catch (e: any) {
@@ -394,31 +552,32 @@ function SpouseModal({ open, onClose, self, gender, members, nextOrder, onDone }
     }
   };
   return (
-    <Modal open={open} onClose={onClose} title={gender === 'male' ? 'Thêm vợ' : 'Thêm chồng'}
+    <Modal open={open} onClose={onClose} title={`Thêm ${word}`}
       footer={<><Button onClick={onClose}>Hủy</Button><Button variant="primary" loading={busy} onClick={submit}>Thêm</Button></>}>
       <div className="space-y-4">
-        <div role="radiogroup" className="flex p-1 rounded-lg bg-sunken">
-          {([['new', 'Người mới (dâu/rể)'], ['existing', 'Người đã có trong phả']] as const).map(([k, l]) => (
-            <button key={k} role="radio" aria-checked={mode === k} onClick={() => setMode(k)}
-              className={`flex-1 min-h-9 pointer-coarse:min-h-10 px-3 py-1 rounded-md text-sm font-medium cursor-pointer ${mode === k ? 'bg-surface shadow-sm' : 'text-ink-2'}`}>{l}</button>
-          ))}
-        </div>
+        <Segmented label="Nguồn" value={mode} onChange={setMode}
+          options={[{ value: 'new', label: `Người mới (${gender === 'male' ? 'dâu' : 'rể'})` }, { value: 'existing', label: 'Đã có trong phả' }]} />
         {mode === 'new' ? (
-          <Field label="Họ và tên" htmlFor="sn" hint="Có thể bổ sung thông tin chi tiết sau trong hồ sơ của người này.">
-            <Input id="sn" value={name} onChange={(e) => setName(e.target.value)} />
-          </Field>
+          <>
+            <Field label="Họ và tên" htmlFor="sn" required hint="Bổ sung chi tiết sau trong hồ sơ của người này.">
+              <Input id="sn" value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+            <Field label="Ngày sinh" htmlFor="sb" optional><DateInput id="sb" value={birth} onChange={setBirth} max={todayIso()} /></Field>
+          </>
         ) : (
-          <Field label="Chọn người" htmlFor="sp"><MemberPicker id="sp" members={members} value={pick} onChange={setPick} filter={(m) => m.gender === other} /></Field>
+          <Field label="Chọn người" htmlFor="sp" required><MemberPicker id="sp" members={members} value={pick} onChange={setPick} filter={(m) => m.gender === other} /></Field>
         )}
-        <Field label="Thứ tự (vợ cả = 1)" htmlFor="so">
-          <Input id="so" type="number" min={1} className="w-28" value={order} onChange={(e) => setOrder(e.target.value)} />
+        <Field label="Thứ tự" htmlFor="so">
+          <Select id="so" value={order} onChange={(e) => setOrder(e.target.value)} className="w-full sm:w-48">
+            {Array.from({ length: 6 }, (_, i) => <option key={i} value={i + 1}>{i === 0 ? `${word === 'vợ' ? 'Vợ' : 'Chồng'} cả` : `${word === 'vợ' ? 'Vợ' : 'Chồng'} thứ ${i + 1}`}</option>)}
+          </Select>
         </Field>
       </div>
     </Modal>
   );
 }
 
-export function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+export function Section({ title, hint, children }: { title: string; hint?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-line bg-surface p-4 sm:p-5">
       <h2 className="font-semibold text-ink">{title}</h2>

@@ -50,14 +50,24 @@ export function Spinner({ className }: { className?: string }) {
 }
 
 // ---------- Form ----------
-export function Field({ label, hint, error, children, className, htmlFor }: {
-  label: string; hint?: string; error?: string; children: ReactNode; className?: string; htmlFor?: string;
+export function Field({ label, hint, error, children, className, htmlFor, required, optional, aside }: {
+  label: string; hint?: ReactNode; error?: string; children: ReactNode; className?: string; htmlFor?: string;
+  /** Hiện dấu * đỏ */ required?: boolean;
+  /** Hiện chữ "Không bắt buộc" mờ */ optional?: boolean;
+  /** Nội dung phụ bên phải nhãn, ví dụ bộ đếm ký tự */ aside?: ReactNode;
 }) {
   return (
-    <div className={cx('flex flex-col gap-1.5', className)}>
-      <label htmlFor={htmlFor} className="text-sm font-medium text-ink">{label}</label>
+    <div className={cx('flex flex-col gap-1.5 min-w-0', className)}>
+      <div className="flex items-baseline justify-between gap-2">
+        <label htmlFor={htmlFor} className="text-sm font-medium text-ink">
+          {label}
+          {required && <span className="text-danger ml-0.5" aria-hidden>*</span>}
+          {optional && <span className="ml-1.5 font-normal text-ink-3">(không bắt buộc)</span>}
+        </label>
+        {aside && <span className="text-xs text-ink-3 tabular-nums">{aside}</span>}
+      </div>
       {children}
-      {error ? <p className="text-sm text-danger">{error}</p> : hint ? <p className="text-sm text-ink-3">{hint}</p> : null}
+      {error ? <p role="alert" className="text-sm text-danger">{error}</p> : hint ? <div className="text-sm text-ink-3">{hint}</div> : null}
     </div>
   );
 }
@@ -88,6 +98,111 @@ export function Checkbox({ label, checked, onChange, id }: { label: string; chec
         className="size-[18px] accent-[var(--color-accent)]" />
       {label}
     </label>
+  );
+}
+
+// Ô mật khẩu có nút ẩn/hiện
+export const PasswordInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function PasswordInput(
+  { className, ...p }, ref,
+) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className={cx('relative', withW(className))}>
+      <Input ref={ref} {...p} type={show ? 'text' : 'password'} className="w-full pr-11" />
+      <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-pressed={show}
+        className="absolute right-1 top-1/2 -translate-y-1/2 size-9 inline-flex items-center justify-center rounded-md text-ink-3 hover:text-ink hover:bg-sunken cursor-pointer">
+        {show ? (
+          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A9.8 9.8 0 0 1 12 5c5 0 9 4.5 10 7-.4 1-1.3 2.4-2.6 3.7M6.6 6.6C4.6 7.9 3.1 9.8 2 12c1 2.5 5 7 10 7 1.6 0 3.1-.4 4.4-1.1" /></svg>
+        ) : (
+          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M2 12c1-2.5 5-7 10-7s9 4.5 10 7c-1 2.5-5 7-10 7S3 14.5 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
+        )}
+      </button>
+    </div>
+  );
+});
+
+/** Tạo mật khẩu ngẫu nhiên dễ đọc (bỏ ký tự dễ nhầm l/1/O/0). */
+export function generatePassword(len = 14) {
+  const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  return [...crypto.getRandomValues(new Uint32Array(len))].map((n) => chars[n % chars.length]).join('');
+}
+
+export function passwordStrength(p: string): { score: 0 | 1 | 2 | 3; label: string } {
+  if (!p) return { score: 0, label: '' };
+  let s = 0;
+  if (p.length >= 8) s++;
+  if (p.length >= 12) s++;
+  if (/[a-z]/.test(p) && /[A-Z0-9]/.test(p) && /[^a-zA-Z]/.test(p)) s++;
+  const score = Math.min(3, s) as 0 | 1 | 2 | 3;
+  return { score, label: ['Quá ngắn', 'Yếu', 'Khá', 'Mạnh'][score] };
+}
+export function StrengthMeter({ value }: { value: string }) {
+  const { score, label } = passwordStrength(value);
+  if (!value) return null;
+  const color = ['bg-danger', 'bg-danger', 'bg-gold', 'bg-success'][score];
+  return (
+    <div className="flex items-center gap-2" aria-live="polite">
+      <div className="flex gap-1 flex-1">{[1, 2, 3].map((i) => <span key={i} className={cx('h-1 flex-1 rounded-full', i <= score ? color : 'bg-line')} />)}</div>
+      <span className="text-xs text-ink-2 w-14 text-right">{label}</span>
+    </div>
+  );
+}
+
+// Ô tìm kiếm có icon và nút xóa
+export function SearchInput({ value, onChange, className, ...p }: Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> & {
+  value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div className={cx('relative', withW(className))}>
+      <svg viewBox="0 0 20 20" className="size-[18px] absolute left-3 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="9" cy="9" r="5.5" /><path d="M13 13l4 4" /></svg>
+      <Input type="search" {...p} value={value} onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape') onChange(''); p.onKeyDown?.(e); }}
+        className="w-full pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden" />
+      {value && (
+        <button type="button" onClick={() => onChange('')} aria-label="Xóa nội dung tìm"
+          className="absolute right-1 top-1/2 -translate-y-1/2 size-8 inline-flex items-center justify-center rounded-md text-ink-3 hover:text-ink hover:bg-sunken cursor-pointer">
+          <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 5l10 10M15 5L5 15" /></svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Nhóm lựa chọn dạng nút (thay select khi chỉ có 2-4 lựa chọn)
+export function Segmented<T extends string>({ value, onChange, options, label, id, size = 'md' }: {
+  value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode }[]; label: string; id?: string; size?: 'sm' | 'md';
+}) {
+  return (
+    <div id={id} role="radiogroup" aria-label={label} className="inline-flex self-start p-1 rounded-lg bg-sunken max-w-full">
+      {options.map((o) => (
+        <button key={o.value} type="button" role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}
+          className={cx('px-3.5 rounded-md font-medium cursor-pointer whitespace-nowrap transition-colors',
+            size === 'sm' ? 'h-8 text-sm' : 'h-9 pointer-coarse:h-10 text-[15px]',
+            value === o.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink')}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Công tắc bật/tắt
+export function Switch({ checked, onChange, label, description, id }: {
+  checked: boolean; onChange: (v: boolean) => void; label: string; description?: string; id?: string;
+}) {
+  const uid = useId();
+  const i = id ?? uid;
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <label htmlFor={i} className="cursor-pointer">
+        <span className="block text-[15px] font-medium text-ink">{label}</span>
+        {description && <span className="block text-sm text-ink-3 mt-0.5">{description}</span>}
+      </label>
+      <button id={i} type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}
+        className={cx('relative shrink-0 w-11 h-6 rounded-full transition-colors cursor-pointer mt-0.5', checked ? 'bg-accent' : 'bg-line-strong')}>
+        <span className={cx('absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform', checked && 'translate-x-5')} />
+      </button>
+    </div>
   );
 }
 
@@ -211,10 +326,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ---------- Member picker (combobox tìm theo tên không dấu) ----------
-export function MemberPicker({ members, value, onChange, placeholder = 'Gõ tên để tìm...', filter, id, allowClear = true }: {
+// ---------- Member picker (combobox tìm theo tên không dấu, có thể tạo mới) ----------
+export function MemberPicker({ members, value, onChange, placeholder = 'Gõ tên để tìm...', filter, id, allowClear = true,
+  onCreate, createLabel = 'Thêm mới', editHref }: {
   members: MemberBrief[]; value: number | null; onChange: (id: number | null) => void; placeholder?: string;
   filter?: (m: MemberBrief) => boolean; id?: string; allowClear?: boolean;
+  /** Có thì hiện dòng "+ Thêm mới" ở cuối danh sách; nhận tên đang gõ */
+  onCreate?: (name: string) => void;
+  createLabel?: string;
+  /** Có thì hiện link mở hồ sơ người đã chọn */
+  editHref?: (id: number) => string;
 }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -225,42 +346,75 @@ export function MemberPicker({ members, value, onChange, placeholder = 'Gõ tên
     const f = fold(q);
     return rankByName(members.filter((m) => !filter || filter(m)), f).slice(0, 40);
   }, [q, members, filter]);
+  const canCreate = !!onCreate;
+  const total = results.length + (canCreate ? 1 : 0);
   const pick = (m: MemberBrief | null) => {
     onChange(m?.id ?? null);
     setQ('');
     setOpen(false);
   };
+  const create = () => {
+    onCreate?.(q.trim());
+    setQ('');
+    setOpen(false);
+  };
   return (
-    <div className="relative">
-      <Input id={id} role="combobox" aria-expanded={open} aria-controls={listId} autoComplete="off"
-        value={open ? q : selected ? `${selected.full_name}${selected.generation ? ` (đời ${selected.generation})` : ''}` : ''}
-        placeholder={placeholder}
-        onFocus={() => { setOpen(true); setActive(0); }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        onChange={(e) => { setQ(e.target.value); setActive(0); setOpen(true); }}
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, results.length - 1)); }
-          else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-          else if (e.key === 'Enter' && open && results[active]) { e.preventDefault(); pick(results[active]); }
-        }} />
-      {selected && allowClear && !open && (
-        <button type="button" onClick={() => pick(null)} aria-label="Bỏ chọn"
-          className="absolute right-1 top-1 pointer-coarse:top-1.5 size-8 rounded-md text-ink-3 hover:bg-sunken hover:text-ink cursor-pointer">×</button>
-      )}
-      {open && (
-        <ul id={listId} role="listbox" className="absolute z-30 mt-1 w-full max-h-72 overflow-auto rounded-lg border border-line bg-surface shadow-lg py-1">
-          {results.length === 0 && <li className="px-3 py-2 text-sm text-ink-3">Không có kết quả</li>}
-          {results.map((m, i) => (
-            <li key={m.id} role="option" aria-selected={i === active}
-              onMouseDown={(e) => { e.preventDefault(); pick(m); }}
-              onMouseEnter={() => setActive(i)}
-              className={cx('flex items-center gap-2 px-3 py-2 cursor-pointer text-[15px]', i === active && 'bg-sunken')}>
-              <Avatar m={m} size={28} />
-              <span className="flex-1 truncate">{m.full_name}</span>
-              <span className="text-xs text-ink-3">{m.generation ? `Đời ${m.generation}` : ''}</span>
-            </li>
-          ))}
-        </ul>
+    <div>
+      <div className="relative">
+        <Input id={id} role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" autoComplete="off"
+          value={open ? q : selected ? `${selected.full_name}${selected.generation ? ` (đời ${selected.generation})` : ''}` : ''}
+          placeholder={placeholder}
+          className={cx('w-full', selected && !open && 'pr-10')}
+          onFocus={() => { setOpen(true); setActive(0); }}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onChange={(e) => { setQ(e.target.value); setActive(0); setOpen(true); }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, total - 1)); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
+            else if (e.key === 'Enter' && open) {
+              e.preventDefault();
+              if (results[active]) pick(results[active]);
+              else if (canCreate && active === results.length) create();
+            } else if (e.key === 'Escape') setOpen(false);
+          }} />
+        {selected && allowClear && !open && (
+          <button type="button" onClick={() => pick(null)} aria-label={`Bỏ chọn ${selected.full_name}`}
+            className="absolute right-1 top-1/2 -translate-y-1/2 size-8 inline-flex items-center justify-center rounded-md text-ink-3 hover:bg-sunken hover:text-ink cursor-pointer">
+            <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 5l10 10M15 5L5 15" /></svg>
+          </button>
+        )}
+        {open && (
+          <ul id={listId} role="listbox" className="absolute z-30 mt-1 w-full max-h-72 overflow-auto rounded-lg border border-line bg-surface shadow-lg py-1">
+            {results.length === 0 && <li className="px-3 py-2 text-sm text-ink-3">{q ? 'Chưa có người này trong phả' : 'Chưa có ai phù hợp'}</li>}
+            {results.map((m, i) => (
+              <li key={m.id} role="option" aria-selected={i === active}
+                onMouseDown={(e) => { e.preventDefault(); pick(m); }}
+                onMouseEnter={() => setActive(i)}
+                className={cx('flex items-center gap-2 px-3 py-2 min-h-11 cursor-pointer text-[15px]', i === active && 'bg-sunken')}>
+                <Avatar m={m} size={28} />
+                <span className="flex-1 truncate">{m.full_name}</span>
+                <span className="text-xs text-ink-3">{m.generation ? `Đời ${m.generation}` : ''}</span>
+              </li>
+            ))}
+            {canCreate && (
+              <li role="option" aria-selected={active === results.length}
+                onMouseDown={(e) => { e.preventDefault(); create(); }}
+                onMouseEnter={() => setActive(results.length)}
+                className={cx('flex items-center gap-2 px-3 py-2 min-h-11 cursor-pointer text-[15px] text-accent font-medium border-t border-line',
+                  active === results.length && 'bg-accent-soft')}>
+                <span className="size-7 inline-flex items-center justify-center rounded-full border border-dashed border-accent/50">+</span>
+                <span className="truncate">{q.trim() ? <>{createLabel} “{q.trim()}”</> : createLabel}</span>
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
+      {selected && editHref && (
+        <a href={editHref(selected.id)} target="_blank" rel="noreferrer"
+          className="inline-flex items-center gap-1 mt-1 min-h-8 text-sm text-ink-2 hover:text-accent">
+          Sửa hồ sơ {selected.full_name}
+          <svg viewBox="0 0 20 20" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8 4H4v12h12v-4M11 3h6v6M17 3l-8 8" /></svg>
+        </a>
       )}
     </div>
   );

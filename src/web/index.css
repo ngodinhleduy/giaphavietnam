@@ -68,3 +68,19 @@ html {
   .no-print { display: none !important; }
   body { background: white; }
 }
+
+/* Nội dung editor */
+.prose-gp h4 { font-family: var(--font-serif); font-weight: 600; font-size: 1.0625rem; margin: 1.4em 0 0.5em; }
+.prose-gp hr { border: 0; border-top: 1px solid var(--color-line); margin: 2em 0; }
+.prose-gp s { color: var(--color-ink-2); }
+.prose-gp > :first-child { margin-top: 0; }
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-ink-3);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.tiptap img.ProseMirror-selectednode { outline: 2px solid var(--color-accent); }
+.tiptap a { cursor: text; }
+.tiptap:focus-visible, .tiptap:focus { outline: none; }

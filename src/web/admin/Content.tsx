@@ -1,14 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { marked } from 'marked';
 import { api, fileUrl, shrinkImage, useApi } from '../lib/api.ts';
 import { formatDate } from '../lib/format.ts';
 import { lunarToSolar, solarToLunar } from '../../shared/lunar.ts';
 import {
-  Badge, Button, Checkbox, EmptyState, ErrorState, Field, Input, Loading, Modal, PageHeader, Select, Spinner, Textarea, cx, useToast,
+  Badge, Button, Checkbox, EmptyState, ErrorState, Field, Input, Loading, Modal, PageHeader, Segmented, Select, Spinner, Switch, Textarea, cx, useToast,
 } from '../components/ui.tsx';
 import { ImageUpload } from './AdminLayout.tsx';
 import { Section } from './Members.tsx';
+import { LUNAR_MONTHS } from '../components/DateInput.tsx';
+import { slugify } from '../../shared/slug.ts';
+const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
 
 // ================= Articles =================
 export function ArticlesAdmin() {
@@ -45,10 +47,8 @@ export function ArticleForm() {
   const cats = useApi<{ id: number; name: string }[]>('/admin/categories');
   const detail = useApi<any>(isNew ? null : `/admin/articles/${id}`);
   const [f, setF] = useState({ title: '', slug: '', summary: '', content: '', category_id: '' as string | number, cover_file_id: null as number | null, published: true });
-  const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [del, setDel] = useState(false);
-  const [imgBusy, setImgBusy] = useState(false);
   useEffect(() => {
     if (detail.data) {
       const d = detail.data;
@@ -75,18 +75,6 @@ export function ArticleForm() {
       setBusy(false);
     }
   };
-  const insertImage = async (file?: File) => {
-    if (!file) return;
-    setImgBusy(true);
-    try {
-      const r = await api.upload(await shrinkImage(file));
-      setF((x) => ({ ...x, content: `${x.content}\n\n![${file.name}](${fileUrl(r.id)})\n` }));
-    } catch (e: any) {
-      toast(e.message, 'error');
-    } finally {
-      setImgBusy(false);
-    }
-  };
   if (detail.loading) return <Loading />;
   return (
     <>
@@ -95,33 +83,17 @@ export function ArticleForm() {
         actions={!isNew && f.published ? <a href={`/bai-viet/${f.slug}`} target="_blank" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem bài</a> : undefined} />
       <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] 2xl:grid-cols-[1fr_340px] max-w-[88rem] max-lg:pb-20">
         <div className="space-y-4 min-w-0">
-          <Field label="Tiêu đề" htmlFor="t"><Input id="t" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} className="text-lg h-12" /></Field>
-          <Field label="Tóm tắt" htmlFor="s"><Textarea id="s" rows={2} value={f.summary} onChange={(e) => setF({ ...f, summary: e.target.value })} /></Field>
+          <Field label="Tiêu đề" htmlFor="t" required aside={`${f.title.length}/120`}>
+            <Input id="t" value={f.title} maxLength={120} onChange={(e) => setF({ ...f, title: e.target.value })} className="text-lg h-12" placeholder="Ví dụ: Lịch sử nhà thờ họ" />
+          </Field>
+          <Field label="Tóm tắt" htmlFor="s" optional aside={`${f.summary.length}/200`} hint="Hiện ở danh sách bài viết và khi chia sẻ link.">
+            <Textarea id="s" rows={2} maxLength={200} value={f.summary} onChange={(e) => setF({ ...f, summary: e.target.value })} />
+          </Field>
           <div>
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-              <span className="text-sm font-medium">Nội dung</span>
-              <div className="flex items-center gap-1">
-                <label className="h-8 px-3 inline-flex items-center gap-2 rounded-lg text-sm text-ink-2 hover:bg-sunken cursor-pointer">
-                  {imgBusy && <Spinner className="size-4" />} Chèn ảnh
-                  <input type="file" accept="image/*" className="sr-only" onChange={(e) => insertImage(e.target.files?.[0])} />
-                </label>
-                <div className="inline-flex p-0.5 rounded-lg bg-sunken">
-                  {[false, true].map((p) => (
-                    <button key={String(p)} type="button" onClick={() => setPreview(p)}
-                      className={cx('h-7 px-3 rounded-md text-sm cursor-pointer', preview === p ? 'bg-surface shadow-sm font-medium' : 'text-ink-2')}>
-                      {p ? 'Xem trước' : 'Soạn'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            {preview ? (
-              <div className="min-h-80 sm:min-h-96 rounded-lg border border-line bg-surface p-4 sm:p-6 prose-gp" dangerouslySetInnerHTML={{ __html: marked.parse(f.content, { async: false }) as string }} />
-            ) : (
-              <Textarea aria-label="Nội dung (Markdown)" rows={20} className="w-full font-mono text-sm min-h-80 sm:min-h-96" value={f.content} onChange={(e) => setF({ ...f, content: e.target.value })}
-                placeholder={'## Tiêu đề mục\n\nĐoạn văn...\n\n- Ý 1\n- Ý 2'} />
-            )}
-            <p className="mt-1.5 text-sm text-ink-3">Markdown: ## tiêu đề, **đậm**, *nghiêng*, - danh sách, &gt; trích dẫn.</p>
+            <p className="text-sm font-medium mb-1.5">Nội dung</p>
+            <Suspense fallback={<div className="h-96 rounded-lg border border-line-strong bg-surface animate-pulse" />}>
+              <RichEditor value={f.content} onChange={(v) => setF((x) => ({ ...x, content: v }))} minHeight={420} placeholder="Viết nội dung bài..." />
+            </Suspense>
           </div>
         </div>
         <div className="space-y-4 lg:sticky lg:top-6 self-start">
@@ -133,10 +105,15 @@ export function ArticleForm() {
                   {cats.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
               </Field>
-              <Field label="Đường dẫn (slug)" htmlFor="sl" hint="Để trống sẽ tạo từ tiêu đề.">
-                <Input id="sl" value={f.slug} onChange={(e) => setF({ ...f, slug: e.target.value })} />
-              </Field>
-              <Checkbox label="Hiển thị công khai" checked={f.published} onChange={(v) => setF({ ...f, published: v })} />
+              <Switch label="Hiển thị công khai" checked={f.published} onChange={(v) => setF({ ...f, published: v })}
+                description={f.published ? 'Ai cũng đọc được.' : 'Bản nháp, chỉ quản trị viên thấy.'} />
+              <details className="group">
+                <summary className="text-sm text-ink-2 cursor-pointer min-h-9 flex items-center hover:text-ink">Đường dẫn bài viết</summary>
+                <Field label="Đường dẫn (slug)" htmlFor="sl" className="mt-1"
+                  hint={<span className="break-all">/bai-viet/{f.slug || slugify(f.title) || '...'}</span>}>
+                  <Input id="sl" value={f.slug} placeholder={slugify(f.title)} onChange={(e) => setF({ ...f, slug: e.target.value })} />
+                </Field>
+              </details>
               <div className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:bg-surface/95 max-lg:backdrop-blur max-lg:border-t max-lg:border-line max-lg:px-4 max-lg:pt-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <Button type="submit" variant="primary" className="w-full" loading={busy}>Lưu</Button>
               </div>
@@ -213,21 +190,30 @@ export function EventsAdmin() {
         footer={<><Button onClick={() => setEdit(null)}>Hủy</Button><Button variant="primary" loading={busy} onClick={save}>Lưu</Button></>}>
         {edit && (
           <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
-            <Field label="Tên sự kiện" htmlFor="et" className="col-span-2 sm:col-span-3"><Input id="et" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
-            <Field label="Lịch" htmlFor="ec" className="col-span-2 sm:col-span-1">
-              <Select id="ec" value={edit.calendar} onChange={(e) => setEdit({ ...edit, calendar: e.target.value as any })}>
-                <option value="lunar">Âm lịch</option><option value="solar">Dương lịch</option>
+            <Field label="Tên sự kiện" htmlFor="et" required className="col-span-2 sm:col-span-3"><Input id="et" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
+            <Field label="Lịch" htmlFor="ec" className="col-span-2 sm:col-span-3">
+              <Segmented id="ec" label="Loại lịch" value={edit.calendar} onChange={(v) => setEdit({ ...edit, calendar: v })}
+                options={[{ value: 'lunar', label: 'Âm lịch' }, { value: 'solar', label: 'Dương lịch' }]} />
+            </Field>
+            <Field label="Ngày" htmlFor="ed" required>
+              <Select id="ed" value={String(edit.day)} onChange={(e) => setEdit({ ...edit, day: e.target.value })}>
+                <option value="">Chọn</option>
+                {Array.from({ length: edit.calendar === 'lunar' ? 30 : 31 }, (_, i) => <option key={i} value={i + 1}>{edit.calendar === 'lunar' && i < 10 ? `Mùng ${i + 1}` : i + 1}</option>)}
               </Select>
             </Field>
-            <Field label="Ngày" htmlFor="ed"><Input id="ed" type="number" min={1} max={31} value={edit.day} onChange={(e) => setEdit({ ...edit, day: e.target.value })} /></Field>
-            <Field label="Tháng" htmlFor="em"><Input id="em" type="number" min={1} max={12} value={edit.month} onChange={(e) => setEdit({ ...edit, month: e.target.value })} /></Field>
+            <Field label="Tháng" htmlFor="em" required>
+              <Select id="em" value={String(edit.month)} onChange={(e) => setEdit({ ...edit, month: e.target.value })}>
+                <option value="">Chọn</option>
+                {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{edit.calendar === 'lunar' ? `Tháng ${LUNAR_MONTHS[i]}` : `Tháng ${i + 1}`}</option>)}
+              </Select>
+            </Field>
             <div className="col-span-2 sm:col-span-3 flex flex-wrap items-center gap-4">
               <Checkbox label="Lặp lại hằng năm" checked={edit.recurring} onChange={(v) => setEdit({ ...edit, recurring: v })} />
-              {!edit.recurring && <Input aria-label="Năm" placeholder="Năm" type="number" className="w-28" value={edit.year ?? ''} onChange={(e) => setEdit({ ...edit, year: e.target.value })} />}
+              {!edit.recurring && <Input aria-label="Năm" placeholder="Năm" type="number" inputMode="numeric" className="w-28" value={edit.year ?? ''} onChange={(e) => setEdit({ ...edit, year: e.target.value })} />}
             </div>
             {hint && <p className="col-span-2 sm:col-span-3 text-sm text-ink-2 -mt-2">{hint}</p>}
-            <Field label="Địa điểm" htmlFor="el" className="col-span-2 sm:col-span-3"><Input id="el" value={edit.location} onChange={(e) => setEdit({ ...edit, location: e.target.value })} /></Field>
-            <Field label="Mô tả" htmlFor="eds" className="col-span-2 sm:col-span-3"><Textarea id="eds" rows={3} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
+            <Field label="Địa điểm" htmlFor="el" optional className="col-span-2 sm:col-span-3"><Input id="el" value={edit.location} onChange={(e) => setEdit({ ...edit, location: e.target.value })} /></Field>
+            <Field label="Mô tả" htmlFor="eds" optional className="col-span-2 sm:col-span-3"><Textarea id="eds" rows={3} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
           </div>
         )}
       </Modal>

@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { marked } from 'marked';
+import { RichContent } from '../components/RichContent.tsx';
 import { useApi } from '../lib/api.ts';
 import type { MemberBrief, MemberDetail } from '../lib/types.ts';
 import { formatDate, lifespan } from '../lib/format.ts';
@@ -62,7 +62,7 @@ export function MemberPage() {
           {m.bio && (
             <section className="mt-8 max-w-[68ch]">
               <h2 className="font-serif text-xl font-semibold mb-3">Tiểu sử</h2>
-              <div className="prose-gp" dangerouslySetInnerHTML={{ __html: marked.parse(m.bio, { async: false }) as string }} />
+              <RichContent html={m.bio} />
             </section>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { marked } from 'marked';
+import { RichContent } from '../components/RichContent.tsx';
 import { useApi, fileUrl } from '../lib/api.ts';
 import type { ArticleBrief } from '../lib/types.ts';
 import { formatDate } from '../lib/format.ts';
@@ -67,7 +67,7 @@ export function ArticlePage() {
         <p className="mt-3 text-sm text-ink-3">Cập nhật {formatDate((a.updated_at ?? a.created_at).slice(0, 10))}</p>
         {a.summary && <p className="mt-5 text-lg text-ink-2 leading-relaxed">{a.summary}</p>}
         {a.cover_file_id && <img src={fileUrl(a.cover_file_id)} alt="" className="mt-6 w-full rounded-xl" />}
-        <div className="prose-gp mt-8" dangerouslySetInnerHTML={{ __html: marked.parse(a.content ?? '', { async: false }) as string }} />
+        <RichContent html={a.content} className="mt-8" />
       </article>
     </Container>
   );
