@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useApi, fileUrl } from '../lib/api.ts';
 import type { Site } from '../lib/types.ts';
 import { cx, Loading, ErrorState } from '../components/ui.tsx';
@@ -7,25 +7,35 @@ import { cx, Loading, ErrorState } from '../components/ui.tsx';
 const SiteCtx = createContext<{ site: Site; reload: () => void } | null>(null);
 export const useSite = () => useContext(SiteCtx)!;
 
-const NAV = [
-  { to: '/', label: 'Trang chủ', end: true },
-  { to: '/pha-do', label: 'Phả đồ' },
-  { to: '/bai-viet', label: 'Phả ký' },
-  { to: '/su-kien', label: 'Sự kiện' },
-  { to: '/album', label: 'Thư viện' },
-];
+import { defaultMenu, menuLinks, type MenuLink } from '../../shared/menu.ts';
+
+/** Một mục menu. Chuyên mục dùng chung đường dẫn /bai-viet nên phải so cả tham số ?c= mới biết mục nào đang mở. */
+function MenuEntry({ n, mobile }: { n: MenuLink; mobile?: boolean }) {
+  const loc = useLocation();
+  const [path, query = ''] = n.to.split('?');
+  const want = new URLSearchParams(query).get('c');
+  const have = new URLSearchParams(loc.search).get('c');
+  const onPath = path === '/' ? loc.pathname === '/' : loc.pathname === path || loc.pathname.startsWith(path + '/');
+  const active = !n.external && onPath && (loc.pathname === path ? (want ?? '') === (path === '/bai-viet' ? have ?? '' : want ?? '') : !want);
+  const cls = mobile
+    ? cx('flex h-12 items-center px-3 rounded-lg font-medium', active ? 'text-accent bg-accent-soft' : 'text-ink')
+    : cx('px-3 h-10 inline-flex items-center rounded-lg text-[15px] font-medium max-lg:px-2.5 whitespace-nowrap', active ? 'text-accent bg-accent-soft' : 'text-ink-2 hover:text-ink hover:bg-sunken');
+  if (n.external) return <a href={n.to} target="_blank" rel="noopener noreferrer" className={cls}>{n.label}<span className="sr-only"> (mở trang khác)</span></a>;
+  return <Link to={n.to} aria-current={active ? 'page' : undefined} className={cls}>{n.label}</Link>;
+}
 
 export function SiteLayout() {
   const { data: site, error, reload } = useApi<Site>('/site');
   const [menu, setMenu] = useState(false);
   const loc = useLocation();
-  useEffect(() => setMenu(false), [loc.pathname]);
+  useEffect(() => setMenu(false), [loc.pathname, loc.search]);
   useEffect(() => {
     if (site) document.title = site.site_name;
   }, [site]);
 
   if (error) return <div className="max-w-xl mx-auto p-6"><ErrorState error={error} onRetry={reload} /></div>;
   if (!site) return <Loading />;
+  const NAV = site.menu?.length ? site.menu : menuLinks(defaultMenu(), new Set());
 
   return (
     <SiteCtx.Provider value={{ site, reload }}>
@@ -43,13 +53,7 @@ export function SiteLayout() {
             <span className="font-serif font-semibold text-lg text-ink truncate">{site.site_name}</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 ml-auto" aria-label="Chính">
-            {NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.end}
-                className={({ isActive }) => cx('px-3 h-10 inline-flex items-center rounded-lg text-[15px] font-medium',
-                  isActive ? 'text-accent bg-accent-soft' : 'text-ink-2 hover:text-ink hover:bg-sunken', 'max-lg:px-2.5')}>
-                {n.label}
-              </NavLink>
-            ))}
+            {NAV.map((n) => <MenuEntry key={n.to + n.label} n={n} />)}
           </nav>
           <button className="md:hidden ml-auto size-10 inline-flex items-center justify-center rounded-lg hover:bg-sunken cursor-pointer"
             aria-label="Mở menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
@@ -58,12 +62,7 @@ export function SiteLayout() {
         </div>
         {menu && (
           <nav className="md:hidden border-t border-line bg-surface px-4 py-2" aria-label="Chính (di động)">
-            {NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.end}
-                className={({ isActive }) => cx('flex h-12 items-center px-3 rounded-lg font-medium', isActive ? 'text-accent bg-accent-soft' : 'text-ink')}>
-                {n.label}
-              </NavLink>
-            ))}
+            {NAV.map((n) => <MenuEntry key={n.to + n.label} n={n} mobile />)}
           </nav>
         )}
       </header>
@@ -87,6 +86,7 @@ export function SiteLayout() {
           <div>
             <p className="font-medium text-ink">Liên hệ</p>
             <p className="mt-2 text-ink-2 whitespace-pre-line leading-relaxed">{site.contact || site.address || 'Ban liên lạc dòng họ'}</p>
+            <Link to="/lien-he" className="inline-flex items-center min-h-9 pointer-coarse:min-h-11 mt-1 text-ink underline underline-offset-4 decoration-line-strong hover:decoration-ink">Gửi lời nhắn</Link>
           </div>
         </div>
         <div className="border-t border-line">

@@ -11,6 +11,7 @@ import { ArticlePage, ArticlesPage } from './site/Articles.tsx';
 import { EventsPage } from './site/Events.tsx';
 import { AlbumPage, AlbumsPage } from './site/Albums.tsx';
 import { PrivacyPage } from './site/Privacy.tsx';
+import { ContactPage } from './site/Contact.tsx';
 import { Loading } from './components/ui.tsx';
 
 // Trang quản trị tải riêng (có trình soạn thảo), trang xem không phải tải phần này
@@ -29,6 +30,9 @@ const SettingsAdmin = L(() => import('./admin/Settings.tsx'), 'SettingsAdmin');
 const AdminsAdmin = L(() => import('./admin/Admins.tsx'), 'AdminsAdmin');
 const TreeAdmin = L(() => import('./admin/TreeAdmin.tsx'), 'TreeAdmin');
 const LogsAdmin = L(() => import('./admin/Logs.tsx'), 'LogsAdmin');
+const MessagesAdmin = L(() => import('./admin/Messages.tsx'), 'MessagesAdmin');
+const MenuAdmin = L(() => import('./admin/Menu.tsx'), 'MenuAdmin');
+const AccountPage = L(() => import('./admin/Settings.tsx'), 'AccountPage');
 
 function NotFound() {
   return (
@@ -55,6 +59,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="su-kien" element={<EventsPage />} />
             <Route path="album" element={<AlbumsPage />} />
             <Route path="album/:id" element={<AlbumPage />} />
+            <Route path="lien-he" element={<ContactPage />} />
             <Route path="chinh-sach-bao-mat" element={<PrivacyPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
@@ -71,6 +76,9 @@ createRoot(document.getElementById('root')!).render(
             <Route path="albums/:id" element={<AlbumAdmin />} />
             <Route path="admins" element={<AdminsAdmin />} />
             <Route path="settings" element={<SettingsAdmin />} />
+            <Route path="menu" element={<MenuAdmin />} />
+            <Route path="messages" element={<MessagesAdmin />} />
+            <Route path="account" element={<AccountPage />} />
           </Route>
         </Routes>
         </Suspense>

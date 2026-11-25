@@ -11,7 +11,8 @@ import {
 } from '../components/ui.tsx';
 import { DateInput, LunarDayMonth } from '../components/DateInput.tsx';
 const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
-import { ImageUpload } from './AdminLayout.tsx';
+import { ImageUpload, useMe } from './AdminLayout.tsx';
+import { ImportDialog, exportExcel } from './Import.tsx';
 
 type Row = MemberBrief & { father_name: string | null; mother_name: string | null; updated_at: string };
 
@@ -20,6 +21,10 @@ export function MembersAdmin() {
   const [q, setQ] = useState('');
   const [gen, setGen] = useState('');
   const [page, setPage] = useState(0);
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const isAdmin = useMe()?.role === 'admin';
+  const toast = useToast();
   const PER = 50;
   const list = useMemo(() => {
     const f = fold(q);
@@ -30,7 +35,15 @@ export function MembersAdmin() {
   return (
     <>
       <PageHeader title="Thành viên" subtitle={data ? `${data.length} người` : undefined}
-        actions={<Link to="/admin/members/new" className="h-10 px-4 inline-flex items-center rounded-lg bg-accent text-white font-medium hover:bg-accent-hover">Thêm thành viên</Link>} />
+        actions={<>
+          {isAdmin && <Button onClick={() => setImporting(true)}>Nhập từ Excel</Button>}
+          {isAdmin && !!data?.length && <Button loading={exporting} onClick={async () => {
+            setExporting(true);
+            try { toast(`Đã xuất ${await exportExcel()} người ra file Excel.`); } catch (e: any) { toast(e.message, 'error'); } finally { setExporting(false); }
+          }}>Xuất Excel</Button>}
+          <Link to="/admin/members/new" className="h-10 px-4 inline-flex items-center rounded-lg bg-accent text-white font-medium hover:bg-accent-hover">Thêm thành viên</Link>
+        </>} />
+      {isAdmin && <ImportDialog open={importing} existing={(data ?? []) as any} onClose={() => setImporting(false)} onDone={reload} />}
       <div className="flex flex-wrap gap-2 mb-4">
         <SearchInput className="flex-1 sm:flex-none sm:w-80" placeholder="Tìm tên (không cần dấu)" value={q} onChange={setQ} aria-label="Tìm thành viên" />
         <Select className="w-auto" value={gen} onChange={(e) => setGen(e.target.value)} aria-label="Đời">
@@ -39,7 +52,7 @@ export function MembersAdmin() {
         </Select>
       </div>
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? (
-        <EmptyState title="Chưa có thành viên" text="Bắt đầu bằng việc nhập thủy tổ (đời 1), sau đó thêm con cháu từ hồ sơ của từng người."
+        <EmptyState title="Chưa có thành viên" text="Bắt đầu bằng việc nhập thủy tổ (đời 1), sau đó thêm con cháu từ hồ sơ của từng người. Đã có danh sách sẵn thì dùng Nhập từ Excel ở góc trên."
           action={<Link to="/admin/members/new" className="text-accent font-medium">Nhập thủy tổ</Link>} />
       ) : !list.length ? <EmptyState title="Không có kết quả" /> : (
         <div className="rounded-xl border border-line bg-surface overflow-hidden">

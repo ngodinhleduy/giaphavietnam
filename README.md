@@ -24,6 +24,12 @@ Một codebase, chạy được ở hai nơi:
 - Ngày mất dương lịch tự đổi ra ngày giỗ âm lịch.
 - Bài viết, chuyên mục, sự kiện, album (kéo thả nhiều ảnh, tự thu nhỏ trước khi tải lên).
 - Cài đặt: tên trang, logo, ảnh nền, địa chỉ nhà thờ họ + bản đồ, mã bảo mật, tài khoản quản trị.
+- Nhập thành viên từ Excel hoặc CSV (tự ghép cột, xem trước, báo lỗi theo dòng) và xuất Excel nhập lại được.
+- Soạn phả đồ trên cây: thêm con, vợ chồng, thêm tổ tiên phía trên thủy tổ (cả nhánh tự dời đời).
+- Hai vai trò: quản trị viên và biên tập viên (có thể giới hạn theo chi). Bài của biên tập viên ở trạng thái chờ duyệt.
+- Hòm thư nhận lời nhắn từ trang Liên hệ, tùy chỉnh menu của trang xem, nhật ký thao tác.
+
+Lưu ý với Cloudflare D1: database production không có bảng `d1_migrations`, các file trong `migrations/` được chạy tay từng lệnh trong D1 Console. Chạy migration trước, push code sau.
 
 ---
 

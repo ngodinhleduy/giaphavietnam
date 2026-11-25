@@ -6,10 +6,11 @@ import { Badge, Button, ErrorState, Loading, PageHeader } from '../components/ui
 import { FamilyTree, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
 import { EventRow } from '../site/Events.tsx';
 import { logTime, type LogRow } from './Logs.tsx';
+import { useMe } from './AdminLayout.tsx';
 
 type Stats = {
   members: number; living: number; deceased: number; generations: number; articles: number; events: number;
-  albums: number; photos: number; storage: string; orphans: { id: number; full_name: string; generation: number }[];
+  albums: number; photos: number; storage: string; unread: number; pending: number; orphans: { id: number; full_name: string; generation: number }[];
 };
 
 const SHORTCUTS = [
@@ -17,13 +18,14 @@ const SHORTCUTS = [
   { to: '/admin/members', label: 'Quản lý thành viên', sub: 'Danh sách, tìm và sửa' },
   { to: '/admin/articles/new', label: 'Viết bài', sub: 'Phả ký, tin tức' },
   { to: '/admin/events', label: 'Sự kiện, ngày giỗ', sub: 'Âm lịch tự đổi mỗi năm' },
-  { to: '/admin/settings', label: 'Cấu hình website', sub: 'Tên trang, mã xem phả đồ' },
+  { to: '/admin/settings', label: 'Cấu hình website', sub: 'Tên trang, mã xem phả đồ', adminOnly: true },
 ];
 
 export function Dashboard() {
   const { data: s, error, loading, reload } = useApi<Stats>('/admin/stats');
   const ev = useApi<UpcomingEvent[]>('/events/upcoming?days=30');
-  const logs = useApi<{ rows: LogRow[]; total: number }>('/admin/logs?limit=6');
+  const isAdmin = useMe()?.role === 'admin';
+  const logs = useApi<{ rows: LogRow[]; total: number }>(isAdmin ? '/admin/logs?limit=6' : null);
   if (loading) return <Loading />;
   if (error || !s) return <ErrorState error={error ?? 'Lỗi'} onRetry={reload} />;
   const tiles = [
@@ -47,8 +49,15 @@ export function Dashboard() {
         ))}
       </div>
 
+      {(s.pending > 0 || (isAdmin && s.unread > 0)) && (
+        <div role="status" className="mt-4 flex flex-wrap gap-x-6 gap-y-2 rounded-lg border border-line-strong bg-sunken px-4 py-3">
+          {s.pending > 0 && <Link to="/admin/articles" className="font-medium underline underline-offset-4">{s.pending} bài viết chờ duyệt</Link>}
+          {isAdmin && s.unread > 0 && <Link to="/admin/messages" className="font-medium underline underline-offset-4">{s.unread} thư chưa đọc trong hòm thư</Link>}
+        </div>
+      )}
+
       <nav aria-label="Lối tắt" className="mt-4 grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-        {SHORTCUTS.map((x) => (
+        {SHORTCUTS.filter((x) => !('adminOnly' in x) || isAdmin).map((x) => (
           <Link key={x.to} to={x.to} className="rounded-lg border border-line bg-surface px-4 py-3 hover:bg-sunken hover:border-line-strong">
             <span className="block font-medium text-ink">{x.label}</span>
             <span className="block text-sm text-ink-2">{x.sub}</span>
@@ -58,8 +67,8 @@ export function Dashboard() {
 
       <TreePreview />
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-line bg-surface">
+      <div className={`mt-6 grid gap-6 ${isAdmin ? 'lg:grid-cols-2' : ''}`}>
+        {isAdmin && <section className="rounded-xl border border-line bg-surface">
           <h2 className="px-5 h-14 flex items-center justify-between font-semibold border-b border-line">
             Lịch sử thao tác
             <Link to="/admin/logs" className="text-sm font-medium text-ink-2 hover:text-ink underline underline-offset-4 decoration-line-strong">Xem nhật ký</Link>
@@ -74,7 +83,7 @@ export function Dashboard() {
               ))}
             </ul>
           )}
-        </section>
+        </section>}
         <section className="rounded-xl border border-line bg-surface">
           <h2 className="px-5 h-14 flex items-center font-semibold border-b border-line">30 ngày tới</h2>
           {ev.loading ? <Loading /> : !ev.data?.length ? <p className="p-5 text-ink-3">Không có sự kiện hay ngày giỗ nào.</p> : (

@@ -6,10 +6,12 @@ import { hashPassword, verifyPassword, signToken, verifyToken } from './auth.ts'
 import { buildCtx, kinship } from '../shared/kinship.ts';
 import { nextSolarOfLunar, lunarToSolar, startOfDay } from '../shared/lunar.ts';
 import { slugify } from '../shared/slug.ts';
+import { menuLinks, parseMenu } from '../shared/menu.ts';
 
 /** storage: nơi lưu file mới. readers: các storage khác để đọc file cũ (ví dụ ảnh còn trên Drive sau khi chuyển sang NAS). */
 export type Deps = { db: DB; storage: Storage; secret: string; readers?: Record<string, Storage> };
-type Env = { Variables: { deps: Deps; adminId?: number } };
+type Role = 'admin' | 'editor';
+type Env = { Variables: { deps: Deps; adminId?: number; role?: Role; branch?: string | null } };
 type C = Context<Env>;
 
 const ADMIN_COOKIE = 'gp_admin';
@@ -33,7 +35,7 @@ const normMember = (b: any) => ({
 });
 
 // Tên gọi của từng nhóm dữ liệu trong nhật ký
-const LOG_RES: Record<string, { label: string; table?: string; col?: string }> = {
+const LOG_RES: Record<string, { label: string; table?: string; col?: string; only?: string[] }> = {
   members: { label: 'thành viên', table: 'members', col: 'full_name' },
   marriages: { label: 'hôn nhân' },
   articles: { label: 'bài viết', table: 'articles', col: 'title' },
@@ -42,9 +44,14 @@ const LOG_RES: Record<string, { label: string; table?: string; col?: string }> =
   albums: { label: 'album', table: 'albums', col: 'title' },
   photos: { label: 'ảnh trong album' },
   settings: { label: 'cài đặt' },
-  admins: { label: 'quản trị viên', table: 'admins', col: 'username' },
+  admins: { label: 'tài khoản', table: 'admins', col: 'username' },
   password: { label: 'của chính mình' },
+  menu: { label: 'menu website' },
+  messages: { label: 'thư trong hòm thư', table: 'messages', col: 'name', only: ['DELETE'] },
 };
+// Biên tập viên không được đụng tới các nhóm này
+const ADMIN_ONLY = ['settings', 'admins', 'logs', 'menu', 'messages', 'categories', 'storage', 'recompute-generations'];
+const IMPORT_MAX = 25;
 
 class HttpError extends Error {
   status: number;
@@ -102,6 +109,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     const pub = Object.fromEntries(PUBLIC_SETTINGS.map((k) => [k, s[k] ?? '']));
     return c.json({
       ...pub,
+      menu: menuLinks(parseMenu(s.menu), new Set(categories.map((x: any) => x.slug))),
       locked: !!s.viewer_passcode_hash,
       unlocked: await canView(c),
       categories,
@@ -127,6 +135,23 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
 
   app.post('/viewer/lock', (c) => {
     deleteCookie(c, VIEW_COOKIE, { path: '/' });
+    return c.json({ ok: true });
+  });
+
+  // Hòm thư: người xem gửi lời nhắn cho ban liên lạc
+  app.post('/messages', async (c) => {
+    const b = await c.req.json<any>().catch(() => ({}));
+    if (b.website) return c.json({ ok: true }); // ô bẫy dành cho máy tự động điền
+    const name = String(b.name ?? '').trim().slice(0, 80);
+    const contact = String(b.contact ?? '').trim().slice(0, 120);
+    const subject = String(b.subject ?? '').trim().slice(0, 120);
+    const body = String(b.body ?? '').trim();
+    if (name.length < 2) throw bad('Cần nhập họ tên.');
+    if (body.length < 10) throw bad('Nội dung cần ít nhất 10 ký tự.');
+    if (body.length > 3000) throw bad('Nội dung tối đa 3000 ký tự.');
+    const recent = await db(c).first<{ n: number }>("SELECT COUNT(*) AS n FROM messages WHERE created_at > datetime('now', '-10 minutes')");
+    if ((recent?.n ?? 0) >= 10) throw new HttpError(429, 'Hòm thư đang nhận quá nhiều thư. Vui lòng thử lại sau ít phút.');
+    await db(c).run('INSERT INTO messages (name, contact, subject, body) VALUES (?, ?, ?, ?)', [name, contact, subject, body]);
     return c.json({ ok: true });
   });
 
@@ -315,7 +340,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     await db(c).run("UPDATE admins SET last_login_at = datetime('now') WHERE id = ?", [u.id]);
     const token = await signToken({ sub: String(u.id), role: 'admin', exp: Date.now() + 7 * DAY }, c.get('deps').secret);
     setCookie(c, ADMIN_COOKIE, token, { httpOnly: true, sameSite: 'Lax', secure: secure(c), path: '/', maxAge: 7 * 86400 });
-    return c.json({ id: u.id, username: u.username, display_name: u.display_name });
+    return c.json({ id: u.id, username: u.username, display_name: u.display_name, role: u.role === 'editor' ? 'editor' : 'admin' });
   });
 
   app.post('/admin/logout', (c) => {
@@ -346,15 +371,39 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     if (!id) return c.json({ error: 'Phiên đăng nhập hết hạn.' }, 401);
     c.set('adminId', id);
     const method = c.req.method;
+    const seg = path.split('/admin/')[1]?.split('/') ?? [];
+    // Vai trò đọc từ database mỗi lần gọi: đổi quyền hoặc xóa tài khoản có hiệu lực ngay
+    let role: Role = 'admin';
+    let branch: string | null = null;
+    let who: any = null;
+    try {
+      who = await db(c).first<any>('SELECT role, branch, display_name, username FROM admins WHERE id = ?', [id]);
+      role = who?.role === 'editor' ? 'editor' : 'admin';
+      branch = role === 'editor' ? String(who?.branch ?? '').trim() || null : null;
+    } catch {
+      who = await db(c).first<any>('SELECT display_name, username FROM admins WHERE id = ?', [id]); // chưa chạy migration 0004
+    }
+    if (!who) return c.json({ error: 'Tài khoản không còn tồn tại.' }, 401);
+    c.set('role', role);
+    c.set('branch', branch);
+    if (role === 'editor') {
+      const ownName = seg[0] === 'admins' && Number(seg[1]) === id && !seg[2] && method === 'PUT';
+      const readCats = seg[0] === 'categories' && method === 'GET';
+      const bulk = (seg[0] === 'members' || seg[0] === 'marriages') && (seg[1] === 'import' || seg[1] === 'export');
+      if ((ADMIN_ONLY.includes(seg[0]) && !ownName && !readCats) || bulk)
+        return c.json({ error: 'Tài khoản biên tập viên không có quyền với mục này.' }, 403);
+    }
     if (method === 'GET') return next();
     // Nhật ký: ghi sau khi thao tác thành công. Lỗi ghi nhật ký không được làm hỏng thao tác chính.
-    const seg = path.split('/admin/')[1]?.split('/') ?? [];
-    const res = LOG_RES[seg[0]];
+    let res = LOG_RES[seg[0]];
+    if (res?.only && !res.only.includes(method)) res = undefined as any;
+    let custom = '';
     let name = '';
     try {
       if (res && c.req.header('content-type')?.includes('json')) {
         const b = await c.req.json<any>().catch(() => ({}));
         name = b?.full_name ?? b?.title ?? b?.name ?? b?.username ?? '';
+        if (seg[1] === 'import') custom = seg[0] === 'members' ? `Nhập từ file: ${b?.rows?.length ?? 0} thành viên` : `Nhập từ file: ${b?.pairs?.length ?? 0} quan hệ hôn nhân`;
       }
       // Sửa hoặc xóa theo id: lấy tên đang lưu để nhật ký đọc được
       if (res && !name && res.table && /^\d+$/.test(seg[1] ?? ''))
@@ -364,9 +413,8 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     if (!res || c.res.status >= 400) return;
     try {
       const verb = seg[2] === 'password' || seg[0] === 'password' ? 'Đổi mật khẩu' : method === 'POST' ? 'Thêm' : method === 'DELETE' ? 'Xóa' : 'Sửa';
-      const who = await db(c).first<any>('SELECT display_name, username FROM admins WHERE id = ?', [id]);
       await db(c).run('INSERT INTO audit_logs (admin_id, admin_name, action) VALUES (?, ?, ?)', [
-        id, who?.display_name || who?.username || '', `${verb} ${res.label}${name ? ': ' + String(name).slice(0, 120) : ''}`,
+        id, who?.display_name || who?.username || '', custom || `${verb} ${res.label}${name ? ': ' + String(name).slice(0, 120) : ''}`,
       ]);
     } catch { /* bảng chưa có hoặc lỗi ghi: bỏ qua */ }
   });
@@ -384,7 +432,8 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   });
 
   app.get('/admin/me', async (c) => {
-    return c.json(await db(c).first('SELECT id, username, display_name FROM admins WHERE id = ?', [c.get('adminId')]));
+    const me = await db(c).first<any>('SELECT id, username, display_name FROM admins WHERE id = ?', [c.get('adminId')]);
+    return c.json({ ...me, role: c.get('role') ?? 'admin', branch: c.get('branch') ?? null });
   });
 
   app.get('/admin/stats', async (c) => {
@@ -403,8 +452,13 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
       `SELECT id, full_name, generation FROM members WHERE is_blood = 1 AND father_id IS NULL AND mother_id IS NULL
        AND generation > 1 ORDER BY generation LIMIT 20`,
     );
+    const safe = (sql: string) => q(sql).catch(() => 0); // bảng hoặc cột mới có thể chưa có
+    const [unread, pending] = await Promise.all([
+      safe('SELECT COUNT(*) AS n FROM messages WHERE is_read = 0'),
+      safe('SELECT COUNT(*) AS n FROM articles WHERE published = 2'),
+    ]);
     return c.json({ members, living, deceased, generations, articles, events, albums, photos, orphans: missing,
-      storage: c.get('deps').storage.kind });
+      unread, pending, storage: c.get('deps').storage.kind });
   });
 
   // Members
@@ -418,6 +472,61 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
          ORDER BY m.generation, m.birth_order, m.id`,
       ),
     );
+  });
+
+  // Xuất toàn bộ để tạo file Excel ở trình duyệt
+  app.get('/admin/members/export', async (c) => {
+    const members = await db(c).all('SELECT * FROM members ORDER BY generation, birth_order, id');
+    const marriages = await db(c).all('SELECT husband_id, wife_id, order_no FROM marriages ORDER BY order_no, id');
+    return c.json({ members, marriages });
+  });
+
+  // Nhập từ file: trình duyệt gửi từng lô nhỏ, cha mẹ đứng trước con. ref là mã trong file, known là mã đã có id thật.
+  app.post('/admin/members/import', async (c) => {
+    const b = await c.req.json<{ rows: any[]; known?: Record<string, number> }>();
+    const rows = Array.isArray(b.rows) ? b.rows : [];
+    if (!rows.length || rows.length > IMPORT_MAX) throw bad(`Mỗi lô từ 1 đến ${IMPORT_MAX} dòng.`);
+    const ids: Record<string, number> = {};
+    const resolve = (ref: unknown) => {
+      if (ref == null || ref === '') return null;
+      const id = ids[String(ref)] ?? b.known?.[String(ref)];
+      if (!id) throw bad(`Không tìm thấy cha hoặc mẹ có mã "${ref}". Cha mẹ phải được nhập trước con.`);
+      return Number(id);
+    };
+    for (const r of rows) {
+      if (!String(r.full_name ?? '').trim()) throw bad('Có dòng thiếu họ tên.');
+      if (!['male', 'female'].includes(r.gender)) throw bad(`Giới tính của "${r.full_name}" không hợp lệ.`);
+    }
+    for (const r of rows) {
+      const m = normMember({
+        ...r, full_name: String(r.full_name).trim(), photo_file_id: null,
+        father_id: resolve(r.father_ref), mother_id: resolve(r.mother_ref),
+        generation: Number(r.generation) > 0 ? Math.floor(Number(r.generation)) : 1,
+        is_blood: r.is_blood === 0 || r.is_blood === false ? 0 : 1,
+        is_deceased: r.is_deceased ? 1 : 0,
+      });
+      const res = await db(c).run(
+        `INSERT INTO members (${MEMBER_FIELDS.join(', ')}) VALUES (${MEMBER_FIELDS.map(() => '?').join(', ')})`, pick(m));
+      ids[String(r.ref)] = res.lastId;
+    }
+    return c.json({ ids });
+  });
+
+  app.post('/admin/marriages/import', async (c) => {
+    const b = await c.req.json<{ pairs: { a: number; b: number; order_no?: number }[] }>();
+    const pairs = Array.isArray(b.pairs) ? b.pairs : [];
+    if (!pairs.length || pairs.length > IMPORT_MAX) throw bad(`Mỗi lô từ 1 đến ${IMPORT_MAX} cặp.`);
+    const all = [...new Set(pairs.flatMap((p) => [Number(p.a), Number(p.b)]))];
+    const g = new Map((await db(c).all<any>(`SELECT id, gender FROM members WHERE id IN (${all.map(() => '?').join(', ')})`, all)).map((m) => [m.id, m.gender]));
+    let added = 0;
+    for (const p of pairs) {
+      const h = g.get(Number(p.a)) === 'male' ? Number(p.a) : Number(p.b);
+      const w = h === Number(p.a) ? Number(p.b) : Number(p.a);
+      if (g.get(h) !== 'male' || g.get(w) !== 'female') continue;
+      const r = await db(c).run('INSERT OR IGNORE INTO marriages (husband_id, wife_id, order_no) VALUES (?, ?, ?)', [h, w, Number(p.order_no) || 1]);
+      added += r.changes;
+    }
+    return c.json({ added });
   });
 
   app.get('/admin/members/:id', async (c) => {
@@ -468,8 +577,21 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
 
   const pick = (body: any) => MEMBER_FIELDS.map((f) => (f in body ? body[f] : null));
 
+  /** Biên tập viên bị giới hạn theo chi chỉ được sửa người thuộc chi đó. */
+  async function assertBranch(c: C, memberIds: number[]) {
+    const br = c.get('branch');
+    if (!br) return;
+    const ids = memberIds.filter(Boolean);
+    const rows = ids.length
+      ? await db(c).all<any>(`SELECT branch FROM members WHERE id IN (${ids.map(() => '?').join(', ')})`, ids)
+      : [];
+    if (!rows.some((r) => String(r.branch ?? '').trim() === br))
+      throw new HttpError(403, `Tài khoản của bạn chỉ được sửa thành viên thuộc chi "${br}".`);
+  }
+
   app.post('/admin/members', async (c) => {
     const body = await c.req.json<any>();
+    if (c.get('branch')) body.branch = c.get('branch'); // người do biên tập chi thêm luôn thuộc chi đó
     await validateMember(c, body);
     const r = await db(c).run(
       `INSERT INTO members (${MEMBER_FIELDS.join(', ')}) VALUES (${MEMBER_FIELDS.map(() => '?').join(', ')})`,
@@ -484,8 +606,10 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     const id = Number(c.req.param('id'));
     const existing = await db(c).first<any>('SELECT * FROM members WHERE id = ?', [id]);
     if (!existing) throw new HttpError(404, 'Không tìm thấy.');
+    await assertBranch(c, [id]);
     // Trường không gửi lên thì giữ nguyên giá trị cũ
     const body = { ...existing, ...(await c.req.json<any>()) };
+    if (c.get('branch')) body.branch = c.get('branch');
     await validateMember(c, body, id);
     await db(c).run(
       `UPDATE members SET ${MEMBER_FIELDS.map((f) => `${f} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`,
@@ -497,6 +621,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
 
   app.delete('/admin/members/:id', async (c) => {
     const id = Number(c.req.param('id'));
+    await assertBranch(c, [id]);
     const kids = await db(c).first<{ n: number }>('SELECT COUNT(*) AS n FROM members WHERE father_id = ? OR mother_id = ?', [id, id]);
     if (kids?.n && c.req.query('force') !== '1')
       throw bad(`Thành viên này có ${kids.n} người con. Gỡ liên kết con trước hoặc xác nhận xóa.`);
@@ -521,16 +646,23 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
 
   app.post('/admin/marriages', async (c) => {
     const b = await c.req.json<any>();
+    await assertBranch(c, [Number(b.a), Number(b.b)]);
     const r = await addMarriage(c, Number(b.a), Number(b.b), Number(b.order_no) || 1, b.note);
     await recomputeGenerations(db(c));
     return c.json({ id: r.lastId });
   });
+  const marriageMembers = async (c: C) => {
+    const mr = await db(c).first<any>('SELECT husband_id, wife_id FROM marriages WHERE id = ?', [c.req.param('id')]);
+    return mr ? [mr.husband_id, mr.wife_id] : [];
+  };
   app.put('/admin/marriages/:id', async (c) => {
+    if (c.get('branch')) await assertBranch(c, await marriageMembers(c));
     const b = await c.req.json<any>();
     await db(c).run('UPDATE marriages SET order_no = ?, note = ? WHERE id = ?', [Number(b.order_no) || 1, b.note, c.req.param('id')]);
     return c.json({ ok: true });
   });
   app.delete('/admin/marriages/:id', async (c) => {
+    if (c.get('branch')) await assertBranch(c, await marriageMembers(c));
     await db(c).run('DELETE FROM marriages WHERE id = ?', [c.req.param('id')]);
     return c.json({ ok: true });
   });
@@ -587,8 +719,8 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   app.get('/admin/articles', async (c) =>
     c.json(
       await db(c).all(
-        `SELECT a.id, a.slug, a.title, a.published, a.created_at, a.updated_at, c.name AS category_name
-         FROM articles a LEFT JOIN categories c ON c.id = a.category_id ORDER BY a.created_at DESC, a.id DESC`,
+        `SELECT a.id, a.slug, a.title, a.published, a.created_at, a.updated_at, a.author_name, c.name AS category_name
+         FROM articles a LEFT JOIN categories c ON c.id = a.category_id ORDER BY a.published = 2 DESC, a.created_at DESC, a.id DESC`,
       ),
     ),
   );
@@ -605,29 +737,44 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
       slug = `${base}-${i}`;
     }
   }
+  // Trạng thái bài: 0 nháp, 1 đã đăng, 2 chờ duyệt. Biên tập viên không tự đăng được: bài chuyển sang chờ duyệt.
+  const articleStatus = (c: C, v: unknown) => {
+    const n = [0, 1, 2].includes(Number(v)) ? Number(v) : 1;
+    return c.get('role') === 'editor' && n === 1 ? 2 : n;
+  };
   app.post('/admin/articles', async (c) => {
     const b = await c.req.json<any>();
     if (!b.title?.trim()) throw bad('Tiêu đề bắt buộc.');
     const slug = await uniqueSlug(c, slugify(b.slug || b.title));
+    const published = articleStatus(c, b.published);
     const r = await db(c).run(
       'INSERT INTO articles (category_id, slug, title, summary, content, cover_file_id, published) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [b.category_id, slug, b.title.trim(), b.summary, b.content, b.cover_file_id, b.published ?? 1],
+      [b.category_id, slug, b.title.trim(), b.summary, b.content, b.cover_file_id, published],
     );
-    return c.json({ id: r.lastId, slug });
+    try {
+      const who = await db(c).first<any>('SELECT display_name, username FROM admins WHERE id = ?', [c.get('adminId')]);
+      await db(c).run('UPDATE articles SET author_name = ? WHERE id = ?', [who?.display_name || who?.username || '', r.lastId]);
+    } catch { /* cột author_name chưa có */ }
+    return c.json({ id: r.lastId, slug, published });
   });
   app.put('/admin/articles/:id', async (c) => {
     const id = Number(c.req.param('id'));
     const b = await c.req.json<any>();
     if (!b.title?.trim()) throw bad('Tiêu đề bắt buộc.');
     const slug = await uniqueSlug(c, slugify(b.slug || b.title), id);
+    const published = articleStatus(c, b.published);
     await db(c).run(
       `UPDATE articles SET category_id = ?, slug = ?, title = ?, summary = ?, content = ?, cover_file_id = ?, published = ?,
        updated_at = datetime('now') WHERE id = ?`,
-      [b.category_id, slug, b.title.trim(), b.summary, b.content, b.cover_file_id, b.published ?? 1, id],
+      [b.category_id, slug, b.title.trim(), b.summary, b.content, b.cover_file_id, published, id],
     );
-    return c.json({ ok: true, slug });
+    return c.json({ ok: true, slug, published });
   });
   app.delete('/admin/articles/:id', async (c) => {
+    if (c.get('role') === 'editor') {
+      const a = await db(c).first<any>('SELECT published FROM articles WHERE id = ?', [c.req.param('id')]);
+      if (a?.published === 1) throw new HttpError(403, 'Biên tập viên không xóa được bài đã đăng.');
+    }
     await db(c).run('DELETE FROM articles WHERE id = ?', [c.req.param('id')]);
     return c.json({ ok: true });
   });
@@ -719,10 +866,46 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     return c.json({ ok: true });
   });
 
-  // Admins
+  // Menu của trang xem
+  app.get('/admin/menu', async (c) => {
+    const s = await settingsMap(c);
+    const categories = await db(c).all('SELECT slug, name FROM categories ORDER BY sort, id');
+    return c.json({ items: parseMenu(s.menu), categories });
+  });
+  app.put('/admin/menu', async (c) => {
+    const b = await c.req.json<any>();
+    const items = parseMenu(b.items);
+    if (!items.some((i) => i.visible)) throw bad('Menu cần ít nhất một mục đang hiện.');
+    await db(c).run("INSERT OR REPLACE INTO settings (key, value) VALUES ('menu', ?)", [JSON.stringify(items)]);
+    return c.json({ items });
+  });
+
+  // Hòm thư
+  app.get('/admin/messages', async (c) => {
+    const limit = Math.min(Number(c.req.query('limit') ?? 50), 200);
+    const offset = Math.max(Number(c.req.query('offset') ?? 0), 0);
+    const rows = await db(c).all('SELECT * FROM messages ORDER BY id DESC LIMIT ? OFFSET ?', [limit, offset]);
+    const total = (await db(c).first<{ n: number }>('SELECT COUNT(*) AS n FROM messages'))?.n ?? 0;
+    return c.json({ rows, total });
+  });
+  app.put('/admin/messages/:id', async (c) => {
+    const b = await c.req.json<any>();
+    await db(c).run('UPDATE messages SET is_read = ? WHERE id = ?', [b.is_read ? 1 : 0, c.req.param('id')]);
+    return c.json({ ok: true });
+  });
+  app.delete('/admin/messages/:id', async (c) => {
+    await db(c).run('DELETE FROM messages WHERE id = ?', [c.req.param('id')]);
+    return c.json({ ok: true });
+  });
+
+  // Tài khoản: quản trị viên (toàn quyền) và biên tập viên
   app.get('/admin/admins', async (c) =>
-    c.json(await db(c).all('SELECT id, username, display_name, created_at, last_login_at FROM admins ORDER BY id')),
+    c.json(await db(c).all('SELECT id, username, display_name, created_at, last_login_at, role, branch FROM admins ORDER BY id')),
   );
+  const roleOf = (b: any): { role: Role; branch: string | null } => {
+    const role: Role = b.role === 'editor' ? 'editor' : 'admin';
+    return { role, branch: role === 'editor' ? String(b.branch ?? '').trim().slice(0, 60) || null : null };
+  };
   const validUsername = (u: string) => /^[a-zA-Z0-9._-]{3,32}$/.test(u);
   app.post('/admin/admins', async (c) => {
     const b = await c.req.json<any>();
@@ -730,8 +913,9 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     if (!validUsername(username)) throw bad('Tên đăng nhập 3-32 ký tự, chỉ gồm chữ không dấu, số, dấu chấm, gạch dưới, gạch ngang.');
     if (String(b.password ?? '').length < 8) throw bad('Mật khẩu tối thiểu 8 ký tự.');
     if (await db(c).first('SELECT 1 FROM admins WHERE username = ?', [username])) throw bad('Tên đăng nhập đã tồn tại.');
-    const r = await db(c).run('INSERT INTO admins (username, password_hash, display_name) VALUES (?, ?, ?)', [
-      username, await hashPassword(b.password), String(b.display_name ?? '').trim() || username,
+    const { role, branch } = roleOf(b);
+    const r = await db(c).run('INSERT INTO admins (username, password_hash, display_name, role, branch) VALUES (?, ?, ?, ?, ?)', [
+      username, await hashPassword(b.password), String(b.display_name ?? '').trim() || username, role, branch,
     ]);
     return c.json({ id: r.lastId });
   });
@@ -739,7 +923,17 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     const b = await c.req.json<any>();
     const name = String(b.display_name ?? '').trim();
     if (!name) throw bad('Tên hiển thị không được để trống.');
-    await db(c).run('UPDATE admins SET display_name = ? WHERE id = ?', [name, c.req.param('id')]);
+    const id = Number(c.req.param('id'));
+    await db(c).run('UPDATE admins SET display_name = ? WHERE id = ?', [name, id]);
+    if ('role' in b && c.get('role') === 'admin') {
+      const { role, branch } = roleOf(b);
+      if (role === 'editor') {
+        if (id === c.get('adminId')) throw bad('Không thể tự hạ quyền của chính mình.');
+        const n = await db(c).first<{ n: number }>("SELECT COUNT(*) AS n FROM admins WHERE role = 'admin' AND id <> ?", [id]);
+        if (!n?.n) throw bad('Phải còn ít nhất một quản trị viên.');
+      }
+      await db(c).run('UPDATE admins SET role = ?, branch = ? WHERE id = ?', [role, branch, id]);
+    }
     return c.json({ ok: true });
   });
   // Đặt lại mật khẩu cho người khác (không cần mật khẩu cũ)
@@ -763,8 +957,8 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   app.delete('/admin/admins/:id', async (c) => {
     const id = Number(c.req.param('id'));
     if (id === c.get('adminId')) throw bad('Không thể tự xóa tài khoản đang đăng nhập.');
-    const n = await db(c).first<{ n: number }>('SELECT COUNT(*) AS n FROM admins');
-    if ((n?.n ?? 0) <= 1) throw bad('Phải còn ít nhất một người quản trị.');
+    const n = await db(c).first<{ n: number }>("SELECT COUNT(*) AS n FROM admins WHERE role = 'admin' AND id <> ?", [id]);
+    if (!n?.n) throw bad('Phải còn ít nhất một quản trị viên.');
     await db(c).run('DELETE FROM admins WHERE id = ?', [id]);
     return c.json({ ok: true });
   });
@@ -804,13 +998,18 @@ export async function recomputeGenerations(db: DB): Promise<number> {
     memo.set(id, g);
     return g;
   };
-  let n = 0;
+  // Gom theo số đời để chỉ chạy vài lệnh, kể cả khi cả cây bị dời (thêm tổ tiên phía trên thủy tổ)
+  const groups = new Map<number, number[]>();
   for (const m of ms) {
     const g = gen(m.id);
-    if (g !== m.generation) {
-      await db.run('UPDATE members SET generation = ? WHERE id = ?', [g, m.id]);
-      n++;
-    }
+    if (g !== m.generation) groups.set(g, [...(groups.get(g) ?? []), m.id]);
   }
+  let n = 0;
+  for (const [g, ids] of groups)
+    for (let i = 0; i < ids.length; i += 80) {
+      const part = ids.slice(i, i + 80);
+      await db.run(`UPDATE members SET generation = ? WHERE id IN (${part.map(() => '?').join(', ')})`, [g, ...part]);
+      n += part.length;
+    }
   return n;
 }

@@ -1,12 +1,34 @@
 import { useState } from 'react';
 import { api, useApi } from '../lib/api.ts';
 import {
-  Badge, Button, EmptyState, ErrorState, Field, Input, Loading, Modal, PageHeader, PasswordInput, StrengthMeter,
+  Badge, Button, EmptyState, ErrorState, Field, Input, Loading, Modal, PageHeader, PasswordInput, Segmented, StrengthMeter,
   generatePassword, useToast,
 } from '../components/ui.tsx';
 import { useMe } from './AdminLayout.tsx';
 
-type Admin = { id: number; username: string; display_name: string; created_at: string; last_login_at: string | null };
+type Role = 'admin' | 'editor';
+type Admin = { id: number; username: string; display_name: string; created_at: string; last_login_at: string | null; role: Role; branch: string | null };
+const roleLabel = (a: Pick<Admin, 'role' | 'branch'>) => (a.role === 'admin' ? 'Quản trị viên' : a.branch ? `Biên tập viên · ${a.branch}` : 'Biên tập viên');
+const ROLES: { value: Role; label: string }[] = [{ value: 'admin', label: 'Quản trị viên' }, { value: 'editor', label: 'Biên tập viên' }];
+
+/** Chọn vai trò, kèm giới hạn theo chi cho biên tập viên. */
+function RoleFields({ role, branch, onChange, idPrefix }: { role: Role; branch: string; onChange: (p: { role?: Role; branch?: string }) => void; idPrefix: string }) {
+  return (
+    <>
+      <Field label="Vai trò" hint={role === 'admin'
+        ? 'Toàn quyền: phả đồ, bài viết, cấu hình, menu, hòm thư, tài khoản khác.'
+        : 'Sửa phả đồ, thành viên, sự kiện, album. Bài viết phải chờ quản trị viên duyệt mới đăng. Không vào được cấu hình, menu, hòm thư, nhật ký, tài khoản.'}>
+        <Segmented label="Vai trò" value={role} onChange={(v) => onChange({ role: v })} options={ROLES} />
+      </Field>
+      {role === 'editor' && (
+        <Field label="Chỉ được sửa chi" htmlFor={`${idPrefix}-branch`} optional
+          hint="Để trống: sửa được mọi thành viên. Ghi tên chi (đúng như trường Chi trong hồ sơ) để giới hạn người này trong một chi.">
+          <Input id={`${idPrefix}-branch`} maxLength={60} value={branch} onChange={(e) => onChange({ branch: e.target.value })} placeholder="Ví dụ: Chi 2" />
+        </Field>
+      )}
+    </>
+  );
+}
 
 /** Thời gian SQLite (UTC) sang giờ Việt Nam, dạng tương đối khi gần. */
 export function when(s: string | null) {
@@ -33,10 +55,10 @@ export function AdminsAdmin() {
 
   return (
     <>
-      <PageHeader title="Quản trị viên" subtitle={data ? `${count} người có quyền quản trị` : undefined}
-        actions={<Button variant="primary" onClick={() => setAdding(true)}>Thêm quản trị viên</Button>} />
+      <PageHeader title="Người quản lý" subtitle={data ? `${count} tài khoản, ${data.filter((a) => a.role === 'admin').length} quản trị viên` : undefined}
+        actions={<Button variant="primary" onClick={() => setAdding(true)}>Thêm tài khoản</Button>} />
       <p className="-mt-3 mb-6 text-sm text-ink-2 max-w-2xl">
-        Mọi quản trị viên có toàn quyền: sửa phả đồ, bài viết, cài đặt và các tài khoản khác. Chỉ cấp cho người trong ban liên lạc dòng họ.
+        Quản trị viên có toàn quyền, kể cả với các tài khoản khác. Biên tập viên chỉ nhập liệu: phả đồ, sự kiện, album, và bài viết ở dạng chờ duyệt. Có thể giới hạn biên tập viên trong một chi.
       </p>
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? <EmptyState title="Chưa có quản trị viên" /> : (
         <div className="rounded-xl border border-line bg-surface overflow-hidden">
@@ -50,7 +72,7 @@ export function AdminsAdmin() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{a.display_name} {a.id === me?.id && <Badge tone="accent">Bạn</Badge>}</p>
-                    <p className="text-sm text-ink-2">@{a.username} · {when(a.last_login_at)}</p>
+                    <p className="text-sm text-ink-2">{roleLabel(a)} · @{a.username} · {when(a.last_login_at)}</p>
                   </div>
                 </div>
                 <RowActions a={a} self={a.id === me?.id} last={count <= 1}
@@ -63,6 +85,7 @@ export function AdminsAdmin() {
             <thead className="text-left text-sm text-ink-2 bg-sunken/60">
               <tr>
                 <th className="font-medium px-4 h-11">Người quản trị</th>
+                <th className="font-medium px-4">Vai trò</th>
                 <th className="font-medium px-4">Tên đăng nhập</th>
                 <th className="font-medium px-4">Ngày tạo</th>
                 <th className="font-medium px-4">Đăng nhập gần nhất</th>
@@ -81,6 +104,7 @@ export function AdminsAdmin() {
                       {a.id === me?.id && <Badge tone="accent">Bạn</Badge>}
                     </div>
                   </td>
+                  <td className="px-4">{roleLabel(a)}</td>
                   <td className="px-4 text-ink-2">@{a.username}</td>
                   <td className="px-4 text-ink-2 tabular-nums">{dateOnly(a.created_at)}</td>
                   <td className="px-4 text-ink-2">{when(a.last_login_at)}</td>
@@ -95,11 +119,11 @@ export function AdminsAdmin() {
 
       <AddAdminModal open={adding} onClose={() => setAdding(false)} onDone={() => { setAdding(false); reload(); }} />
 
-      <EditNameModal admin={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); reload(); }} />
+      <EditNameModal admin={editing} self={editing?.id === me?.id} onClose={() => setEditing(null)} onDone={() => { setEditing(null); reload(); }} />
 
       <ResetPasswordModal admin={resetting} onClose={() => setResetting(null)} />
 
-      <Modal open={!!removing} onClose={() => setRemoving(null)} title="Xóa quản trị viên?"
+      <Modal open={!!removing} onClose={() => setRemoving(null)} title="Xóa tài khoản?"
         footer={<>
           <Button onClick={() => setRemoving(null)}>Hủy</Button>
           <Button variant="danger" onClick={async () => {
@@ -118,7 +142,7 @@ function RowActions({ a, self, last, inline, onEdit, onReset, onRemove }: {
 }) {
   return (
     <div className={inline ? 'flex justify-end gap-1' : 'flex flex-wrap gap-2 mt-3 pl-[3.25rem]'}>
-      <Button size="sm" variant={inline ? 'ghost' : 'secondary'} onClick={onEdit}>Đổi tên</Button>
+      <Button size="sm" variant={inline ? 'ghost' : 'secondary'} onClick={onEdit}>{self ? 'Đổi tên' : 'Sửa'}</Button>
       {!self && <Button size="sm" variant={inline ? 'ghost' : 'secondary'} onClick={onReset}>Đặt lại mật khẩu</Button>}
       {!self && !last && <Button size="sm" variant={inline ? 'ghost' : 'secondary'} className="text-danger" onClick={onRemove}
         aria-label={`Xóa ${a.display_name}`}>Xóa</Button>}
@@ -147,7 +171,8 @@ export function NewPasswordField({ id, value, onChange, label = 'Mật khẩu' }
 }
 
 function AddAdminModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ display_name: '', username: '', password: '' });
+  const F0 = { display_name: '', username: '', password: '', role: 'editor' as Role, branch: '' };
+  const [f, setF] = useState(F0);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const toast = useToast();
@@ -157,7 +182,7 @@ function AddAdminModal({ open, onClose, onDone }: { open: boolean; onClose: () =
     try {
       await api.post('/admin/admins', f);
       toast(`Đã thêm ${f.display_name || f.username}.`);
-      setF({ display_name: '', username: '', password: '' });
+      setF(F0);
       onDone();
     } catch (e: any) {
       setErr(e.message);
@@ -166,7 +191,7 @@ function AddAdminModal({ open, onClose, onDone }: { open: boolean; onClose: () =
     }
   };
   return (
-    <Modal open={open} onClose={onClose} title="Thêm quản trị viên" width="max-w-xl"
+    <Modal open={open} onClose={onClose} title="Thêm tài khoản" width="max-w-xl"
       footer={<><Button onClick={onClose}>Hủy</Button><Button variant="primary" loading={busy} onClick={submit}
         disabled={!f.username || f.password.length < 8}>Thêm</Button></>}>
       <div className="space-y-4">
@@ -177,6 +202,7 @@ function AddAdminModal({ open, onClose, onDone }: { open: boolean; onClose: () =
           <Input id="na-user" autoComplete="off" autoCapitalize="none" spellCheck={false} value={f.username}
             onChange={(e) => setF({ ...f, username: e.target.value.replace(/\s/g, '') })} />
         </Field>
+        <RoleFields idPrefix="na" role={f.role} branch={f.branch} onChange={(p) => setF({ ...f, ...p })} />
         <NewPasswordField id="na-pass" value={f.password} onChange={(v) => setF({ ...f, password: v })} />
         {err && <p role="alert" className="text-sm text-danger">{err}</p>}
       </div>
@@ -184,19 +210,23 @@ function AddAdminModal({ open, onClose, onDone }: { open: boolean; onClose: () =
   );
 }
 
-function EditNameModal({ admin, onClose, onDone }: { admin: Admin | null; onClose: () => void; onDone: () => void }) {
+function EditNameModal({ admin, self, onClose, onDone }: { admin: Admin | null; self: boolean; onClose: () => void; onDone: () => void }) {
   const [name, setName] = useState('');
+  const [role, setRole] = useState<{ role: Role; branch: string }>({ role: 'admin', branch: '' });
   const toast = useToast();
   const [prev, setPrev] = useState<number | null>(null);
-  if (admin && prev !== admin.id) { setPrev(admin.id); setName(admin.display_name); }
+  if (admin && prev !== admin.id) { setPrev(admin.id); setName(admin.display_name); setRole({ role: admin.role, branch: admin.branch ?? '' }); }
   return (
-    <Modal open={!!admin} onClose={() => { setPrev(null); onClose(); }} title="Đổi tên hiển thị" width="max-w-md"
-      footer={<><Button onClick={onClose}>Hủy</Button><Button variant="primary" disabled={!name.trim()} onClick={async () => {
-        try { await api.put(`/admin/admins/${admin!.id}`, { display_name: name }); toast('Đã lưu.'); setPrev(null); onDone(); } catch (e: any) { toast(e.message, 'error'); }
+    <Modal open={!!admin} onClose={() => { setPrev(null); onClose(); }} title={self ? 'Đổi tên hiển thị' : `Sửa tài khoản @${admin?.username ?? ''}`} width="max-w-xl"
+      footer={<><Button onClick={() => { setPrev(null); onClose(); }}>Hủy</Button><Button variant="primary" disabled={!name.trim()} onClick={async () => {
+        try { await api.put(`/admin/admins/${admin!.id}`, self ? { display_name: name } : { display_name: name, ...role }); toast('Đã lưu.'); setPrev(null); onDone(); } catch (e: any) { toast(e.message, 'error'); }
       }}>Lưu</Button></>}>
-      <Field label="Tên hiển thị" htmlFor="en-name" required>
-        <Input id="en-name" value={name} onChange={(e) => setName(e.target.value)} />
-      </Field>
+      <div className="space-y-4">
+        <Field label="Tên hiển thị" htmlFor="en-name" required>
+          <Input id="en-name" value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        {!self && <RoleFields idPrefix="en" role={role.role} branch={role.branch} onChange={(p) => setRole((r) => ({ ...r, ...p }))} />}
+      </div>
     </Modal>
   );
 }

@@ -3,27 +3,34 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { api, fileUrl, shrinkImage } from '../lib/api.ts';
 import { Button, Field, Input, Loading, PasswordInput, Spinner, cx, useToast } from '../components/ui.tsx';
 
-type Me = { id: number; username: string; display_name: string };
+export type Me = { id: number; username: string; display_name: string; role: 'admin' | 'editor'; branch: string | null };
 const MeCtx = createContext<Me | null>(null);
 export const useMe = () => useContext(MeCtx);
 
-type NavItem = { to: string; label: string; end?: boolean; count?: 'members' | 'events' | 'articles' };
+type CountKey = 'members' | 'events' | 'articles' | 'unread' | 'pending';
+// adminOnly: chỉ quản trị viên thấy. alert: số đếm là việc đang chờ xử lý, chỉ hiện khi lớn hơn 0.
+type NavItem = { to: string; label: string; end?: boolean; count?: CountKey; alert?: CountKey; adminOnly?: boolean };
 const NAV: { group?: string; items: NavItem[] }[] = [
   { items: [{ to: '/admin', label: 'Tổng quan', end: true }] },
   { group: 'Quản lý', items: [
     { to: '/admin/tree', label: 'Phả đồ' },
     { to: '/admin/members', label: 'Thành viên', count: 'members' },
     { to: '/admin/events', label: 'Sự kiện', count: 'events' },
-    { to: '/admin/articles', label: 'Bài viết', count: 'articles' },
+    { to: '/admin/articles', label: 'Bài viết', count: 'articles', alert: 'pending' },
     { to: '/admin/albums', label: 'Album ảnh' },
   ] },
-  { group: 'Website', items: [{ to: '/admin/settings', label: 'Cấu hình website' }] },
+  { group: 'Website', items: [
+    { to: '/admin/settings', label: 'Cấu hình website', adminOnly: true },
+    { to: '/admin/menu', label: 'Menu website', adminOnly: true },
+    { to: '/admin/messages', label: 'Hòm thư', alert: 'unread', adminOnly: true },
+  ] },
   { group: 'Hệ thống', items: [
-    { to: '/admin/admins', label: 'Người quản lý' },
-    { to: '/admin/logs', label: 'Nhật ký' },
+    { to: '/admin/admins', label: 'Người quản lý', adminOnly: true },
+    { to: '/admin/logs', label: 'Nhật ký', adminOnly: true },
+    { to: '/admin/account', label: 'Tài khoản của tôi' },
   ] },
 ];
-type Counts = Partial<Record<'members' | 'events' | 'articles', number>>;
+type Counts = Partial<Record<CountKey, number>>;
 
 export function AdminLayout() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
@@ -73,7 +80,7 @@ export function AdminLayout() {
             </span>
           </div>
           <nav className="flex md:flex-col gap-1 md:gap-0.5 px-2 py-1.5 md:px-3 md:pb-3 overflow-x-auto md:overflow-y-auto md:flex-1 [scrollbar-width:none]" aria-label="Quản trị">
-            {NAV.map((g, gi) => (
+            {NAV.map((g) => ({ ...g, items: g.items.filter((n) => !n.adminOnly || me.role === 'admin') })).filter((g) => g.items.length).map((g, gi) => (
               <div key={gi} className="contents md:block">
                 {g.group && <p className="hidden md:block px-3 pt-4 pb-1 text-xs font-medium text-ink-2">{g.group}</p>}
                 {g.items.map((n) => (
@@ -81,14 +88,18 @@ export function AdminLayout() {
                     className={({ isActive }) => cx('h-10 md:h-9 px-3 flex items-center gap-2 shrink-0 rounded text-[15px] font-medium whitespace-nowrap',
                       isActive ? 'bg-accent-soft text-ink' : 'text-ink-2 hover:bg-accent-soft hover:text-ink')}>
                     {n.label}
-                    {n.count && counts[n.count] != null && <span className="hidden md:inline ml-auto text-sm font-normal tabular-nums">{counts[n.count]}</span>}
+                    {n.alert && !!counts[n.alert] && (
+                      <span className="md:ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-ink text-white text-xs font-semibold tabular-nums"
+                        aria-label={`${counts[n.alert]} ${n.alert === 'unread' ? 'thư chưa đọc' : 'bài chờ duyệt'}`}>{counts[n.alert]}</span>
+                    )}
+                    {n.count && counts[n.count] != null && <span className={cx('hidden md:inline text-sm font-normal tabular-nums', !(n.alert && counts[n.alert]) && 'ml-auto')}>{counts[n.count]}</span>}
                   </NavLink>
                 ))}
               </div>
             ))}
           </nav>
           <div className="hidden md:block p-3 border-t border-line text-sm">
-            <p className="px-2 text-ink-2 truncate">{me.display_name}</p>
+            <p className="px-2 text-ink-2 truncate">{me.display_name} · {me.role === 'admin' ? 'Quản trị viên' : me.branch ? `Biên tập viên, ${me.branch}` : 'Biên tập viên'}</p>
             <div className="mt-2 flex gap-1">
               <Link to="/" className="h-9 px-2 inline-flex items-center rounded-lg text-ink-2 hover:bg-sunken hover:text-ink">Xem trang</Link>
               <button onClick={async () => { await api.post('/admin/logout'); setMe(null); nav('/admin'); }}

@@ -11,7 +11,8 @@ export function PrivacyPage() {
         <p className="text-ink-2">Áp dụng cho trang {site.site_name}. Cập nhật ngày 25/11/2026.</p>
 
         <h2>Trang này thu thập gì</h2>
-        <p>Trang lưu thông tin gia phả do ban quản trị dòng họ nhập: họ tên, năm sinh, năm mất, ngày giỗ, quan hệ cha mẹ, vợ chồng, tiểu sử và ảnh. Trang không thu thập thông tin của người xem, không dùng cookie quảng cáo và không theo dõi hành vi.</p>
+        <p>Trang lưu thông tin gia phả do ban quản trị dòng họ nhập: họ tên, năm sinh, năm mất, ngày giỗ, quan hệ cha mẹ, vợ chồng, tiểu sử và ảnh. Trang không dùng cookie quảng cáo và không theo dõi hành vi người xem.</p>
+        <p>Khi bạn gửi lời nhắn ở trang Liên hệ, trang lưu họ tên, số điện thoại hoặc email (nếu bạn điền) và nội dung lời nhắn. Chỉ quản trị viên đọc được, chỉ dùng để trả lời bạn, và sẽ được xóa khi bạn yêu cầu.</p>
         <p>Trang chỉ dùng hai cookie kỹ thuật: một cookie ghi nhớ bạn đã nhập mã xem phả đồ, một cookie giữ phiên đăng nhập của người quản trị.</p>
 
         <h2>Ai được xem</h2>

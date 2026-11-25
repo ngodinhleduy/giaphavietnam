@@ -27,8 +27,8 @@ export function SettingsAdmin() {
   const bind = (k: string) => ({ value: f[k] ?? '', onChange: (e: any) => setF({ ...f, [k]: e.target.value }) });
   return (
     <>
-      <PageHeader title="Cài đặt" />
-      <div className="grid gap-6 xl:grid-cols-2 items-start max-w-[80rem] [&>section:first-child]:xl:col-span-2 [&>section:last-child]:xl:col-span-2">
+      <PageHeader title="Cấu hình website" />
+      <div className="grid gap-6 xl:grid-cols-2 items-start max-w-[80rem] [&>section:first-child]:xl:col-span-2">
         <Section title="Thông tin trang">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Field label="Tên trang" htmlFor="sn"><Input id="sn" {...bind('site_name')} /></Field>
@@ -44,7 +44,6 @@ export function SettingsAdmin() {
         </Section>
         <PasscodeSection hasPasscode={data.has_passcode} onSave={save} />
         <StorageSection />
-        <AccountSection />
       </div>
     </>
   );
@@ -80,6 +79,16 @@ function StorageSection() {
   );
 }
 
+/** Tài khoản của người đang đăng nhập: mọi vai trò đều vào được. */
+export function AccountPage() {
+  return (
+    <>
+      <PageHeader title="Tài khoản của tôi" />
+      <div className="max-w-[60rem]"><AccountSection /></div>
+    </>
+  );
+}
+
 function AccountSection() {
   const me = useMe();
   const [name, setName] = useState(me?.display_name ?? '');
@@ -88,7 +97,7 @@ function AccountSection() {
   const toast = useToast();
   const mismatch = !!pw.confirm && pw.next !== pw.confirm;
   return (
-    <Section title="Tài khoản của bạn" hint={`Đăng nhập với tên @${me?.username ?? ''}. Thêm hoặc quản lý người khác ở mục Quản trị viên.`}>
+    <Section title="Tài khoản của bạn" hint={`Đăng nhập với tên @${me?.username ?? ''}, vai trò ${me?.role === 'admin' ? 'quản trị viên' : me?.branch ? `biên tập viên (${me.branch})` : 'biên tập viên'}.`}>
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-3">
           <Field label="Tên hiển thị" htmlFor="me-name">

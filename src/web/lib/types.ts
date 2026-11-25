@@ -51,6 +51,7 @@ export interface Site {
   contact: string;
   locked: boolean;
   unlocked: boolean;
+  menu?: { to: string; label: string; external: boolean }[];
   categories: { id: number; slug: string; name: string }[];
   logo_file_id: number | null;
   banner_file_id: number | null;

@@ -10,7 +10,7 @@ import {
 
 type TreeData = { members: MemberBrief[]; marriages: Marriage[] };
 type Undo = { text: string; run: () => Promise<void> };
-type Dialog = { kind: 'child' | 'spouse' | 'delete'; id: number } | null;
+type Dialog = { kind: 'child' | 'spouse' | 'delete' | 'parent'; id: number } | null;
 
 /** Soạn phả đồ ngay trên cây: chọn một người rồi thêm con, thêm vợ/chồng, sửa, xóa. */
 export function TreeAdmin() {
@@ -172,6 +172,10 @@ function Editor({ data, reload, busy }: { data: TreeData; reload: () => void; bu
           onClose={() => setDialog(null)}
           onSaved={(id, name) => { setDialog(null); done(`Đã thêm ${name}`, async () => { await api.del(`/admin/members/${id}`); }, id); }} />
       )}
+      {dialog?.kind === 'parent' && model.byId.has(dialog.id) && (
+        <ParentDialog child={model.byId.get(dialog.id)!} model={model} onClose={() => setDialog(null)}
+          onSaved={(id, name, restore) => { setDialog(null); setOpt((o) => ({ ...o, rootId: null, maxGen: null })); done(`Đã thêm ${name}`, restore, id); }} />
+      )}
       {dialog?.kind === 'delete' && model.byId.has(dialog.id) && (
         <DeleteDialog m={model.byId.get(dialog.id)!} onClose={() => setDialog(null)}
           onDeleted={(name, restore) => { setDialog(null); setSelected(null); done(`Đã xóa ${name}`, restore); }} />
@@ -189,7 +193,7 @@ function Editor({ data, reload, busy }: { data: TreeData; reload: () => void; bu
 
 function Panel({ m, model, kids, why, onClose, onGo, onAct, onFocus }: {
   m: MemberBrief; model: ReturnType<typeof useTreeModel>; kids: MemberBrief[]; why: string;
-  onClose: () => void; onGo: (id: number) => void; onAct: (k: 'child' | 'spouse' | 'delete') => void; onFocus: () => void;
+  onClose: () => void; onGo: (id: number) => void; onAct: (k: 'child' | 'spouse' | 'delete' | 'parent') => void; onFocus: () => void;
 }) {
   const father = m.father_id ? model.byId.get(m.father_id) : null;
   const mother = m.mother_id ? model.byId.get(m.mother_id) : null;
@@ -222,6 +226,7 @@ function Panel({ m, model, kids, why, onClose, onGo, onAct, onFocus }: {
         <Link to={`/admin/members/${m.id}`} className="h-10 pointer-coarse:h-11 inline-flex items-center justify-center rounded-lg border border-line-strong bg-surface text-[15px] font-medium hover:bg-sunken">Sửa hồ sơ</Link>
         {!!m.is_blood && <Button onClick={() => onAct('spouse')}>Thêm {m.gender === 'male' ? 'vợ' : 'chồng'}</Button>}
         {kids.length > 0 && <Button onClick={onFocus}>Xem đời sau</Button>}
+        {!!m.is_blood && (!father || !mother) && <Button onClick={() => onAct('parent')}>{!father && !mother ? 'Thêm tổ tiên' : !father ? 'Thêm cha' : 'Thêm mẹ'}</Button>}
         <Button variant="danger" disabled={!!why} onClick={() => onAct('delete')}>Xóa</Button>
       </div>
       {why && <p className="mt-2 text-xs text-ink-2">{why}</p>}
@@ -310,6 +315,59 @@ function ChildDialog({ picked, parent, model, nextOrder, onClose, onSaved }: {
         <Checkbox label="Lưu xong thêm tiếp người con khác" checked={again} onChange={setAgain} />
         {err && <p role="alert" className="text-sm text-danger">{err}</p>}
         <p className="text-xs text-ink-2">Ngày giỗ, tiểu sử, ảnh bổ sung sau ở Sửa hồ sơ.</p>
+        <button type="submit" hidden />
+      </form>
+    </Modal>
+  );
+}
+
+/** Thêm cha hoặc mẹ cho người chưa có: dùng để nối tổ tiên phía trên thủy tổ. Cả nhánh bên dưới tự dời xuống một đời. */
+function ParentDialog({ child, model, onClose, onSaved }: {
+  child: MemberBrief; model: ReturnType<typeof useTreeModel>; onClose: () => void;
+  onSaved: (id: number, name: string, restore: () => Promise<void>) => void;
+}) {
+  const father = child.father_id ? model.byId.get(child.father_id) : null;
+  const mother = child.mother_id ? model.byId.get(child.mother_id) : null;
+  const other = father ?? mother ?? null; // người cha hoặc mẹ đã có
+  const [v, setV] = useState({ name: '', gender: (father ? 'female' : 'male') as Gender, year: '', dead: true });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const gen = child.generation ?? 1;
+  const save = async () => {
+    if (!v.name.trim()) return setErr('Cần nhập họ và tên.');
+    if (v.year && v.year.length !== 4) return setErr('Năm sinh gồm 4 chữ số.');
+    if (other && v.gender === other.gender) return setErr(`${child.full_name} đã có ${other.gender === 'male' ? 'cha' : 'mẹ'}. Chọn giới tính còn lại.`);
+    setSaving(true); setErr('');
+    const key = v.gender === 'male' ? 'father_id' : 'mother_id';
+    try {
+      // Đã có một bên cha mẹ thì người thêm vào là vợ/chồng của người đó (dâu, rể)
+      const r = await api.post<{ id: number }>('/admin/members', {
+        full_name: v.name.trim(), gender: v.gender, is_blood: other ? 0 : 1, is_deceased: v.dead ? 1 : 0, birth_date: v.year || null,
+        generation: Math.max(1, gen - 1),
+      });
+      try {
+        await api.put(`/admin/members/${child.id}`, { [key]: r.id });
+        if (other) await api.post('/admin/marriages', { a: other.id, b: r.id, order_no: (model.spouses.get(other.id)?.length ?? 0) + 1 });
+      } catch (e) { await api.del(`/admin/members/${r.id}?force=1`).catch(() => {}); throw e; }
+      onSaved(r.id, v.name.trim(), async () => {
+        await api.put(`/admin/members/${child.id}`, { [key]: null, generation: gen });
+        await api.del(`/admin/members/${r.id}?force=1`);
+      });
+    } catch (e: any) { setErr(e.message ?? 'Không lưu được.'); } finally { setSaving(false); }
+  };
+  return (
+    <Modal open onClose={onClose} title={other ? `Thêm ${other.gender === 'male' ? 'mẹ' : 'cha'} của ${child.full_name}` : `Thêm tổ tiên của ${child.full_name}`}
+      footer={<><Button onClick={onClose}>Hủy</Button><Button variant="primary" loading={saving} onClick={save}>Thêm vào phả đồ</Button></>}>
+      <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <QuickFields v={v} set={(p) => setV((s) => ({ ...s, ...p }))} />
+        {!other && (
+          <p className="text-sm text-ink-2 bg-sunken rounded px-3 py-2">
+            {gen <= 1
+              ? `Người này sẽ là đời 1. ${child.full_name} và toàn bộ con cháu dời xuống một đời.`
+              : `Người này sẽ là đời ${gen - 1}, ngay trên ${child.full_name}.`} Thêm vợ hoặc chồng của người này sau, từ chính thẻ của họ trên cây.
+          </p>
+        )}
+        {err && <p role="alert" className="text-sm text-danger">{err}</p>}
         <button type="submit" hidden />
       </form>
     </Modal>

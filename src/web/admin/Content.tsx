@@ -6,7 +6,7 @@ import { lunarToSolar, solarToLunar } from '../../shared/lunar.ts';
 import {
   Badge, Button, Checkbox, EmptyState, ErrorState, Field, Input, Loading, Modal, PageHeader, Segmented, Select, Spinner, Switch, Textarea, cx, useToast,
 } from '../components/ui.tsx';
-import { ImageUpload } from './AdminLayout.tsx';
+import { ImageUpload, useMe } from './AdminLayout.tsx';
 import { Section } from './Members.tsx';
 import { LUNAR_MONTHS } from '../components/DateInput.tsx';
 import { slugify } from '../../shared/slug.ts';
@@ -27,9 +27,9 @@ export function ArticlesAdmin() {
               <Link to={`/admin/articles/${a.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-sunken/50">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{a.title}</p>
-                  <p className="text-sm text-ink-2">{a.category_name ?? 'Chưa phân loại'} · {formatDate(a.updated_at.slice(0, 10))}</p>
+                  <p className="text-sm text-ink-2">{a.category_name ?? 'Chưa phân loại'} · {formatDate(a.updated_at.slice(0, 10))}{a.author_name ? ` · ${a.author_name}` : ''}</p>
                 </div>
-                {a.published ? <Badge tone="success">Đã đăng</Badge> : <Badge>Nháp</Badge>}
+                {a.published === 1 ? <Badge tone="success">Đã đăng</Badge> : a.published === 2 ? <Badge tone="gold">Chờ duyệt</Badge> : <Badge>Nháp</Badge>}
               </Link>
             </li>
           ))}
@@ -46,13 +46,15 @@ export function ArticleForm() {
   const toast = useToast();
   const cats = useApi<{ id: number; name: string }[]>('/admin/categories');
   const detail = useApi<any>(isNew ? null : `/admin/articles/${id}`);
-  const [f, setF] = useState({ title: '', slug: '', summary: '', content: '', category_id: '' as string | number, cover_file_id: null as number | null, published: true });
+  const isAdmin = useMe()?.role === 'admin';
+  // 0 nháp, 1 đã đăng, 2 chờ duyệt. Biên tập viên chỉ chọn được nháp hoặc gửi duyệt.
+  const [f, setF] = useState({ title: '', slug: '', summary: '', content: '', category_id: '' as string | number, cover_file_id: null as number | null, published: (isAdmin ? 1 : 2) as 0 | 1 | 2 });
   const [busy, setBusy] = useState(false);
   const [del, setDel] = useState(false);
   useEffect(() => {
     if (detail.data) {
       const d = detail.data;
-      setF({ title: d.title, slug: d.slug, summary: d.summary ?? '', content: d.content ?? '', category_id: d.category_id ?? '', cover_file_id: d.cover_file_id, published: !!d.published });
+      setF({ title: d.title, slug: d.slug, summary: d.summary ?? '', content: d.content ?? '', category_id: d.category_id ?? '', cover_file_id: d.cover_file_id, published: ([0, 1, 2].includes(d.published) ? d.published : 1) as 0 | 1 | 2 });
     }
   }, [detail.data]);
   const save = async (e: FormEvent) => {
@@ -60,15 +62,18 @@ export function ArticleForm() {
     if (!f.title.trim()) return toast('Nhập tiêu đề.', 'error');
     setBusy(true);
     try {
-      const body = { ...f, category_id: f.category_id || null, published: f.published ? 1 : 0 };
+      const body = { ...f, category_id: f.category_id || null };
+      let saved: 0 | 1 | 2;
       if (isNew) {
-        const r = await api.post<{ id: number }>('/admin/articles', body);
+        const r = await api.post<{ id: number; published: 0 | 1 | 2 }>('/admin/articles', body);
+        saved = r.published;
         nav(`/admin/articles/${r.id}`, { replace: true });
       } else {
-        const r = await api.put<{ slug: string }>(`/admin/articles/${id}`, body);
-        setF((x) => ({ ...x, slug: r.slug }));
+        const r = await api.put<{ slug: string; published: 0 | 1 | 2 }>(`/admin/articles/${id}`, body);
+        saved = r.published;
+        setF((x) => ({ ...x, slug: r.slug, published: r.published }));
       }
-      toast('Đã lưu.');
+      toast(saved === 2 ? 'Đã lưu. Bài đang chờ quản trị viên duyệt.' : saved === 1 ? 'Đã lưu và đăng.' : 'Đã lưu bản nháp.');
     } catch (err: any) {
       toast(err.message, 'error');
     } finally {
@@ -80,7 +85,7 @@ export function ArticleForm() {
     <>
       <nav className="text-sm text-ink-2 mb-3"><Link to="/admin/articles" className="hover:text-accent">Bài viết</Link></nav>
       <PageHeader title={isNew ? 'Viết bài mới' : 'Sửa bài viết'}
-        actions={!isNew && f.published ? <a href={`/bai-viet/${f.slug}`} target="_blank" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem bài</a> : undefined} />
+        actions={!isNew && f.published === 1 ? <a href={`/bai-viet/${f.slug}`} target="_blank" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem bài</a> : undefined} />
       <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] 2xl:grid-cols-[1fr_340px] max-w-[88rem] max-lg:pb-20">
         <div className="space-y-4 min-w-0">
           <Field label="Tiêu đề" htmlFor="t" required aside={`${f.title.length}/120`}>
@@ -105,8 +110,14 @@ export function ArticleForm() {
                   {cats.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
               </Field>
-              <Switch label="Hiển thị công khai" checked={f.published} onChange={(v) => setF({ ...f, published: v })}
-                description={f.published ? 'Ai cũng đọc được.' : 'Bản nháp, chỉ quản trị viên thấy.'} />
+              <Field label="Trạng thái" hint={f.published === 1 ? 'Ai cũng đọc được.' : f.published === 2
+                ? (isAdmin ? 'Chưa hiện trên website. Chọn Đã đăng rồi Lưu để duyệt bài.' : 'Chưa hiện trên website. Quản trị viên sẽ duyệt rồi đăng.')
+                : 'Bản nháp, chỉ người quản lý thấy.'}>
+                <Segmented label="Trạng thái" size="sm" value={String(f.published)} onChange={(v) => setF({ ...f, published: Number(v) as 0 | 1 | 2 })}
+                  options={isAdmin
+                    ? [{ value: '0', label: 'Nháp' }, { value: '2', label: 'Chờ duyệt' }, { value: '1', label: 'Đã đăng' }]
+                    : [{ value: '0', label: 'Nháp' }, { value: '2', label: 'Gửi duyệt' }]} />
+              </Field>
               <details className="group">
                 <summary className="text-sm text-ink-2 cursor-pointer min-h-9 flex items-center hover:text-ink">Đường dẫn bài viết</summary>
                 <Field label="Đường dẫn (slug)" htmlFor="sl" className="mt-1"
