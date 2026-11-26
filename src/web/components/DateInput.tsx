@@ -208,7 +208,7 @@ function Calendar({ id, value, onPick, max }: { id: string; value: string; onPic
       <MonthNav y={y} m={m} set={(ny, nm) => setYm({ y: ny, m: nm })} minY={MIN_YEAR} maxY={today.getFullYear() + 1} />
       <MonthGrid y={y} m={m} selected={(c) => c.iso === value} disabled={(c) => !!max && c.iso > max} onPick={(c) => onPick(c.iso)} onHover={setHover} />
       <p className="mt-2 h-5 text-xs text-ink-2 truncate" aria-hidden>
-        {hover ? <>{formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Màu đỏ: mùng 1, rằm, ngày lễ.'}
+        {hover ? <>{formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Số nhỏ là ngày âm. Màu đỏ: mùng 1, rằm, ngày lễ.'}
       </p>
       <div className="flex items-center justify-between gap-2 mt-1 pt-2 border-t border-line">
         <button type="button" onClick={() => onPick(String(y))} className="h-9 px-2 rounded-md text-sm font-medium text-accent hover:bg-accent-soft cursor-pointer">
@@ -271,15 +271,10 @@ export function EventDatePicker({ value, onChange, recurring, invalid }: {
     : `Ngày ${value.day} tháng ${value.month} dương lịch`;
   return (
     <div className={cx('rounded-xl border bg-surface p-3', invalid ? 'border-danger' : 'border-line-strong')}>
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <p className="text-sm text-ink-2">Số nhỏ là ngày âm lịch</p>
-        <button type="button" onClick={() => setYm({ y: thisYear, m: today.getMonth() + 1 })}
-          className="h-8 pointer-coarse:h-10 px-2.5 rounded-md text-sm font-medium text-ink-2 hover:bg-sunken hover:text-ink cursor-pointer transition-colors">Hôm nay</button>
-      </div>
       <MonthNav y={y} m={m} set={(ny, nm) => setYm({ y: ny, m: nm })} minY={MIN_YEAR} maxY={thisYear + 50} />
       <MonthGrid y={y} m={m} selected={selected} onPick={pick} onHover={setHover} />
       <p className="mt-2 h-5 text-xs text-ink-2 truncate" aria-hidden>
-        {hover ? <>{hover.d}/{m}/{y} · {formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Màu đỏ: mùng 1, rằm, ngày lễ.'}
+        {hover ? <>{hover.d}/{m}/{y} · {formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Số nhỏ là ngày âm. Màu đỏ: mùng 1, rằm, ngày lễ.'}
       </p>
       <p role="status" className="mt-1 pt-2.5 border-t border-line text-sm">
         {!summary ? <span className="text-ink-2">Bấm một ngày trên lịch để chọn.</span> : (
