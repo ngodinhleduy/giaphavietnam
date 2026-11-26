@@ -59,10 +59,16 @@ export function AlbumPage() {
         <ul className="columns-2 md:columns-3 xl:columns-4 2xl:columns-5 gap-2 sm:gap-3 [&>li]:mb-2 sm:[&>li]:mb-3">
           {photos.map((p, i) => (
             <li key={p.id} className="break-inside-avoid">
-              <button onClick={() => setIdx(i)} className="block w-full cursor-zoom-in" aria-label={p.caption || `Ảnh ${i + 1}`}>
-                <img src={fileUrl(p.file_id)} alt={p.caption ?? ''} loading="lazy" className="w-full rounded-lg" />
+              {/* Chú thích nằm trên ảnh, có lớp phủ đen mờ dần phía dưới để chữ trắng luôn đủ tương phản.
+                  Nhờ vậy ô có chú thích và ô không có chú thích cao đúng bằng ảnh, lưới không bị lệch. */}
+              <button onClick={() => setIdx(i)} className="group relative block w-full overflow-hidden rounded-lg cursor-zoom-in" aria-label={p.caption || `Ảnh ${i + 1}`}>
+                <img src={fileUrl(p.file_id)} alt={p.caption ?? ''} loading="lazy" className="block w-full transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transform-none" />
+                {p.caption && (
+                  <span aria-hidden className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 via-black/60 to-transparent px-3 pb-2.5 pt-10 text-left text-sm font-medium leading-snug text-white">
+                    <span className="line-clamp-2">{p.caption}</span>
+                  </span>
+                )}
               </button>
-              {p.caption && <p className="mt-1 text-sm text-ink-2">{p.caption}</p>}
             </li>
           ))}
         </ul>
