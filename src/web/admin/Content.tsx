@@ -375,7 +375,7 @@ export function AlbumAdmin() {
     if (!list.length) return;
     setProgress({ done: 0, total: list.length });
     // Ba ảnh cùng lúc: nhanh hơn hẳn gửi lần lượt mà chưa chạm giới hạn của Google Drive
-    const res = await pool(list, 3, async (f) => (await api.upload(await shrinkImage(f, 1920))).id, () => setProgress((p) => p && { ...p, done: p.done + 1 }));
+    const res = await pool(list, 3, async (f) => (await api.upload(await shrinkImage(f))).id, () => setProgress((p) => p && { ...p, done: p.done + 1 }));
     const ids = res.filter((x): x is number => x != null);
     const failed = res.length - ids.length;
     if (ids.length) await api.post(`/admin/albums/${id}/photos`, { file_ids: ids });
@@ -400,7 +400,7 @@ export function AlbumAdmin() {
         {progress ? (
           <><Spinner /><span className="text-ink-2">Đang tải {progress.done}/{progress.total}...</span></>
         ) : (
-          <><UploadCloud aria-hidden className="size-7 text-ink-2 mb-1" /><span className="font-medium"><span className="pointer-coarse:hidden">Kéo thả ảnh vào đây hoặc bấm để chọn</span><span className="hidden pointer-coarse:inline">Bấm để chọn ảnh</span></span><span className="text-sm text-ink-3">Ảnh được thu nhỏ còn tối đa 2000px trước khi tải lên.</span></>
+          <><UploadCloud aria-hidden className="size-7 text-ink-2 mb-1" /><span className="font-medium"><span className="pointer-coarse:hidden">Kéo thả ảnh vào đây hoặc bấm để chọn</span><span className="hidden pointer-coarse:inline">Bấm để chọn ảnh</span></span><span className="text-sm text-ink-3">Ảnh lớn hơn 1080p được thu về 1080p trước khi tải lên. Ảnh nhỏ hơn giữ nguyên.</span></>
         )}
         <input type="file" accept="image/*" multiple className="sr-only" disabled={!!progress} onChange={(e) => e.target.files && upload(e.target.files)} />
       </label>

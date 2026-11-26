@@ -1,10 +1,13 @@
 // Thu nhỏ ảnh trong một luồng riêng, để trang không bị khựng khi người dùng chọn nhiều ảnh lớn.
-type Job = { id: number; file: File; max: number; quality: number };
+import { fitScale } from './imageFit.ts';
 
-async function shrink(file: File, max: number, quality: number): Promise<{ blob: Blob; ext: string } | null> {
+type Job = { id: number; file: File; quality: number };
+
+async function shrink(file: File, quality: number): Promise<{ blob: Blob; ext: string } | null> {
   const bmp = await createImageBitmap(file);
-  const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
-  if (scale === 1 && file.size < 600_000) { bmp.close(); return null; }
+  const scale = fitScale(bmp.width, bmp.height);
+  // Ảnh từ 1080p trở xuống: giữ nguyên file gốc
+  if (scale === 1) { bmp.close(); return null; }
   const canvas = new OffscreenCanvas(Math.round(bmp.width * scale), Math.round(bmp.height * scale));
   const ctx = canvas.getContext('2d')!;
   ctx.imageSmoothingQuality = 'high';
@@ -18,9 +21,9 @@ async function shrink(file: File, max: number, quality: number): Promise<{ blob:
 }
 
 self.onmessage = async (e: MessageEvent<Job>) => {
-  const { id, file, max, quality } = e.data;
+  const { id, file, quality } = e.data;
   try {
-    const out = await shrink(file, max, quality);
+    const out = await shrink(file, quality);
     (self as any).postMessage({ id, ok: true, blob: out?.blob ?? null, ext: out?.ext ?? '' });
   } catch {
     (self as any).postMessage({ id, ok: false });

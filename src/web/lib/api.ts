@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { fitScale } from './imageFit.ts';
 
 export class ApiError extends Error {
   status: number;
@@ -84,11 +85,11 @@ function shrinkWorker(): Worker | null {
 const skip = (f: File) => !f.type.startsWith('image/') || f.type === 'image/gif' || f.type === 'image/svg+xml';
 
 /** Thu nhỏ trên luồng chính. Chỉ dùng khi trình duyệt không chạy được luồng riêng. */
-async function shrinkHere(file: File, max: number, quality: number): Promise<File> {
+async function shrinkHere(file: File, quality: number): Promise<File> {
   const bmp = await createImageBitmap(file).catch(() => null);
   if (!bmp) return file;
-  const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
-  if (scale === 1 && file.size < 600_000) return file;
+  const scale = fitScale(bmp.width, bmp.height);
+  if (scale === 1) return file;
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bmp.width * scale);
   canvas.height = Math.round(bmp.height * scale);
@@ -98,15 +99,16 @@ async function shrinkHere(file: File, max: number, quality: number): Promise<Fil
   return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
 }
 
-/** Thu nhỏ ảnh trước khi upload: file nhẹ hơn thì gửi nhanh hơn và đỡ tốn dung lượng Drive/NAS.
+/** Giảm dung lượng ảnh trước khi tải lên. Chỉ xử lý ảnh lớn hơn 1080p (cạnh dài trên 1920 hoặc cạnh ngắn trên 1080):
+    ảnh đó được thu về vừa khung 1080p, giữ tỷ lệ. Ảnh từ 1080p trở xuống đi thẳng lên máy chủ, không đụng tới.
     Chạy trong luồng riêng nên trang không khựng; ảnh ra dạng WebP nếu trình duyệt hỗ trợ, không thì JPEG. */
-export async function shrinkImage(file: File, max = 1600, quality = 0.82): Promise<File> {
+export async function shrinkImage(file: File, quality = 0.82): Promise<File> {
   if (skip(file)) return file;
   const w = shrinkWorker();
-  if (!w) return shrinkHere(file, max, quality);
+  if (!w) return shrinkHere(file, quality);
   const id = ++jobId;
-  const r = await new Promise<{ ok: boolean; blob: Blob | null; ext: string }>((res) => { waiting.set(id, res); w.postMessage({ id, file, max, quality }); });
-  if (!r.ok) return shrinkHere(file, max, quality);
+  const r = await new Promise<{ ok: boolean; blob: Blob | null; ext: string }>((res) => { waiting.set(id, res); w.postMessage({ id, file, quality }); });
+  if (!r.ok) return shrinkHere(file, quality);
   if (!r.blob) return file;
   return new File([r.blob], file.name.replace(/\.[^.]+$/, '') + r.ext, { type: r.blob.type });
 }
