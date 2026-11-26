@@ -114,6 +114,15 @@ html.cms {
   --color-cham: #2a1d17; --color-cham-2: #e6d5bd; --color-son: #7a2e2a; --color-son-2: #f1d9d6; --color-do: #efe6d6;
 }
 
+/* Lớp giấy cũ mờ phủ lên nền trang xem. File gốc do chủ trang cung cấp, đã chuyển thành ảnh xám rất nhạt (236..255)
+   rồi nhân với màu nền của mẫu, nên mẫu nào cũng giữ đúng tông của mình và nền chỉ tối đi tối đa 7,5%.
+   Thẻ, header, footer vẫn là màu phẳng để chữ dễ đọc. Mẫu Tối giản không dùng. */
+html[data-tpl]:not([data-tpl="toi-gian"]) {
+  background-image: url(/hoa-tiet/giay-cu.webp);
+  background-size: 1200px auto;
+  background-blend-mode: multiply;
+}
+
 html.cms ::selection { background: var(--color-primary-100); }
 /* Thẻ nội dung: bóng rất nhẹ để tách khỏi canvas */
 html.cms .gp-surface { box-shadow: 0 1px 2px rgb(82 25 22 / 0.05); }
