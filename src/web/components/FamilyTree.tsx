@@ -368,10 +368,11 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
 
 /** Cụm nút điều khiển đặt ở góc trên trái khung phả đồ: phóng to, thu nhỏ, vừa khung, toàn màn hình. */
 export function TreeControls({ onZoom, onFit, fs }: { onZoom: (k: number) => void; onFit: () => void; fs: { on: boolean; toggle: () => void } }) {
-  const b = 'size-10 inline-flex items-center justify-center text-ink cursor-pointer transition-colors hover:bg-accent-soft hover:text-accent';
+  // Khung nhóm rộng 40px tính cả viền, bằng đúng nút toàn màn hình bên dưới
+  const b = 'w-full h-10 inline-flex items-center justify-center text-ink cursor-pointer transition-colors hover:bg-accent-soft hover:text-accent';
   return (
     <div className="absolute left-3 top-3 z-10 flex flex-col gap-2 no-print" onClick={(e) => e.stopPropagation()}>
-      <div className="flex flex-col rounded-lg border border-line-strong bg-surface shadow-sm overflow-hidden divide-y divide-line">
+      <div className="w-10 flex flex-col rounded-lg border border-line-strong bg-surface shadow-sm overflow-hidden divide-y divide-line">
         <button type="button" className={b} aria-label="Phóng to" title="Phóng to" onClick={() => onZoom(1.3)}><Plus aria-hidden className="size-[18px]" /></button>
         <button type="button" className={b} aria-label="Thu nhỏ" title="Thu nhỏ" onClick={() => onZoom(1 / 1.3)}><Minus aria-hidden className="size-[18px]" /></button>
         <button type="button" className={b} aria-label="Vừa khung" title="Vừa khung" onClick={onFit}><Scan aria-hidden className="size-[18px]" /></button>
