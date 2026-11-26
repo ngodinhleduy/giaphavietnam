@@ -1,10 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { select } from 'd3-selection';
 import 'd3-transition';
-import { zoom as d3zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
+import { zoom as d3zoom, zoomIdentity, zoomTransform, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
 import type { Marriage, MemberBrief } from '../lib/types.ts';
 import { fileUrl } from '../lib/api.ts';
 import { initials, year } from '../lib/format.ts';
+import { Minus, Plus, Scan } from 'lucide-react';
+import { FullscreenButton } from './ui.tsx';
 
 export const CW = 190;
 export const CH = 76;
@@ -186,12 +188,30 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
 
   useEffect(() => {
     const svg = select(svgRef.current!);
+    // Quy ước như Figma: lăn chuột hoặc vuốt hai ngón là di chuyển; chụm hai ngón (trình duyệt báo wheel kèm ctrlKey)
+    // hoặc giữ Ctrl/Cmd khi lăn là phóng to, thu nhỏ.
     const z = d3zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.08, 2.5])
+      .filter((e: any) => (e.type === 'wheel' ? e.ctrlKey || e.metaKey : !e.ctrlKey && !e.button))
+      // Chụm trackpad cho delta nhỏ, một nấc chuột cho delta 100: chặn trên để một nấc không phóng quá 25%
+      .wheelDelta((e: any) => Math.max(-0.32, Math.min(0.32, -e.deltaY * (e.deltaMode === 1 ? 0.05 : e.deltaMode ? 1 : 0.01))))
       .on('zoom', (e) => setT(e.transform));
     zoomRef.current = z;
     svg.call(z).on('dblclick.zoom', null);
+    const el = svgRef.current!;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) return;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode ? el.clientHeight : 1;
+      // Chuột thường chỉ có trục dọc: giữ Shift để đi ngang
+      const dx = (e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX) * unit;
+      const dy = (e.shiftKey && !e.deltaX ? 0 : e.deltaY) * unit;
+      const k = zoomTransform(el).k;
+      z.translateBy(svg, -dx / k, -dy / k);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
     return () => {
+      el.removeEventListener('wheel', onWheel);
       svg.on('.zoom', null);
     };
   }, []);
@@ -345,3 +365,18 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
     </svg>
   );
 });
+
+/** Cụm nút điều khiển đặt ở góc trên trái khung phả đồ: phóng to, thu nhỏ, vừa khung, toàn màn hình. */
+export function TreeControls({ onZoom, onFit, fs }: { onZoom: (k: number) => void; onFit: () => void; fs: { on: boolean; toggle: () => void } }) {
+  const b = 'size-10 inline-flex items-center justify-center text-ink cursor-pointer transition-colors hover:bg-accent-soft hover:text-accent';
+  return (
+    <div className="absolute left-3 top-3 z-10 flex flex-col gap-2 no-print" onClick={(e) => e.stopPropagation()}>
+      <div className="flex flex-col rounded-lg border border-line-strong bg-surface shadow-sm overflow-hidden divide-y divide-line">
+        <button type="button" className={b} aria-label="Phóng to" title="Phóng to" onClick={() => onZoom(1.3)}><Plus aria-hidden className="size-[18px]" /></button>
+        <button type="button" className={b} aria-label="Thu nhỏ" title="Thu nhỏ" onClick={() => onZoom(1 / 1.3)}><Minus aria-hidden className="size-[18px]" /></button>
+        <button type="button" className={b} aria-label="Vừa khung" title="Vừa khung" onClick={onFit}><Scan aria-hidden className="size-[18px]" /></button>
+      </div>
+      <FullscreenButton on={fs.on} onClick={fs.toggle} />
+    </div>
+  );
+}

@@ -4,7 +4,7 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 import { Link, type LinkProps } from 'react-router-dom';
-import { CircleAlert, CircleCheck, X } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, CircleAlert, CircleCheck, Maximize2, Minimize2, X } from 'lucide-react';
 import { fileUrl } from '../lib/api.ts';
 import { initials } from '../lib/format.ts';
 import { fold } from '../../shared/slug.ts';
@@ -242,8 +242,9 @@ export function Skeleton({ className }: { className?: string }) {
   return <div className={cx('animate-pulse rounded-lg bg-sunken', className)} />;
 }
 
-export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'accent' | 'gold' | 'success' | 'danger' }) {
+export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'accent' | 'gold' | 'success' | 'danger' | 'brand' }) {
   const t = {
+    brand: 'bg-brand-soft text-brand',
     danger: 'bg-danger-soft text-danger',
     neutral: 'bg-sunken text-ink-2',
     accent: 'bg-accent-soft text-accent',
@@ -446,15 +447,139 @@ export function MemberPicker({ members, value, onChange, placeholder = 'Gõ tên
   );
 }
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
+export type Crumb = { to: string; label: string };
+/** Tiêu đề trang. back: đường dẫn về các cấp trên, hiện thành nút quay lại kèm breadcrumb. */
+export function PageHeader({ title, subtitle, actions, back }: { title: string; subtitle?: string; actions?: ReactNode; back?: Crumb[] }) {
+  const parent = back?.[back.length - 1];
   return (
-    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 mb-6">
-      <div className="min-w-0">
-        <h1 className="font-serif text-2xl sm:text-[28px] font-semibold text-ink leading-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-ink-2 max-w-2xl">{subtitle}</p>}
+    <div className="mb-6">
+      {parent && (
+        <nav aria-label="Đường dẫn" className="flex items-center gap-2 mb-3 min-w-0">
+          <Link to={parent.to} aria-label={`Quay lại ${parent.label}`} title={`Quay lại ${parent.label}`}
+            className="size-9 pointer-coarse:size-11 shrink-0 inline-flex items-center justify-center rounded-lg border border-line-strong bg-surface text-ink transition-colors hover:bg-accent-soft hover:border-accent hover:text-accent">
+            <ArrowLeft aria-hidden className="size-[18px]" />
+          </Link>
+          <ol className="flex items-center gap-1.5 min-w-0 text-sm text-ink-2">
+            {back!.map((c) => (
+              <li key={c.to} className="flex items-center gap-1.5 shrink-0">
+                <Link to={c.to} className="inline-flex items-center min-h-9 hover:text-accent hover:underline underline-offset-4">{c.label}</Link>
+                <ChevronRight aria-hidden className="size-3.5" />
+              </li>
+            ))}
+            <li aria-current="page" className="font-medium text-ink truncate">{title}</li>
+          </ol>
+        </nav>
+      )}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="font-serif text-2xl sm:text-[28px] font-semibold text-ink leading-tight">{title}</h1>
+          {subtitle && <p className="mt-1 text-ink-2 max-w-2xl">{subtitle}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
+  );
+}
+
+// ---------- Bảng: khung cao hết màn hình + phân trang ----------
+export const PAGE_SIZES = [10, 20, 50, 100];
+/** Số dòng mỗi trang, nhớ theo từng bảng trong trình duyệt. */
+export function usePageSize(key: string, initial = 20) {
+  const [size, set] = useState(() => {
+    try { const v = Number(localStorage.getItem(`gp-rows-${key}`)); return PAGE_SIZES.includes(v) ? v : initial; } catch { return initial; }
+  });
+  const setSize = (v: number) => { set(v); try { localStorage.setItem(`gp-rows-${key}`, String(v)); } catch { /* bỏ qua */ } };
+  return [size, setSize] as const;
+}
+
+/** Khung bảng. Từ màn md trở lên khung cao tới đáy màn hình, nội dung cuộn bên trong, phân trang nằm ở chân khung. */
+export function TableCard({ children, footer, className }: { children: ReactNode; footer?: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [h, setH] = useState<number | null>(null);
+  useEffect(() => {
+    const fit = () => {
+      const el = ref.current;
+      if (!el || !window.matchMedia('(min-width: 768px)').matches) return setH(null);
+      const pad = parseFloat(getComputedStyle(el.closest('main') ?? document.body).paddingBottom) || 24;
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      setH(Math.max(360, window.innerHeight - top - pad));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(document.body);
+    window.addEventListener('resize', fit);
+    return () => { ro.disconnect(); window.removeEventListener('resize', fit); };
+  }, []);
+  return (
+    <div ref={ref} style={h ? { height: h } : undefined} className={cx('gp-surface flex flex-col rounded-xl border border-line bg-surface overflow-hidden', className)}>
+      <div className="flex-1 min-h-0 overflow-auto">{children}</div>
+      {footer}
+    </div>
+  );
+}
+
+export function Pagination({ page, size, total, onPage, onSize, unit = 'dòng' }: {
+  page: number; size: number; total: number; onPage: (p: number) => void; onSize: (s: number) => void; unit?: string;
+}) {
+  const pages = Math.max(1, Math.ceil(total / size));
+  const uid = useId();
+  const nav = 'size-8 pointer-coarse:size-10 inline-flex items-center justify-center rounded-md text-ink cursor-pointer transition-colors hover:bg-accent-soft hover:text-accent disabled:text-line-strong disabled:hover:bg-transparent disabled:cursor-not-allowed';
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 min-h-13 border-t border-line bg-surface text-sm text-ink-2">
+      <div className="flex items-center gap-2">
+        <label htmlFor={uid}>Hiển thị</label>
+        <select id={uid} value={size} onChange={(e) => { onSize(Number(e.target.value)); onPage(0); }}
+          className="h-8 pointer-coarse:h-10 pl-2 pr-1 rounded-md border border-line-strong bg-surface text-ink tabular-nums cursor-pointer hover:border-accent">
+          {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <span>{unit} mỗi trang</span>
+      </div>
+      <div className="flex items-center gap-1 ml-auto">
+        <span role="status" className="mr-2 tabular-nums">{total ? `${page * size + 1}–${Math.min(total, (page + 1) * size)} trong ${total}` : '0'}</span>
+        <button type="button" className={nav} disabled={page <= 0} onClick={() => onPage(0)} aria-label="Trang đầu"><ChevronsLeft aria-hidden className="size-4" /></button>
+        <button type="button" className={nav} disabled={page <= 0} onClick={() => onPage(page - 1)} aria-label="Trang trước"><ChevronLeft aria-hidden className="size-4" /></button>
+        <span className="px-2 font-medium text-ink tabular-nums whitespace-nowrap">{page + 1} / {pages}</span>
+        <button type="button" className={nav} disabled={page >= pages - 1} onClick={() => onPage(page + 1)} aria-label="Trang sau"><ChevronRight aria-hidden className="size-4" /></button>
+        <button type="button" className={nav} disabled={page >= pages - 1} onClick={() => onPage(pages - 1)} aria-label="Trang cuối"><ChevronsRight aria-hidden className="size-4" /></button>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Toàn màn hình ----------
+/** Phủ một khung lên toàn cửa sổ, đồng thời xin trình duyệt vào chế độ toàn màn hình nếu được.
+    Phủ bằng CSS chứ không đưa riêng phần tử vào fullscreen, để hộp thoại và thông báo vẫn hiện bên trên. */
+export function useFullscreen(onChange?: () => void) {
+  const [on, setOn] = useState(false);
+  const cb = useRef(onChange);
+  cb.current = onChange;
+  const set = useCallback((v: boolean) => {
+    setOn(v);
+    const d = document;
+    if (v) d.documentElement.requestFullscreen?.().catch(() => {});
+    else if (d.fullscreenElement) d.exitFullscreen?.().catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!on) return;
+    const onFs = () => { if (!document.fullscreenElement) setOn(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('[role=dialog]')) set(false); };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('fullscreenchange', onFs);
+    document.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = prev; document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('keydown', onKey); };
+  }, [on, set]);
+  // Khung đổi kích thước: báo để nơi dùng canh lại nội dung
+  useEffect(() => { const t = [setTimeout(() => cb.current?.(), 80), setTimeout(() => cb.current?.(), 400)]; return () => t.forEach(clearTimeout); }, [on]);
+  return { on, toggle: () => set(!on), className: on ? '!fixed !inset-0 !z-[45] !m-0 !h-auto !min-h-0 !max-h-none !rounded-none !border-0 bg-surface' : '' };
+}
+export function FullscreenButton({ on, onClick, className }: { on: boolean; onClick: () => void; className?: string }) {
+  const label = on ? 'Thoát toàn màn hình' : 'Xem toàn màn hình';
+  return (
+    <button type="button" onClick={onClick} aria-label={label} title={on ? `${label} (Esc)` : label} aria-pressed={on}
+      className={cx('size-10 inline-flex items-center justify-center rounded-lg bg-surface border border-line-strong text-ink shadow-sm cursor-pointer transition-colors hover:bg-accent-soft hover:border-accent hover:text-accent', className)}>
+      {on ? <Minimize2 aria-hidden className="size-[18px]" /> : <Maximize2 aria-hidden className="size-[18px]" />}
+    </button>
   );
 }
 

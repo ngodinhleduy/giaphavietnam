@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useApi, fileUrl } from '../lib/api.ts';
 import type { Site } from '../lib/types.ts';
-import { ArrowUpRight, Eye, MapPin, Menu as MenuIcon, MessageSquareText, Phone, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ChevronRight, Eye, Menu as MenuIcon, X } from 'lucide-react';
 import { cx, Loading, ErrorState } from '../components/ui.tsx';
-import { TEMPLATES, parsePeople, templateOf, type TemplateId } from '../../shared/site.ts';
+import { TEMPLATES, templateOf, type TemplateId } from '../../shared/site.ts';
 
 const SiteCtx = createContext<{ site: Site; reload: () => void; template: TemplateId } | null>(null);
 export const useSite = () => useContext(SiteCtx)!;
@@ -56,7 +56,13 @@ export function SiteLayout() {
   if (!site) return <Loading />;
   const template = templateOf(preview && TEMPLATES.some((t) => t.id === preview) ? preview : site.template);
   const previewing = !!preview && template !== templateOf(site.template);
-  const people = parsePeople(site.contact_people);
+  const logo = site.logo_file_id ? (
+    <img src={fileUrl(site.logo_file_id)} alt="" className="size-9 rounded-full object-cover" />
+  ) : (
+    <span className="size-9 shrink-0 rounded-full bg-accent text-white inline-flex items-center justify-center font-serif font-semibold">
+      {site.site_name.trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || 'G'}
+    </span>
+  );
   const NAV = site.menu?.length ? site.menu : menuLinks(defaultMenu(), new Set());
 
   return (
@@ -74,13 +80,7 @@ export function SiteLayout() {
       <header className="sticky top-0 z-40 bg-bg/95 backdrop-blur border-b border-line no-print pt-[env(safe-area-inset-top)]">
         <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4 lg:gap-6">
           <Link to="/" className="group flex items-center gap-3 min-w-0">
-            {site.logo_file_id ? (
-              <img src={fileUrl(site.logo_file_id)} alt="" className="size-9 rounded-full object-cover" />
-            ) : (
-              <span className="size-9 rounded-full bg-accent text-white inline-flex items-center justify-center font-serif font-semibold transition-transform group-hover:scale-105">
-                {site.site_name.trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || 'G'}
-              </span>
-            )}
+            {logo}
             <span className="font-serif font-semibold text-lg text-ink truncate">{site.site_name}</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 ml-auto" aria-label="Chính">
@@ -100,40 +100,21 @@ export function SiteLayout() {
       <main id="main" className="min-h-[calc(100vh-4rem-180px)]">
         <Outlet />
       </main>
-      <footer className="border-t border-line bg-surface mt-16 no-print">
-        <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 py-10 grid gap-8 sm:grid-cols-3 text-sm">
-          <div>
-            <p className="font-serif font-semibold text-ink text-base">{site.site_name}</p>
-            <p className="mt-2 text-ink-2 leading-relaxed">{site.site_tagline}</p>
-          </div>
-          <div>
-            <p className="font-medium text-ink">Chuyên mục</p>
-            <ul className="mt-1">
-              {site.categories.map((c) => (
-                <li key={c.id}><Link className="inline-flex items-center min-h-9 pointer-coarse:min-h-11 text-ink-2 hover:text-accent" to={`/bai-viet?c=${c.slug}`}>{c.name}</Link></li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="font-medium text-ink">Liên hệ</p>
-            <ul className="mt-2 space-y-2 text-ink-2 leading-relaxed">
-              {site.address && <li className="flex gap-2"><MapPin aria-hidden className="size-4 shrink-0 mt-1" /><span>{site.address}</span></li>}
-              {site.contact_phone && <li className="flex gap-2"><Phone aria-hidden className="size-4 shrink-0 mt-1" /><a href={`tel:${site.contact_phone.replace(/[^\d+]/g, '')}`} className="text-ink hover:underline underline-offset-4">{site.contact_phone}</a></li>}
-              {!site.contact_phone && people.filter((p) => p.phone).slice(0, 2).map((p) => (
-                <li key={p.name + p.phone} className="flex gap-2"><Phone aria-hidden className="size-4 shrink-0 mt-1" />
-                  <span>{p.name} · <a href={`tel:${p.phone.replace(/[^\d+]/g, '')}`} className="text-ink hover:underline underline-offset-4">{p.phone}</a></span></li>
-              ))}
-              {site.contact && <li className="whitespace-pre-line">{site.contact}</li>}
-              {!site.address && !people.length && !site.contact && !site.contact_phone && <li>Ban liên lạc dòng họ</li>}
-            </ul>
-            <Link to="/lien-he" className="group inline-flex items-center gap-1.5 min-h-9 pointer-coarse:min-h-11 mt-2 font-medium text-ink"><MessageSquareText aria-hidden className="size-4" /><span className="underline underline-offset-4 decoration-line-strong group-hover:decoration-ink">{site.contact_form === '0' ? 'Trang Liên hệ' : 'Gửi lời nhắn'}</span></Link>
-          </div>
+      <footer className="border-t border-line bg-bg mt-16 no-print pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:h-16 md:py-0 flex flex-col md:flex-row md:items-center gap-x-6 gap-y-2">
+          <Link to="/" className="flex items-center gap-3 min-w-0">
+            {logo}
+            <span className="font-serif font-semibold text-lg text-ink truncate">{site.site_name}</span>
+          </Link>
+          <nav className="flex flex-wrap items-center gap-x-1 md:ml-auto -mx-2.5 md:mx-0" aria-label="Chân trang">
+            {NAV.map((n) => <MenuEntry key={n.to + n.label} n={n} />)}
+          </nav>
         </div>
         <div className="border-t border-line">
-          <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 min-h-12 pb-[env(safe-area-inset-bottom)] flex items-center justify-between gap-4 text-sm text-ink-3">
-            <span>© {new Date().getFullYear()} {site.site_name}</span>
-            <Link to="/chinh-sach-bao-mat" className="inline-flex items-center min-h-10 px-2 ml-auto hover:text-ink">Chính sách bảo mật</Link>
-            <Link to="/admin" className="inline-flex items-center min-h-10 px-2 -mr-2 hover:text-ink">Quản trị</Link>
+          <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 min-h-12 flex flex-wrap items-center gap-x-4 text-sm text-ink-2">
+            <span className="w-full sm:w-auto sm:mr-auto pt-3 sm:pt-0">© {new Date().getFullYear()} {site.site_name}</span>
+            <Link to="/chinh-sach-bao-mat" className="inline-flex items-center min-h-10 hover:text-ink hover:underline underline-offset-4">Chính sách bảo mật</Link>
+            <Link to="/admin" className="inline-flex items-center min-h-10 hover:text-ink hover:underline underline-offset-4">Quản trị</Link>
           </div>
         </div>
       </footer>
@@ -155,4 +136,29 @@ export function Container({ children, className, size = 'default' }: {
   children: React.ReactNode; className?: string; size?: keyof typeof SIZES;
 }) {
   return <div className={cx('w-full mx-auto px-4 sm:px-6 lg:px-8', SIZES[size], className)}>{children}</div>;
+}
+
+/** Nút quay lại kèm đường dẫn cho các trang chi tiết. Nếu người xem vừa đi từ một trang khác trong site
+    thì nút quay về đúng trang đó (giữ vị trí cuộn, bộ lọc); mở thẳng từ link ngoài thì về trang cấp trên. */
+export function Crumbs({ items, current }: { items: { to: string; label: string }[]; current: string }) {
+  const nav = useNavigate();
+  const parent = items[items.length - 1];
+  const back = () => ((window.history.state?.idx ?? 0) > 0 ? nav(-1) : nav(parent.to));
+  return (
+    <nav aria-label="Đường dẫn" className="flex items-center gap-2.5 mb-6 min-w-0 no-print">
+      <button type="button" onClick={back} aria-label="Quay lại" title="Quay lại"
+        className="size-10 pointer-coarse:size-11 shrink-0 inline-flex items-center justify-center rounded-lg border border-line-strong bg-surface text-ink cursor-pointer transition-colors hover:bg-sunken hover:border-ink">
+        <ArrowLeft aria-hidden className="size-[18px]" />
+      </button>
+      <ol className="flex items-center gap-1.5 min-w-0 text-sm text-ink-2">
+        {items.map((c) => (
+          <li key={c.to} className="flex items-center gap-1.5 shrink-0">
+            <Link to={c.to} className="inline-flex items-center min-h-10 hover:text-ink hover:underline underline-offset-4">{c.label}</Link>
+            <ChevronRight aria-hidden className="size-3.5" />
+          </li>
+        ))}
+        <li aria-current="page" className="font-medium text-ink truncate">{current}</li>
+      </ol>
+    </nav>
+  );
 }

@@ -4,9 +4,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api, useApi } from '../lib/api.ts';
 import { CHILD_TYPE_LABEL, type Gender, type Marriage, type MemberBrief } from '../lib/types.ts';
 import { lifespan } from '../lib/format.ts';
-import { FamilyTree, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
+import { FamilyTree, TreeControls, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
 import {
-  Avatar, Badge, Button, Checkbox, ErrorState, Field, Input, LinkButton, Loading, Modal, SearchInput, Segmented, Select, rankByName, useToast,
+  Avatar, Badge, Button, Checkbox, ErrorState, Field, Input, LinkButton, Loading, Modal, SearchInput, Segmented, Select, cx, rankByName, useFullscreen, useToast,
 } from '../components/ui.tsx';
 
 type TreeData = { members: MemberBrief[]; marriages: Marriage[] };
@@ -26,6 +26,7 @@ function Editor({ data, reload, busy }: { data: TreeData; reload: () => void; bu
   const site = useApi<{ tree_lines?: string }>('/site');
   const model = useTreeModel(data.members, data.marriages);
   const ref = useRef<FamilyTreeHandle>(null);
+  const fs = useFullscreen(() => ref.current?.fit());
   const [sp] = useSearchParams();
   const preset = Number(sp.get('m')) || null; // đi từ Tổng quan sang với một người đã chọn
   const [selected, setSelected] = useState<number | null>(preset);
@@ -134,7 +135,7 @@ function Editor({ data, reload, busy }: { data: TreeData; reload: () => void; bu
           </div>
         </div>
       ) : (
-        <div className="relative flex-1 min-h-0 flex rounded-lg border border-line overflow-hidden bg-surface">
+        <div className={cx('gp-surface relative flex-1 min-h-0 flex rounded-xl border border-line overflow-hidden bg-surface', fs.className)}>
           <div className="relative flex-1 min-w-0" onClick={() => setSelected(null)}>
             <FamilyTree ref={ref} model={model} options={opt} lines={site.data?.tree_lines} selectedId={selected} highlight={new Set()}
               onSelect={(id) => setSelected(id)}
@@ -145,11 +146,7 @@ function Editor({ data, reload, busy }: { data: TreeData; reload: () => void; bu
                 if (c.has(id)) c.delete(id); else c.add(id);
                 return { ...o, collapsed: c };
               })} />
-            <div className="absolute left-3 bottom-3 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-              <Button size="sm" aria-label="Phóng to" onClick={() => ref.current?.zoomBy(1.25)}>+</Button>
-              <Button size="sm" aria-label="Thu nhỏ" onClick={() => ref.current?.zoomBy(0.8)}>−</Button>
-              <Button size="sm" onClick={() => ref.current?.fit()}>Vừa khung</Button>
-            </div>
+            <TreeControls onZoom={(k) => ref.current?.zoomBy(k)} onFit={() => ref.current?.fit()} fs={fs} />
           </div>
           {sel && (
             <Panel m={sel} model={model} kids={kidsOf(bloodOf(sel).id)} why={whyNoDelete(sel)}

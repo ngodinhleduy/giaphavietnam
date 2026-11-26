@@ -62,7 +62,7 @@ export function AdminsAdmin() {
         Quản trị viên có toàn quyền, kể cả với các tài khoản khác. Biên tập viên chỉ nhập liệu: phả đồ, sự kiện, album, và bài viết ở dạng chờ duyệt. Có thể giới hạn biên tập viên trong một chi.
       </p>
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? <EmptyState title="Chưa có quản trị viên" /> : (
-        <div className="rounded-xl border border-line bg-surface overflow-hidden">
+        <div className="gp-surface rounded-xl border border-line bg-surface overflow-hidden">
           {/* Mobile: dạng thẻ */}
           <ul className="md:hidden divide-y divide-line">
             {data.map((a) => (
@@ -83,7 +83,7 @@ export function AdminsAdmin() {
           </ul>
           {/* Desktop: bảng */}
           <table className="hidden md:table w-full text-[15px]">
-            <thead className="text-left text-sm text-ink-2 bg-sunken/60">
+            <thead className="text-left text-sm text-ink-2 bg-sunken">
               <tr>
                 <th className="font-medium px-4 h-11">Người quản trị</th>
                 <th className="font-medium px-4">Vai trò</th>

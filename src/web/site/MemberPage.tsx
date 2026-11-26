@@ -3,7 +3,7 @@ import { RichContent } from '../components/RichContent.tsx';
 import { useApi } from '../lib/api.ts';
 import type { MemberBrief, MemberDetail } from '../lib/types.ts';
 import { formatDate, lifespan } from '../lib/format.ts';
-import { Container } from './SiteLayout.tsx';
+import { Container, Crumbs } from './SiteLayout.tsx';
 import { Avatar, Badge, ErrorState, Loading } from '../components/ui.tsx';
 
 export function MemberPage() {
@@ -28,9 +28,7 @@ export function MemberPage() {
   ];
   return (
     <Container className="py-6 sm:py-10">
-      <nav aria-label="Breadcrumb" className="text-sm text-ink-2 mb-6">
-        <Link to="/pha-do" className="hover:text-accent">Phả đồ</Link> <span aria-hidden>/</span> <span className="text-ink">{m.full_name}</span>
-      </nav>
+      <Crumbs items={[{ to: '/pha-do', label: 'Phả đồ' }]} current={m.full_name} />
       <div className="flex flex-row gap-4 sm:gap-6 items-center sm:items-start">
         <Avatar m={m} size={88} />
         <div className="flex-1 min-w-0">

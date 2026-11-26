@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Inbox, MailOpen, Trash2 } from 'lucide-react';
 import { api, useApi } from '../lib/api.ts';
-import { Badge, Button, EmptyState, ErrorState, Loading, Modal, PageHeader, cx, useToast } from '../components/ui.tsx';
+import { Badge, Button, EmptyState, ErrorState, Loading, Modal, PageHeader, Pagination, TableCard, cx, usePageSize, useToast } from '../components/ui.tsx';
 import { when } from './Admins.tsx';
 
 type Msg = { id: number; name: string; contact: string | null; subject: string | null; body: string; is_read: number; created_at: string };
-const PER = 30;
 
 /** Hòm thư: lời nhắn người xem gửi từ trang Liên hệ. */
 export function MessagesAdmin() {
   const [page, setPage] = useState(0);
+  const [PER, setPER] = usePageSize('messages');
   const { data, error, loading, reload, setData } = useApi<{ rows: Msg[]; total: number }>(`/admin/messages?limit=${PER}&offset=${page * PER}`);
   const [open, setOpen] = useState<Msg | null>(null);
   const [removing, setRemoving] = useState<Msg | null>(null);
@@ -33,16 +33,16 @@ export function MessagesAdmin() {
       {loading && !data ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.rows.length ? (
         <EmptyState icon={<Inbox />} title="Chưa có thư nào" text="Lời nhắn gửi từ trang Liên hệ sẽ hiện ở đây." />
       ) : (
-        <>
-          <ul className="rounded-xl border border-line bg-surface divide-y divide-line">
+        <TableCard footer={<Pagination page={page} size={PER} total={data.total} onPage={setPage} onSize={setPER} unit="thư" />}>
+          <ul className="divide-y divide-line">
             {data.rows.map((m) => (
               <li key={m.id}>
-                <button type="button" onClick={() => show(m)} className="w-full text-left flex items-start gap-3 px-4 sm:px-5 py-3 hover:bg-sunken/50 cursor-pointer">
-                  <span aria-hidden className={cx('mt-2 size-2 shrink-0 rounded-full', m.is_read ? 'bg-transparent' : 'bg-ink')} />
+                <button type="button" onClick={() => show(m)} className="w-full text-left flex items-start gap-3 px-4 sm:px-5 py-3 hover:bg-accent-soft/60 transition-colors cursor-pointer">
+                  <span aria-hidden className={cx('mt-2 size-2 shrink-0 rounded-full', m.is_read ? 'bg-transparent' : 'bg-brand')} />
                   <span className="flex-1 min-w-0">
                     <span className="flex flex-wrap items-baseline gap-x-2">
                       <span className={cx('truncate', m.is_read ? 'text-ink' : 'font-semibold text-ink')}>{m.name}</span>
-                      {!m.is_read && <Badge>Chưa đọc</Badge>}
+                      {!m.is_read && <Badge tone="brand">Chưa đọc</Badge>}
                       <span className="ml-auto text-sm text-ink-2 tabular-nums">{when(m.created_at)}</span>
                     </span>
                     <span className="block text-sm text-ink-2 truncate">{m.subject ? `${m.subject}: ` : ''}{m.body}</span>
@@ -51,16 +51,7 @@ export function MessagesAdmin() {
               </li>
             ))}
           </ul>
-          {data.total > PER && (
-            <div className="mt-4 flex items-center justify-between text-sm text-ink-2">
-              <span>Trang {page + 1}/{Math.ceil(data.total / PER)}</span>
-              <span className="flex gap-2">
-                <Button size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>Trước</Button>
-                <Button size="sm" disabled={(page + 1) * PER >= data.total} onClick={() => setPage(page + 1)}>Sau</Button>
-              </span>
-            </div>
-          )}
-        </>
+        </TableCard>
       )}
 
       <Modal open={!!open} onClose={() => setOpen(null)} title={open?.subject || 'Thư từ trang Liên hệ'} width="max-w-xl"

@@ -3,7 +3,7 @@ import { RichContent } from '../components/RichContent.tsx';
 import { useApi, fileUrl } from '../lib/api.ts';
 import type { ArticleBrief } from '../lib/types.ts';
 import { formatDate } from '../lib/format.ts';
-import { Container, useSite } from './SiteLayout.tsx';
+import { Container, Crumbs, useSite } from './SiteLayout.tsx';
 import { EmptyState, ErrorState, Loading, PageHeader, cx } from '../components/ui.tsx';
 
 export function ArticlesPage() {
@@ -58,10 +58,7 @@ export function ArticlePage() {
   if (!a) return null;
   return (
     <Container size="text" className="py-10">
-      <nav aria-label="Breadcrumb" className="text-sm text-ink-2 mb-6">
-        <Link to="/bai-viet" className="hover:text-accent">Phả ký</Link>
-        {a.category_name && <> <span aria-hidden>/</span> <Link to={`/bai-viet?c=${a.category_slug}`} className="hover:text-accent">{a.category_name}</Link></>}
-      </nav>
+      <Crumbs items={[{ to: '/bai-viet', label: 'Phả ký' }, ...(a.category_name ? [{ to: `/bai-viet?c=${a.category_slug}`, label: a.category_name }] : [])]} current={a.title} />
       <article>
         <h1 className="font-serif text-[1.75rem] sm:text-4xl font-semibold leading-tight">{a.title}</h1>
         <p className="mt-3 text-sm text-ink-3">Cập nhật {formatDate((a.updated_at ?? a.created_at).slice(0, 10))}</p>

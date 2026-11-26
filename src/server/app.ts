@@ -113,6 +113,11 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   };
 
   // ---------- Public ----------
+  // Chính sách bảo mật do quản trị viên soạn. Rỗng thì trang xem dùng bản mặc định.
+  app.get('/privacy', async (c) => {
+    const row = await db(c).first<{ value: string }>("SELECT value FROM settings WHERE key = 'privacy'");
+    return c.json({ html: row?.value ?? '' });
+  });
   app.get('/site', async (c) => {
     const s = await settingsMap(c);
     const categories = await db(c).all('SELECT id, slug, name FROM categories ORDER BY sort, id');
@@ -890,7 +895,8 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   });
   app.put('/admin/settings', async (c) => {
     const b = await c.req.json<Record<string, any>>();
-    const allowed = [...PUBLIC_SETTINGS, ...FILE_SETTINGS];
+    const allowed = [...PUBLIC_SETTINGS, ...FILE_SETTINGS, 'privacy'];
+    if ('privacy' in b && String(b.privacy ?? '').length > 60000) throw bad('Chính sách bảo mật quá dài.');
     if ('tree_lines' in b) b.tree_lines = ['curve', 'straight'].includes(b.tree_lines) ? b.tree_lines : 'ortho';
     if ('foreword' in b && String(b.foreword ?? '').length > 60000) throw bad('Lời nói đầu quá dài.');
     // Chuẩn hóa các trường có định dạng riêng trước khi lưu

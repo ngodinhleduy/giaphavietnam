@@ -25,9 +25,9 @@ const WEEKDAY = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ N�
 /** Thẻ khung chung của Tổng quan: tiêu đề có icon, phần phụ bên phải. */
 function Card({ title, icon, aside, children, className }: { title: string; icon: ReactNode; aside?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cx('rounded-xl border border-line bg-surface flex flex-col min-w-0', className)}>
+    <section className={cx('gp-surface rounded-xl border border-line bg-surface flex flex-col min-w-0', className)}>
       <h2 className="flex items-center gap-2.5 px-4 sm:px-5 min-h-14 py-2 border-b border-line font-semibold text-ink">
-        <span aria-hidden className="text-ink-2 [&_svg]:size-[18px]">{icon}</span>
+        <span aria-hidden className="text-accent [&_svg]:size-[18px]">{icon}</span>
         <span className="flex-1 min-w-0 truncate">{title}</span>
         {aside}
       </h2>
@@ -53,17 +53,17 @@ export function Dashboard() {
   const livingPct = s.members ? Math.round((s.living / s.members) * 100) : 0;
 
   const kpis = [
-    { to: '/admin/members', icon: <Users />, label: 'Thành viên', value: s.members,
+    { to: '/admin/members', icon: <Users />, tone: 'bg-accent-soft text-accent', label: 'Thành viên', value: s.members,
       sub: <>
         <span className="mt-2.5 block h-1.5 rounded-full bg-line overflow-hidden" role="img" aria-label={`${s.living} còn sống, ${s.deceased} đã mất`}>
-          <span className="block h-full bg-ink rounded-full" style={{ width: `${livingPct}%` }} />
+          <span className="block h-full bg-accent rounded-full" style={{ width: `${livingPct}%` }} />
         </span>
         <span className="mt-1.5 flex flex-wrap justify-between gap-x-2 text-[13px] sm:text-sm text-ink-2 whitespace-nowrap"><span>{s.living} còn sống</span><span>{s.deceased} đã mất</span></span>
       </> },
-    { to: '/admin/tree', icon: <Layers />, label: 'Số đời', value: s.generations || 0, sub: <span className="mt-1.5 block text-sm text-ink-2">Tính từ thủy tổ</span> },
-    { to: '/admin/articles', icon: <FileText />, label: 'Bài viết', value: s.articles,
+    { to: '/admin/tree', icon: <Layers />, tone: 'bg-brand-soft text-brand', label: 'Số đời', value: s.generations || 0, sub: <span className="mt-1.5 block text-sm text-ink-2">Tính từ thủy tổ</span> },
+    { to: '/admin/articles', icon: <FileText />, tone: 'bg-success-soft text-success', label: 'Bài viết', value: s.articles,
       sub: <span className="mt-1.5 block text-sm text-ink-2">{s.pending > 0 ? `${s.pending} chờ duyệt` : 'Phả ký, tin tức'}</span> },
-    { to: '/admin/albums', icon: <Images />, label: 'Ảnh', value: s.photos, sub: <span className="mt-1.5 block text-sm text-ink-2">{s.albums} album</span> },
+    { to: '/admin/albums', icon: <Images />, tone: 'bg-warning-soft text-warning', label: 'Ảnh', value: s.photos, sub: <span className="mt-1.5 block text-sm text-ink-2">{s.albums} album</span> },
   ];
 
   // Việc đang chờ người quản lý xử lý
@@ -104,10 +104,10 @@ export function Dashboard() {
       <ul className="grid gap-3 sm:gap-4 grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
           <li key={k.label}>
-            <Link to={k.to} className="gp-card group block h-full rounded-xl border border-line bg-surface p-4 sm:p-5">
+            <Link to={k.to} className="gp-card gp-surface group block h-full rounded-xl border border-line bg-surface p-4 sm:p-5">
               <span className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-ink-2">{k.label}</span>
-                <span aria-hidden className="size-9 inline-flex items-center justify-center rounded-lg bg-sunken text-ink-2 transition-colors group-hover:bg-accent group-hover:text-white [&_svg]:size-[18px]">{k.icon}</span>
+                <span aria-hidden className={cx('size-10 inline-flex items-center justify-center rounded-lg [&_svg]:size-5', k.tone)}>{k.icon}</span>
               </span>
               <span className="block mt-1 font-serif text-[2rem] sm:text-4xl leading-none font-medium tabular-nums text-ink">{k.value}</span>
               {k.sub}
@@ -146,7 +146,7 @@ export function Dashboard() {
 
         <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-1 min-w-0 max-xl:order-first">
           <Card title="Cần xử lý" icon={todo.length ? <TriangleAlert /> : <CircleCheck />}
-            aside={todo.length > 0 && <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full bg-ink text-white text-xs font-semibold tabular-nums">{todo.length}</span>}>
+            aside={todo.length > 0 && <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full bg-brand text-white text-xs font-semibold tabular-nums">{todo.length}</span>}>
             {!todo.length ? <p className="p-5 text-ink-2">Không có việc nào đang chờ.</p> : (
               <ul className="p-2">
                 {todo.map((t) => (
@@ -225,8 +225,8 @@ function GenerationChart({ members }: { members?: MemberBrief[] }) {
   return (
     <Card title="Thành viên theo đời" icon={<Layers />}
       aside={<span className="hidden sm:flex items-center gap-3 text-xs font-normal text-ink-2">
-        <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2.5 rounded-sm bg-ink" />Trong họ</span>
-        <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2.5 rounded-sm bg-line-strong" />Dâu, rể</span>
+        <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2.5 rounded-sm bg-accent" />Trong họ</span>
+        <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2.5 rounded-sm bg-primary-300" />Dâu, rể</span>
       </span>}>
       {!members ? <div className="p-5"><Skeleton className="h-24" /></div> : !rows.length ? <p className="p-5 text-ink-2">Chưa có thành viên.</p> : (
         <table className="w-full my-3 text-sm">
@@ -238,8 +238,8 @@ function GenerationChart({ members }: { members?: MemberBrief[] }) {
                 <th scope="row" className="pl-4 sm:pl-5 pr-3 py-1.5 w-px whitespace-nowrap text-left font-medium text-ink-2">Đời {r.g}</th>
                 <td className="py-1.5 w-full">
                   <span className="flex h-5 gap-px" aria-hidden>
-                    {r.blood > 0 && <span className="h-full rounded-l-sm bg-ink last:rounded-r-sm" style={{ width: `${(r.blood / max) * 100}%` }} />}
-                    {r.inlaw > 0 && <span className="h-full rounded-r-sm bg-line-strong first:rounded-l-sm" style={{ width: `${(r.inlaw / max) * 100}%` }} />}
+                    {r.blood > 0 && <span className="h-full rounded-l-sm bg-accent last:rounded-r-sm" style={{ width: `${(r.blood / max) * 100}%` }} />}
+                    {r.inlaw > 0 && <span className="h-full rounded-r-sm bg-primary-300 first:rounded-l-sm" style={{ width: `${(r.inlaw / max) * 100}%` }} />}
                   </span>
                   <span className="sr-only">{r.blood} trong họ</span>
                 </td>

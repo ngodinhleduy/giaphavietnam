@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useApi, fileUrl } from '../lib/api.ts';
-import { Container } from './SiteLayout.tsx';
+import { Container, Crumbs } from './SiteLayout.tsx';
 import { EmptyState, ErrorState, Loading, PageHeader } from '../components/ui.tsx';
 
 type Album = { id: number; title: string; description: string | null; photo_count: number; cover: number | null };
@@ -53,7 +53,7 @@ export function AlbumPage() {
   if (!data) return null;
   return (
     <Container size="wide" className="py-10">
-      <nav className="text-sm text-ink-2 mb-4"><Link to="/album" className="hover:text-accent">Thư viện</Link></nav>
+      <Crumbs items={[{ to: '/album', label: 'Thư viện' }]} current={data.title} />
       <PageHeader title={data.title} subtitle={data.description ?? undefined} />
       {!photos.length ? <EmptyState title="Album chưa có ảnh" /> : (
         <ul className="columns-2 md:columns-3 xl:columns-4 2xl:columns-5 gap-2 sm:gap-3 [&>li]:mb-2 sm:[&>li]:mb-3">

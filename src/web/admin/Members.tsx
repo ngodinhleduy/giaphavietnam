@@ -7,7 +7,7 @@ import { lifespan } from '../lib/format.ts';
 import { fold } from '../../shared/slug.ts';
 import { solarToLunar } from '../../shared/lunar.ts';
 import {
-  Avatar, Badge, Button, EmptyState, ErrorState, Field, Input, LinkButton, Loading, MemberPicker, Modal, PageHeader, SearchInput, Segmented, Select,
+  Avatar, Badge, Button, EmptyState, ErrorState, Field, Input, LinkButton, Loading, MemberPicker, Modal, PageHeader, Pagination, SearchInput, TableCard, usePageSize, Segmented, Select,
   Switch, useToast,
 } from '../components/ui.tsx';
 import { DateInput, LunarDayMonth } from '../components/DateInput.tsx';
@@ -26,7 +26,7 @@ export function MembersAdmin() {
   const [exporting, setExporting] = useState(false);
   const isAdmin = useMe()?.role === 'admin';
   const toast = useToast();
-  const PER = 50;
+  const [PER, setPER] = usePageSize('members');
   const list = useMemo(() => {
     const f = fold(q);
     return (data ?? []).filter((m) => (!f || fold(m.full_name).includes(f)) && (!gen || m.generation === Number(gen)));
@@ -56,7 +56,7 @@ export function MembersAdmin() {
         <EmptyState icon={<Users />} title="Chưa có thành viên" text="Nhập thủy tổ trước, rồi thêm con cháu. Có sẵn danh sách thì dùng Nhập từ Excel."
           action={<Link to="/admin/members/new" className="text-accent font-medium">Nhập thủy tổ</Link>} />
       ) : !list.length ? <EmptyState icon={<SearchX />} title="Không tìm thấy ai" text="Thử tên khác hoặc bỏ bộ lọc đời." /> : (
-        <div className="rounded-xl border border-line bg-surface overflow-hidden">
+        <TableCard footer={<Pagination page={page} size={PER} total={list.length} onPage={setPage} onSize={setPER} unit="người" />}>
           <ul className="md:hidden divide-y divide-line">
             {list.slice(page * PER, page * PER + PER).map((m) => (
               <li key={m.id}>
@@ -73,9 +73,9 @@ export function MembersAdmin() {
               </li>
             ))}
           </ul>
-          <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-[15px]">
-            <thead className="text-left text-sm text-ink-2 bg-sunken/60">
+          <div className="hidden md:block">
+          <table className="gp-table w-full text-[15px]">
+            <thead className="text-left text-sm text-ink-2">
               <tr>
                 <th className="font-medium px-4 h-11">Họ tên</th>
                 <th className="font-medium px-4 w-16">Đời</th>
@@ -86,7 +86,7 @@ export function MembersAdmin() {
             </thead>
             <tbody className="divide-y divide-line">
               {list.slice(page * PER, page * PER + PER).map((m) => (
-                <tr key={m.id} className="hover:bg-sunken/50">
+                <tr key={m.id} className="h-13 transition-colors hover:bg-accent-soft/60">
                   <td className="px-4 py-2">
                     <Link to={`/admin/members/${m.id}`} className="flex items-center gap-3 font-medium text-ink hover:text-accent">
                       <Avatar m={m} size={32} />{m.full_name}
@@ -101,16 +101,7 @@ export function MembersAdmin() {
             </tbody>
           </table>
           </div>
-          {list.length > PER && (
-            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 min-h-12 border-t border-line text-sm text-ink-2">
-              <span>{page * PER + 1}–{Math.min(list.length, (page + 1) * PER)} / {list.length}</span>
-              <div className="flex gap-2">
-                <Button size="sm" disabled={!page} onClick={() => setPage(page - 1)}>Trước</Button>
-                <Button size="sm" disabled={(page + 1) * PER >= list.length} onClick={() => setPage(page + 1)}>Sau</Button>
-              </div>
-            </div>
-          )}
-        </div>
+        </TableCard>
       )}
     </>
   );
@@ -278,8 +269,7 @@ export function MemberForm() {
 
   return (
     <>
-      <nav className="text-sm text-ink-2 mb-3"><Link to="/admin/members" className="hover:text-accent">Thành viên</Link></nav>
-      <PageHeader title={isNew ? 'Thêm thành viên' : f.full_name || 'Thành viên'}
+      <PageHeader back={[{ to: '/admin/members', label: 'Thành viên' }]} title={isNew ? 'Thêm thành viên' : f.full_name || 'Thành viên'}
         subtitle={!isNew && f.generation ? `Đời thứ ${f.generation}${dirty ? ' · Có thay đổi chưa lưu' : ''}` : dirty && !isNew ? 'Có thay đổi chưa lưu' : undefined}
         actions={!isNew ? <a href={`/thanh-vien/${id}`} target="_blank" rel="noreferrer" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem trang</a> : undefined} />
 
@@ -610,9 +600,9 @@ function SpouseModal({ open, onClose, self, gender, members, nextOrder, onDone }
 
 export function Section({ title, hint, children, icon }: { title: string; hint?: React.ReactNode; children: React.ReactNode; icon?: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-line bg-surface p-4 sm:p-5">
+    <section className="gp-surface rounded-xl border border-line bg-surface p-4 sm:p-5">
       <h2 className="flex items-center gap-2 font-semibold text-ink">
-        {icon && <span aria-hidden className="text-ink-2 [&_svg]:size-[18px]">{icon}</span>}
+        {icon && <span aria-hidden className="text-accent [&_svg]:size-[18px]">{icon}</span>}
         {title}
       </h2>
       {hint && <p className="text-sm text-ink-3 mt-1">{hint}</p>}

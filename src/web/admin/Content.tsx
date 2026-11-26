@@ -4,7 +4,7 @@ import { api, fileUrl, shrinkImage, useApi } from '../lib/api.ts';
 import { formatDate } from '../lib/format.ts';
 import { CalendarDays, Check, FileText, Images, MapPin, Pencil, Plus, Repeat, Save, Trash2, UploadCloud } from 'lucide-react';
 import {
-  Badge, Button, EmptyState, ErrorState, Field, Input, LinkButton, Loading, Modal, PageHeader, Segmented, Select, Spinner, Switch, Textarea, cx, useToast,
+  Badge, Button, EmptyState, ErrorState, Field, Input, LinkButton, Loading, Modal, PageHeader, Pagination, Segmented, TableCard, usePageSize, Select, Spinner, Switch, Textarea, cx, useToast,
 } from '../components/ui.tsx';
 import { ImageUpload, useMe } from './AdminLayout.tsx';
 import { Section } from './Members.tsx';
@@ -15,27 +15,72 @@ const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
 // ================= Articles =================
 export function ArticlesAdmin() {
   const { data, error, loading, reload } = useApi<any[]>('/admin/articles');
+  const [size, setSize] = usePageSize('articles');
+  const [page, setPage] = useState(0);
+  const [status, setStatus] = useState<'all' | '1' | '2' | '0'>('all');
+  const list = (data ?? []).filter((a) => status === 'all' || String(a.published) === status);
+  const count = (v: number) => (data ?? []).filter((a) => a.published === v).length;
+  useEffect(() => setPage(0), [status]);
+  const badge = (a: any) => (a.published === 1 ? <Badge tone="success">Đã đăng</Badge> : a.published === 2 ? <Badge tone="gold">Chờ duyệt</Badge> : <Badge>Nháp</Badge>);
   return (
     <>
-      <PageHeader title="Bài viết" actions={<LinkButton to="/admin/articles/new" variant="primary" icon={<Plus aria-hidden />}>Viết bài</LinkButton>} />
+      <PageHeader title="Bài viết" subtitle={data ? `${data.length} bài` : undefined}
+        actions={<LinkButton to="/admin/articles/new" variant="primary" icon={<Plus aria-hidden />}>Viết bài</LinkButton>} />
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? (
         <EmptyState icon={<FileText />} title="Chưa có bài viết" text="Phả ký, lời nói đầu, lịch sử nhà thờ họ nên viết thành bài."
           action={<LinkButton to="/admin/articles/new" variant="primary" icon={<Plus aria-hidden />}>Viết bài đầu tiên</LinkButton>} />
       ) : (
-        <ul className="rounded-xl border border-line bg-surface divide-y divide-line overflow-hidden">
-          {data.map((a) => (
-            <li key={a.id}>
-              <Link to={`/admin/articles/${a.id}`} className="flex items-center gap-4 px-4 sm:px-5 py-3.5 hover:bg-sunken/60 transition-colors">
-                <span aria-hidden className="hidden sm:inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-sunken text-ink-2"><FileText className="size-5" /></span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{a.title}</p>
-                  <p className="text-sm text-ink-2">{a.category_name ?? 'Chưa phân loại'} · {formatDate(a.updated_at.slice(0, 10))}{a.author_name ? ` · ${a.author_name}` : ''}</p>
-                </div>
-                {a.published === 1 ? <Badge tone="success">Đã đăng</Badge> : a.published === 2 ? <Badge tone="gold">Chờ duyệt</Badge> : <Badge>Nháp</Badge>}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="mb-4">
+            <Segmented label="Lọc theo trạng thái" size="sm" value={status} onChange={setStatus}
+              options={[{ value: 'all', label: `Tất cả ${data.length}` }, { value: '1', label: `Đã đăng ${count(1)}` }, { value: '2', label: `Chờ duyệt ${count(2)}` }, { value: '0', label: `Nháp ${count(0)}` }]} />
+          </div>
+          <TableCard footer={<Pagination page={page} size={size} total={list.length} onPage={setPage} onSize={setSize} unit="bài" />}>
+            {!list.length && <p className="p-8 text-center text-ink-2">Không có bài nào ở trạng thái này.</p>}
+            <ul className="md:hidden divide-y divide-line">
+              {list.slice(page * size, page * size + size).map((a) => (
+                <li key={a.id}>
+                  <Link to={`/admin/articles/${a.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-accent-soft/60 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{a.title}</p>
+                      <p className="text-sm text-ink-2 truncate">{a.category_name ?? 'Chưa phân loại'} · {formatDate(a.updated_at.slice(0, 10))}</p>
+                    </div>
+                    {badge(a)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {!!list.length && (
+              <table className="gp-table hidden md:table w-full text-[15px]">
+                <thead className="text-left text-sm text-ink-2">
+                  <tr>
+                    <th className="font-medium px-4 h-11">Tiêu đề</th>
+                    <th className="font-medium px-4">Chuyên mục</th>
+                    <th className="font-medium px-4">Người viết</th>
+                    <th className="font-medium px-4">Cập nhật</th>
+                    <th className="font-medium px-4">Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {list.slice(page * size, page * size + size).map((a) => (
+                    <tr key={a.id} className="h-13 transition-colors hover:bg-accent-soft/60">
+                      <td className="px-4 py-2 max-w-[28rem]">
+                        <Link to={`/admin/articles/${a.id}`} className="flex items-center gap-3 font-medium text-ink hover:text-accent">
+                          <span aria-hidden className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent"><FileText className="size-4" /></span>
+                          <span className="truncate">{a.title}</span>
+                        </Link>
+                      </td>
+                      <td className="px-4 text-sm text-ink-2 whitespace-nowrap">{a.category_name ?? 'Chưa phân loại'}</td>
+                      <td className="px-4 text-sm text-ink-2 whitespace-nowrap">{a.author_name || '—'}</td>
+                      <td className="px-4 text-sm text-ink-2 whitespace-nowrap tabular-nums">{formatDate(a.updated_at.slice(0, 10))}</td>
+                      <td className="px-4">{badge(a)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </TableCard>
+        </>
       )}
     </>
   );
@@ -85,8 +130,7 @@ export function ArticleForm() {
   if (detail.loading) return <Loading />;
   return (
     <>
-      <nav className="text-sm text-ink-2 mb-3"><Link to="/admin/articles" className="hover:text-accent">Bài viết</Link></nav>
-      <PageHeader title={isNew ? 'Viết bài mới' : 'Sửa bài viết'}
+      <PageHeader back={[{ to: '/admin/articles', label: 'Bài viết' }]} title={isNew ? 'Viết bài mới' : f.title.trim() || 'Sửa bài viết'}
         actions={!isNew && f.published === 1 ? <a href={`/bai-viet/${f.slug}`} target="_blank" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem bài</a> : undefined} />
       <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] 2xl:grid-cols-[1fr_340px] max-w-[88rem] max-lg:pb-20">
         <div className="space-y-4 min-w-0">
@@ -309,8 +353,7 @@ export function AlbumAdmin() {
   if (!data) return <ErrorState error="Không tìm thấy album." />;
   return (
     <>
-      <nav className="text-sm text-ink-2 mb-3"><Link to="/admin/albums" className="hover:text-accent">Album ảnh</Link></nav>
-      <PageHeader title={data.title} actions={<Button variant="danger" onClick={async () => { if (confirm('Xóa album và toàn bộ ảnh trong album?')) { await api.del(`/admin/albums/${id}`); nav('/admin/albums'); } }}>Xóa album</Button>} />
+      <PageHeader back={[{ to: '/admin/albums', label: 'Album ảnh' }]} title={data.title} actions={<Button variant="danger" onClick={async () => { if (confirm('Xóa album và toàn bộ ảnh trong album?')) { await api.del(`/admin/albums/${id}`); nav('/admin/albums'); } }}>Xóa album</Button>} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] items-end mb-6">
         <Field label="Tên album" htmlFor="t"><Input id="t" value={meta.title} onChange={(e) => setMeta({ ...meta, title: e.target.value })} /></Field>
         <Field label="Mô tả" htmlFor="d"><Input id="d" value={meta.description} onChange={(e) => setMeta({ ...meta, description: e.target.value })} /></Field>

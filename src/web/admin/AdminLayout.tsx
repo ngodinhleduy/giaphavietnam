@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useState, type FormEvent } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  CalendarDays, CircleUser, ExternalLink, FileText, Globe, History, ImageUp, Images, Inbox, LayoutDashboard, LogIn, LogOut, Network,
+  CalendarDays, ChevronsUpDown, CircleUser, ExternalLink, FileText, Globe, History, ImageUp, Images, Inbox, LayoutDashboard, LogIn, LogOut, Network,
   PanelTop, Settings, ShieldCheck, Users, type LucideIcon,
 } from 'lucide-react';
 import { api, fileUrl, shrinkImage } from '../lib/api.ts';
@@ -33,7 +33,6 @@ const NAV: { group?: string; items: NavItem[] }[] = [
   { group: 'Hệ thống', items: [
     { to: '/admin/admins', label: 'Người quản lý', icon: ShieldCheck, adminOnly: true },
     { to: '/admin/logs', label: 'Nhật ký', icon: History, adminOnly: true },
-    { to: '/admin/account', label: 'Tài khoản', icon: CircleUser },
   ] },
 ];
 type Counts = Partial<Record<CountKey, number>>;
@@ -54,6 +53,9 @@ export function AdminLayout() {
   useEffect(() => {
     load();
     document.title = 'Quản trị gia phả';
+    // Bảng màu của trang quản trị (xem index.css, html.cms)
+    document.documentElement.classList.add('cms');
+    return () => document.documentElement.classList.remove('cms');
   }, []);
 
   // Số đếm trên menu: tải lại mỗi khi đổi trang để phản ánh thao tác vừa làm
@@ -71,13 +73,11 @@ export function AdminLayout() {
   return (
     <MeCtx.Provider value={me}>
       <div className="min-h-screen md:grid md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr] 2xl:grid-cols-[264px_1fr]">
-        <aside className="bg-sunken border-b md:border-b-0 md:border-r border-line md:h-screen md:sticky md:top-0 flex flex-col max-md:sticky max-md:top-0 max-md:z-30 pt-[env(safe-area-inset-top)]">
+        <aside className="bg-surface border-b md:border-b-0 md:border-r border-line md:h-screen md:sticky md:top-0 md:z-20 flex flex-col max-md:sticky max-md:top-0 max-md:z-30 pt-[env(safe-area-inset-top)]">
           <div className="md:hidden flex items-center gap-2 h-14 px-4 border-b border-line">
             <img src="/logo-ngo-toc.svg" alt="" width={36} height={36} className="size-9 shrink-0" />
-            <span className="font-semibold flex-1 truncate">Quản trị</span>
-            <Link to="/" aria-label="Xem trang" className="size-10 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-accent-soft hover:text-ink"><ExternalLink aria-hidden className="size-5" /></Link>
-            <button onClick={logout} aria-label="Đăng xuất"
-              className="size-10 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-accent-soft hover:text-ink cursor-pointer"><LogOut aria-hidden className="size-5" /></button>
+            <span className="font-semibold flex-1 truncate">{siteName || 'Quản trị'}</span>
+            <UserMenu me={me} onLogout={logout} compact />
           </div>
           <div className="hidden md:flex items-center gap-3 px-4 pt-5 pb-3">
             <img src="/logo-ngo-toc.svg" alt="" width={44} height={44} className="size-11 shrink-0" />
@@ -89,15 +89,15 @@ export function AdminLayout() {
           <nav className="flex md:flex-col gap-1 md:gap-0.5 px-2 py-1.5 md:px-3 md:pb-3 overflow-x-auto md:overflow-y-auto md:flex-1 [scrollbar-width:none]" aria-label="Quản trị">
             {NAV.map((g) => ({ ...g, items: g.items.filter((n) => !n.adminOnly || me.role === 'admin') })).filter((g) => g.items.length).map((g, gi) => (
               <div key={gi} className="contents md:block">
-                {g.group && <p className="hidden md:block px-3 pt-4 pb-1 text-xs font-medium text-ink-2">{g.group}</p>}
+                {g.group && <p className="hidden md:block px-3 pt-5 pb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-2">{g.group}</p>}
                 {g.items.map((n) => (
                   <NavLink key={n.to} to={n.to} end={n.end}
                     className={({ isActive }) => cx('group relative h-10 md:h-9 px-3 flex items-center gap-2.5 shrink-0 rounded-md text-[15px] font-medium whitespace-nowrap transition-colors',
-                      isActive ? 'bg-surface text-ink shadow-sm ring-1 ring-line [&>svg]:text-ink' : 'text-ink-2 hover:bg-accent-soft hover:text-ink')}>
+                      isActive ? 'bg-accent-soft text-accent font-semibold [&>svg]:text-accent' : 'text-ink-2 hover:bg-sunken hover:text-ink')}>
                     <n.icon aria-hidden className="size-[18px] shrink-0 transition-colors group-hover:text-ink" strokeWidth={1.75} />
                     {n.label}
                     {n.alert && !!counts[n.alert] && (
-                      <span className="md:ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-ink text-white text-xs font-semibold tabular-nums"
+                      <span className="md:ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-brand text-white text-xs font-semibold tabular-nums"
                         aria-label={`${counts[n.alert]} ${n.alert === 'unread' ? 'thư chưa đọc' : 'bài chờ duyệt'}`}>{counts[n.alert]}</span>
                     )}
                     {n.count && counts[n.count] != null && <span className={cx('hidden md:inline text-sm font-normal tabular-nums', !(n.alert && counts[n.alert]) && 'ml-auto')}>{counts[n.count]}</span>}
@@ -107,18 +107,7 @@ export function AdminLayout() {
             ))}
           </nav>
           <div className="hidden md:block p-3 border-t border-line">
-            <Link to="/admin/account" className="flex items-center gap-2.5 rounded-lg p-1.5 hover:bg-accent-soft transition-colors">
-              <span aria-hidden className="size-9 shrink-0 rounded-full bg-accent text-white inline-flex items-center justify-center text-sm font-semibold">{initials(me.display_name || me.username)}</span>
-              <span className="min-w-0 leading-tight">
-                <span className="block font-medium text-ink truncate">{me.display_name}</span>
-                <span className="block text-sm text-ink-2 truncate">{me.role === 'admin' ? 'Quản trị viên' : me.branch ? `Biên tập viên, ${me.branch}` : 'Biên tập viên'}</span>
-              </span>
-            </Link>
-            <div className="mt-1.5 grid grid-cols-2 gap-1 text-sm whitespace-nowrap">
-              <Link to="/" className="h-9 px-1 inline-flex items-center justify-center gap-1.5 rounded-lg text-ink-2 hover:bg-accent-soft hover:text-ink transition-colors"><ExternalLink aria-hidden className="size-4" />Xem trang</Link>
-              <button onClick={logout}
-                className="h-9 px-1 inline-flex items-center justify-center gap-1.5 rounded-lg text-ink-2 hover:bg-accent-soft hover:text-ink transition-colors cursor-pointer"><LogOut aria-hidden className="size-4" />Đăng xuất</button>
-            </div>
+            <UserMenu me={me} onLogout={logout} />
           </div>
         </aside>
         <main className="p-4 sm:p-6 lg:p-8 2xl:px-12 w-full min-w-0">
@@ -126,6 +115,69 @@ export function AdminLayout() {
         </main>
       </div>
     </MeCtx.Provider>
+  );
+}
+
+const roleLabel = (me: Me) => (me.role === 'admin' ? 'Quản trị viên' : me.branch ? `Biên tập viên, ${me.branch}` : 'Biên tập viên');
+
+/** Nút tên người dùng, bấm mở menu: Thông tin cá nhân, Xem trang, Đăng xuất. */
+function UserMenu({ me, onLogout, compact }: { me: Me; onLogout: () => void; compact?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const loc = useLocation();
+  useEffect(() => setOpen(false), [loc.pathname]);
+  useEffect(() => {
+    if (!open) return;
+    wrap.current?.querySelector<HTMLElement>('[role=menuitem]')?.focus();
+    const away = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setOpen(false); btn.current?.focus(); return; }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      const items = [...(wrap.current?.querySelectorAll<HTMLElement>('[role=menuitem]') ?? [])];
+      const i = items.indexOf(document.activeElement as HTMLElement);
+      items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+    };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', key); };
+  }, [open]);
+  const name = me.display_name || me.username;
+  const avatar = <span aria-hidden className="size-9 shrink-0 rounded-full bg-accent text-white inline-flex items-center justify-center text-sm font-semibold">{initials(name)}</span>;
+  const item = 'w-full h-10 pointer-coarse:h-11 px-2.5 flex items-center gap-2.5 rounded-md text-[15px] text-ink text-left cursor-pointer transition-colors hover:bg-accent-soft hover:text-accent focus-visible:bg-accent-soft [&_svg]:size-[18px] [&_svg]:shrink-0';
+  return (
+    <div ref={wrap} className="relative">
+      <button ref={btn} type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}
+        aria-label={compact ? `Tài khoản ${name}` : undefined}
+        className={cx('flex items-center gap-2.5 rounded-lg cursor-pointer transition-colors hover:bg-sunken', compact ? 'p-0.5' : 'w-full p-1.5 text-left', open && 'bg-sunken')}>
+        {avatar}
+        {!compact && <>
+          <span className="flex-1 min-w-0 leading-tight">
+            <span className="block font-medium text-ink truncate">{name}</span>
+            <span className="block text-sm text-ink-2 truncate">{roleLabel(me)}</span>
+          </span>
+          <ChevronsUpDown aria-hidden className="size-4 shrink-0 text-ink-2" />
+        </>}
+      </button>
+      {open && (
+        <div role="menu" aria-label="Tài khoản"
+          className={cx('gp-menu absolute z-50 w-60 rounded-xl border border-line bg-surface p-1.5 shadow-[0_12px_32px_-8px_rgb(21_46_71/0.25)]', compact ? 'right-0 top-full mt-2' : 'left-0 bottom-full mb-2')}>
+          <div className="flex items-center gap-2.5 px-2.5 py-2">
+            {avatar}
+            <span className="min-w-0 leading-tight">
+              <span className="block font-medium text-ink truncate">{name}</span>
+              <span className="block text-sm text-ink-2 truncate">@{me.username} · {roleLabel(me)}</span>
+            </span>
+          </div>
+          <div className="my-1 border-t border-line" />
+          <Link role="menuitem" to="/admin/account" className={item}><CircleUser aria-hidden />Thông tin cá nhân</Link>
+          <a role="menuitem" href="/" target="_blank" rel="noreferrer" className={item}><ExternalLink aria-hidden />Xem trang<span className="sr-only"> (mở tab mới)</span></a>
+          <div className="my-1 border-t border-line" />
+          <button role="menuitem" type="button" onClick={onLogout} className={cx(item, 'hover:!bg-danger-soft hover:!text-danger focus-visible:!bg-danger-soft')}><LogOut aria-hidden />Đăng xuất</button>
+        </div>
+      )}
+    </div>
   );
 }
 

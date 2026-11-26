@@ -30,7 +30,48 @@
   --color-son: #7a2e2a; /* dải chim Lạc */
   --color-son-2: #f1d9d6;
   --color-do: #f3eee4; /* giấy dó */
+
+  /* ===== Color system của trang quản trị =====
+     Primary: chàm (màu nhuộm vải truyền thống). Thang 50-900, bậc 600 là màu hành động, 6.9:1 trên trắng.
+     Brand: son (màu của logo), chỉ dùng điểm xuyết, không dùng cho hành động để khỏi lẫn với danger. */
+  --color-primary-50: #eef4fa;
+  --color-primary-100: #dbe7f3;
+  --color-primary-200: #b9d0e6;
+  --color-primary-300: #8db1d3;
+  --color-primary-400: #5d8dbc;
+  --color-primary-500: #3b6fa3;
+  --color-primary-600: #275888;
+  --color-primary-700: #1f476f;
+  --color-primary-800: #1a3a5a;
+  --color-primary-900: #152e47;
+  --color-brand: #a3312b;
+  --color-brand-soft: #fbeeec;
+  --color-warning: #8a4b08; /* 6.4:1 trên trắng */
+  --color-warning-soft: #fdf1d8;
+  --color-info: #1f476f;
+  --color-info-soft: #eef4fa;
 }
+
+/* Trang quản trị gắn class cms lên <html>: nền canvas xám ấm, thẻ trắng, hành động màu chàm.
+   Trang xem không có class này nên giữ nguyên bảng màu của từng mẫu. */
+html.cms {
+  --color-bg: #f6f5f2;
+  --color-sunken: #f1f0ec;
+  --color-line: #e6e4df;
+  --color-accent: var(--color-primary-600);
+  --color-accent-hover: var(--color-primary-700);
+  --color-accent-soft: var(--color-primary-50);
+  --color-gold: var(--color-warning);
+  --color-gold-soft: var(--color-warning-soft);
+}
+html.cms ::selection { background: var(--color-primary-100); }
+/* Thẻ nội dung: bóng rất nhẹ để tách khỏi canvas */
+html.cms .gp-surface { box-shadow: 0 1px 2px rgb(21 46 71 / 0.05); }
+/* Popover */
+@keyframes gp-menu { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+@media (prefers-reduced-motion: no-preference) { .gp-menu { animation: gp-menu 0.14s ease-out; } }
+/* Bảng cuộn trong khung: tiêu đề cột dính trên */
+.gp-table thead th { position: sticky; top: 0; z-index: 1; background: var(--color-sunken); box-shadow: inset 0 -1px 0 var(--color-line); }
 
 /* Màn rất lớn: tăng cỡ gốc để chữ, nút, khoảng cách (đều tính bằng rem) giãn theo */
 @media (min-width: 1920px) { html { font-size: 17px; } }

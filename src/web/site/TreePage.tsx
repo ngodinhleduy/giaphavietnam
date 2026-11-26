@@ -5,9 +5,9 @@ import type { Marriage, MemberBrief } from '../lib/types.ts';
 import { lifespan } from '../lib/format.ts';
 import { fold } from '../../shared/slug.ts';
 import { Container, useSite } from './SiteLayout.tsx';
-import { FamilyTree, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
+import { FamilyTree, TreeControls, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
 import {
-  Avatar, Badge, Button, Checkbox, PasswordInput, rankByName, SearchInput, EmptyState, ErrorState, Field, Input, Loading, MemberPicker, PageHeader, Select, cx,
+  Avatar, Badge, Button, Checkbox, PasswordInput, rankByName, SearchInput, EmptyState, ErrorState, Field, Input, Loading, MemberPicker, PageHeader, Select, cx, useFullscreen,
 } from '../components/ui.tsx';
 
 type TreeData = { members: MemberBrief[]; marriages: Marriage[] };
@@ -69,6 +69,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
   const { site } = useSite();
   const model = useTreeModel(data.members, data.marriages);
   const ref = useRef<FamilyTreeHandle>(null);
+  const fs = useFullscreen(() => ref.current?.fit());
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') ?? 'tree';
   const maxGenAll = Math.max(1, ...data.members.map((m) => m.generation ?? 1));
@@ -178,7 +179,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
             </div>
           </div>
 
-          <div className="relative h-[calc(100dvh-18.5rem)] min-h-[400px] md:h-[72vh] md:min-h-[520px] 2xl:h-[78vh] -mx-4 sm:mx-0 rounded-none sm:rounded-xl border-y sm:border border-line bg-[radial-gradient(circle,#e5e0d8_1px,transparent_1px)] [background-size:20px_20px] overflow-hidden">
+          <div className={cx('relative h-[calc(100dvh-18.5rem)] min-h-[400px] md:h-[72vh] md:min-h-[520px] 2xl:h-[78vh] -mx-4 sm:mx-0 rounded-none sm:rounded-xl border-y sm:border border-line bg-[radial-gradient(circle,#e5e0d8_1px,transparent_1px)] [background-size:20px_20px] overflow-hidden', fs.className)}>
             <FamilyTree ref={ref} model={model} options={opt} lines={site.tree_lines} selectedId={selected} highlight={highlight}
               onSelect={setSelected}
               onToggle={(id) => setOpt((o) => {
@@ -189,16 +190,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
                 c.has(id) ? c.delete(id) : c.add(id);
                 return { ...o, collapsed: c };
               })} />
-            <div className="absolute left-3 top-3 flex flex-col gap-1 no-print">
-              {[['+', 1.3, 'Phóng to'], ['−', 1 / 1.3, 'Thu nhỏ']].map(([l, k, a]) => (
-                <button key={l as string} aria-label={a as string} onClick={() => ref.current?.zoomBy(k as number)}
-                  className="size-10 rounded-lg bg-surface border border-line text-lg text-ink hover:bg-sunken cursor-pointer">{l}</button>
-              ))}
-              <button aria-label="Vừa màn hình" onClick={() => ref.current?.fit()}
-                className="size-10 rounded-lg bg-surface border border-line text-ink hover:bg-sunken cursor-pointer inline-flex items-center justify-center">
-                <svg viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" /></svg>
-              </button>
-            </div>
+            <TreeControls onZoom={(k) => ref.current?.zoomBy(k)} onFit={() => ref.current?.fit()} fs={fs} />
             {opt.rootId && (
               <div className="absolute left-16 right-3 sm:right-auto top-3 flex items-center gap-2 rounded-lg bg-surface border border-line pl-3 pr-1 min-h-10 text-sm no-print">
                 <span className="flex-1 min-w-0 truncate">Hậu duệ của <b>{model.byId.get(opt.rootId)?.full_name}</b></span>
@@ -215,7 +207,8 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
           <details className="mt-4 rounded-xl border border-line bg-surface p-4 text-sm text-ink-2 no-print">
             <summary className="font-medium text-ink cursor-pointer">Hướng dẫn xem phả đồ</summary>
             <ul className="mt-3 space-y-1.5 list-disc pl-5">
-              <li>Kéo để di chuyển, cuộn chuột hoặc chụm hai ngón để phóng to, thu nhỏ.</li>
+              <li>Kéo, lăn chuột hoặc vuốt hai ngón trên trackpad để di chuyển. Chụm hai ngón, hoặc giữ Ctrl (Cmd trên Mac) khi lăn chuột, để phóng to, thu nhỏ.</li>
+              <li>Nút mũi tên ở góc trên trái mở phả đồ toàn màn hình. Nhấn Esc để thoát.</li>
               <li>Bấm vào một người để xem thông tin. Nút <b>−</b> dưới thẻ thu gọn nhánh, nút <b>+n</b> mở lại.</li>
               <li>Thẻ viền nét đứt là dâu hoặc rể. Thẻ nền xám là người đã mất.</li>
               <li>Tìm tên không cần gõ dấu. Nhấn Enter để nhảy tới kết quả đầu tiên.</li>

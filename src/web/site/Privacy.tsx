@@ -1,30 +1,21 @@
-import { Link } from 'react-router-dom';
-import { Container, useSite } from './SiteLayout.tsx';
+import { useApi } from '../lib/api.ts';
+import { RichContent } from '../components/RichContent.tsx';
+import { defaultPrivacy } from '../../shared/privacy.ts';
+import { Loading } from '../components/ui.tsx';
+import { Container, Crumbs, useSite } from './SiteLayout.tsx';
 
-/** Trang chính sách bảo mật. Google yêu cầu khi publish OAuth app dùng Drive. */
+/** Trang chính sách bảo mật. Nội dung soạn trong Cấu hình website; để trống thì dùng bản mặc định.
+    Google cũng yêu cầu trang này khi publish OAuth app dùng Drive. */
 export function PrivacyPage() {
   const { site } = useSite();
+  const { data, loading } = useApi<{ html: string }>('/privacy');
+  const custom = data?.html && data.html.replace(/<[^>]*>/g, '').trim() ? data.html : '';
   return (
-    <Container size="text" className="py-10">
-      <article className="prose-gp">
-        <h1 className="font-serif text-3xl font-semibold !mt-0">Chính sách bảo mật</h1>
-        <p className="text-ink-2">Áp dụng cho trang {site.site_name}. Cập nhật ngày 25/11/2026.</p>
-
-        <h2>Trang này thu thập gì</h2>
-        <p>Trang lưu thông tin gia phả do ban quản trị dòng họ nhập: họ tên, năm sinh, năm mất, ngày giỗ, quan hệ cha mẹ, vợ chồng, tiểu sử và ảnh. Trang không dùng cookie quảng cáo và không theo dõi hành vi người xem.</p>
-        <p>Khi bạn gửi lời nhắn ở trang Liên hệ, trang lưu họ tên, số điện thoại hoặc email (nếu bạn điền) và nội dung lời nhắn. Chỉ quản trị viên đọc được, chỉ dùng để trả lời bạn, và sẽ được xóa khi bạn yêu cầu.</p>
-        <p>Trang chỉ dùng hai cookie kỹ thuật: một cookie ghi nhớ bạn đã nhập mã xem phả đồ, một cookie giữ phiên đăng nhập của người quản trị.</p>
-
-        <h2>Ai được xem</h2>
-        <p>Cây phả hệ, hồ sơ thành viên, ảnh chân dung và ngày giỗ chỉ hiển thị cho người có mã bảo mật do ban liên lạc dòng họ cung cấp. Bài viết, lịch sự kiện và album ảnh là công khai.</p>
-
-        <h2>Google Drive</h2>
-        <p>Ảnh và tài liệu tải lên được lưu trong Google Drive của ban quản trị dòng họ. Trang chỉ xin quyền <code>drive.file</code>: chỉ tạo, đọc và xóa những file do chính trang này tạo ra, không truy cập được bất kỳ file nào khác trong Drive. Dữ liệu từ Google không được chia sẻ cho bên thứ ba và không dùng cho mục đích nào khác ngoài hiển thị trên trang.</p>
-
-        <h2>Sửa hoặc xóa thông tin</h2>
-        <p>Nếu bạn muốn sửa hoặc gỡ thông tin của mình hay người thân, hãy liên hệ ban liên lạc dòng họ{site.contact ? `: ${site.contact}` : ''}. Yêu cầu sẽ được xử lý trong vòng 30 ngày.</p>
-
-        <p><Link to="/">Về trang chủ</Link></p>
+    <Container size="text" className="py-6 sm:py-10">
+      <Crumbs items={[{ to: '/', label: 'Trang chủ' }]} current="Chính sách bảo mật" />
+      <article>
+        <h1 className="font-serif text-3xl sm:text-4xl font-semibold leading-tight">Chính sách bảo mật</h1>
+        {loading && !data ? <Loading /> : <RichContent className="mt-6" html={custom || defaultPrivacy(site.site_name, site.contact_phone || site.contact_email || '')} />}
       </article>
     </Container>
   );

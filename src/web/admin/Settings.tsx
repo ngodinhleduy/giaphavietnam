@@ -2,11 +2,12 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   AtSign, BookOpenText, Check, CircleUser, Eye, HardDrive, Image as ImageIcon, KeyRound, Landmark, LayoutTemplate, Lock, MapPin, MessageSquareText,
-  Palette, Plus, RefreshCw, RotateCcw, Save, SlidersHorizontal, Sparkles, Trash2, Users,
+  Palette, Plus, RefreshCw, RotateCcw, Save, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Users,
 } from 'lucide-react';
 import { api, useApi } from '../lib/api.ts';
 import { TEMPLATES, parsePeople, templateOf, type ContactPerson, type TemplateId } from '../../shared/site.ts';
 import { Badge, Button, ErrorState, Field, Input, Loading, PageHeader, PasswordInput, StrengthMeter, Switch, Textarea, buttonClass, cx, generatePassword, useToast } from '../components/ui.tsx';
+import { defaultPrivacy } from '../../shared/privacy.ts';
 import { ImageUpload, useMe } from './AdminLayout.tsx';
 import { Section } from './Members.tsx';
 
@@ -15,13 +16,14 @@ const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
 // Mọi khóa do trang này lưu. Một nút Lưu chung cho cả sáu tab, giống cách người dùng nghĩ: "lưu cấu hình".
 const KEYS = ['site_name', 'site_tagline', 'intro', 'foreword', 'banner_file_id', 'intro_image_file_id', 'logo_file_id', 'favicon_file_id',
   'address', 'map_embed', 'contact', 'contact_intro', 'contact_email', 'contact_phone', 'contact_zalo', 'contact_facebook', 'contact_form',
-  'template', 'tree_lines'];
+  'template', 'tree_lines', 'privacy'];
 const TABS = [
   { id: 'general', label: 'Thông tin', icon: Landmark },
   { id: 'images', label: 'Logo và biểu tượng', icon: ImageIcon },
   { id: 'contact', label: 'Liên hệ và bản đồ', icon: MapPin },
   { id: 'template', label: 'Giao diện', icon: Palette },
   { id: 'display', label: 'Hiển thị', icon: SlidersHorizontal },
+  { id: 'privacy', label: 'Chính sách bảo mật', icon: ShieldCheck },
   { id: 'security', label: 'Bảo mật và lưu trữ', icon: Lock },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
@@ -38,6 +40,7 @@ export function SettingsAdmin() {
   const [f, setF] = useState<any>({});
   const [people, setPeople] = useState<ContactPerson[]>([]);
   const [busy, setBusy] = useState(false);
+  const [privacyKey, setPrivacyKey] = useState(0); // đổi key để trình soạn thảo nạp lại nội dung vừa chép vào
   const [params, setParams] = useSearchParams();
   const toast = useToast();
   useEffect(() => { if (data) { setF(data); setPeople(parsePeople(data.contact_people)); } }, [data]);
@@ -76,6 +79,7 @@ export function SettingsAdmin() {
   };
   const setP = (i: number, p: Partial<ContactPerson>) => setPeople((l) => l.map((x, k) => (k === i ? { ...x, ...p } : x)));
   const formOn = f.contact_form !== '0';
+  const privacyText = String(f.privacy ?? '').replace(/<[^>]*>/g, '').trim();
   const current = templateOf(data.template);
   const chosen = templateOf(f.template);
   const lines = ['curve', 'straight'].includes(f.tree_lines) ? f.tree_lines : 'ortho';
@@ -117,6 +121,22 @@ export function SettingsAdmin() {
               </div>
             </Section>
           </div>
+        )}
+
+        {tab === 'privacy' && (
+          <Section title="Chính sách bảo mật" icon={<ShieldCheck />}
+            hint={<>Hiện ở trang <a href="/chinh-sach-bao-mat" target="_blank" rel="noreferrer" className="underline underline-offset-4 text-ink hover:text-accent">/chinh-sach-bao-mat</a>, có liên kết ở chân mọi trang. Để trống thì trang dùng bản mặc định.</>}>
+            <div className="mt-1 mb-3 flex flex-wrap items-center gap-2">
+              <Badge tone={privacyText ? 'accent' : 'neutral'}>{privacyText ? 'Đang dùng bản riêng' : 'Đang dùng bản mặc định'}</Badge>
+              <Button size="sm" icon={<RotateCcw aria-hidden />} onClick={() => { setF((x: any) => ({ ...x, privacy: defaultPrivacy(f.site_name || 'gia phả', f.contact_phone || f.contact_email || '') })); setPrivacyKey((k) => k + 1); }}>
+                {privacyText ? 'Thay bằng bản mặc định' : 'Chép bản mặc định vào để sửa'}
+              </Button>
+              {privacyText && <Button size="sm" variant="ghost" icon={<Trash2 aria-hidden />} onClick={() => { setF((x: any) => ({ ...x, privacy: '' })); setPrivacyKey((k) => k + 1); }}>Xóa bản riêng</Button>}
+            </div>
+            <Suspense fallback={<div className="h-80 rounded-lg border border-line-strong bg-surface animate-pulse" />}>
+              <RichEditor key={privacyKey} value={f.privacy ?? ''} onChange={(v) => setF((x: any) => ({ ...x, privacy: v }))} minHeight={360} placeholder="Viết chính sách bảo mật, hoặc chép bản mặc định vào để sửa..." />
+            </Suspense>
+          </Section>
         )}
 
         {tab === 'images' && (
