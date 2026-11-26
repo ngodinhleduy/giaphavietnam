@@ -226,7 +226,7 @@ function GenerationChart({ members }: { members?: MemberBrief[] }) {
     <Card title="Thành viên theo đời" icon={<Layers />}
       aside={<span className="hidden sm:flex items-center gap-3 text-xs font-normal text-ink-2">
         <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2.5 rounded-sm bg-accent" />Trong họ</span>
-        <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2.5 rounded-sm bg-primary-300" />Dâu, rể</span>
+        <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2.5 rounded-sm bg-yellow" />Dâu, rể</span>
       </span>}>
       {!members ? <div className="p-5"><Skeleton className="h-24" /></div> : !rows.length ? <p className="p-5 text-ink-2">Chưa có thành viên.</p> : (
         <table className="w-full my-3 text-sm">
@@ -239,7 +239,7 @@ function GenerationChart({ members }: { members?: MemberBrief[] }) {
                 <td className="py-1.5 w-full">
                   <span className="flex h-5 gap-px" aria-hidden>
                     {r.blood > 0 && <span className="h-full rounded-l-sm bg-accent last:rounded-r-sm" style={{ width: `${(r.blood / max) * 100}%` }} />}
-                    {r.inlaw > 0 && <span className="h-full rounded-r-sm bg-primary-300 first:rounded-l-sm" style={{ width: `${(r.inlaw / max) * 100}%` }} />}
+                    {r.inlaw > 0 && <span className="h-full rounded-r-sm bg-yellow first:rounded-l-sm" style={{ width: `${(r.inlaw / max) * 100}%` }} />}
                   </span>
                   <span className="sr-only">{r.blood} trong họ</span>
                 </td>

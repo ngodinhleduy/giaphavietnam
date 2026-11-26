@@ -31,42 +31,46 @@
   --color-son-2: #f1d9d6;
   --color-do: #f3eee4; /* giấy dó */
 
-  /* ===== Color system của trang quản trị =====
-     Primary: chàm (màu nhuộm vải truyền thống). Thang 50-900, bậc 600 là màu hành động, 6.9:1 trên trắng.
-     Brand: son (màu của logo), chỉ dùng điểm xuyết, không dùng cho hành động để khỏi lẫn với danger. */
-  --color-primary-50: #eef4fa;
-  --color-primary-100: #dbe7f3;
-  --color-primary-200: #b9d0e6;
-  --color-primary-300: #8db1d3;
-  --color-primary-400: #5d8dbc;
-  --color-primary-500: #3b6fa3;
-  --color-primary-600: #275888;
-  --color-primary-700: #1f476f;
-  --color-primary-800: #1a3a5a;
-  --color-primary-900: #152e47;
-  --color-brand: #a3312b;
-  --color-brand-soft: #fbeeec;
-  --color-warning: #8a4b08; /* 6.4:1 trên trắng */
-  --color-warning-soft: #fdf1d8;
-  --color-info: #1f476f;
-  --color-info-soft: #eef4fa;
+  /* ===== Color system của trang quản trị: tông ấm đỏ, cam, vàng =====
+     Primary: đỏ son (màu của logo). Thang 50-900, bậc 600 là màu hành động, 6.9:1 trên trắng.
+     Secondary: cam đất, dùng cho số đếm và điểm nhấn phụ. Tertiary: vàng, dùng cho nền nhãn và biểu đồ.
+     Danger lệch sang đỏ hồng và chỉ dùng dạng viền kèm biểu tượng, để không lẫn với nút chính màu son. */
+  --color-primary-50: #fcf0ed;
+  --color-primary-100: #f8ddd7;
+  --color-primary-200: #f0bbb0;
+  --color-primary-300: #e49384;
+  --color-primary-400: #d2695a;
+  --color-primary-500: #bd483b;
+  --color-primary-600: #a3312b;
+  --color-primary-700: #86261f;
+  --color-primary-800: #6b1f1a;
+  --color-primary-900: #521916;
+  --color-brand: #b0500c; /* cam đất, 5.3:1 trên trắng */
+  --color-brand-soft: #fdeedd;
+  --color-yellow: #e9ab2e; /* vàng trang trí: thanh biểu đồ, chấm. Không dùng làm màu chữ */
+  --color-warning: #8a4b08; /* chữ trên nền vàng, 6.1:1 */
+  --color-warning-soft: #fdf3d3;
+  --color-info: #86261f;
+  --color-info-soft: #fcf0ed;
 }
 
-/* Trang quản trị gắn class cms lên <html>: nền canvas xám ấm, thẻ trắng, hành động màu chàm.
+/* Trang quản trị gắn class cms lên <html>: nền canvas kem ấm, thẻ trắng, hành động màu son.
    Trang xem không có class này nên giữ nguyên bảng màu của từng mẫu. */
 html.cms {
-  --color-bg: #f6f5f2;
-  --color-sunken: #f1f0ec;
-  --color-line: #e6e4df;
+  --color-bg: #f8f5f0;
+  --color-sunken: #f3efe8;
+  --color-line: #e9e4db;
   --color-accent: var(--color-primary-600);
   --color-accent-hover: var(--color-primary-700);
   --color-accent-soft: var(--color-primary-50);
   --color-gold: var(--color-warning);
   --color-gold-soft: var(--color-warning-soft);
+  --color-danger: #b4123f;
+  --color-danger-soft: #fde8ee;
 }
 html.cms ::selection { background: var(--color-primary-100); }
 /* Thẻ nội dung: bóng rất nhẹ để tách khỏi canvas */
-html.cms .gp-surface { box-shadow: 0 1px 2px rgb(21 46 71 / 0.05); }
+html.cms .gp-surface { box-shadow: 0 1px 2px rgb(82 25 22 / 0.05); }
 /* Popover */
 @keyframes gp-menu { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
 @media (prefers-reduced-motion: no-preference) { .gp-menu { animation: gp-menu 0.14s ease-out; } }

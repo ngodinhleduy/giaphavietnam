@@ -162,7 +162,7 @@ function UserMenu({ me, onLogout, compact }: { me: Me; onLogout: () => void; com
       </button>
       {open && (
         <div role="menu" aria-label="Tài khoản"
-          className={cx('gp-menu absolute z-50 w-60 rounded-xl border border-line bg-surface p-1.5 shadow-[0_12px_32px_-8px_rgb(21_46_71/0.25)]', compact ? 'right-0 top-full mt-2' : 'left-0 bottom-full mb-2')}>
+          className={cx('gp-menu absolute z-50 w-60 rounded-xl border border-line bg-surface p-1.5 shadow-[0_12px_32px_-8px_rgb(82_25_22/0.22)]', compact ? 'right-0 top-full mt-2' : 'left-0 bottom-full mb-2')}>
           <div className="flex items-center gap-2.5 px-2.5 py-2">
             {avatar}
             <span className="min-w-0 leading-tight">
