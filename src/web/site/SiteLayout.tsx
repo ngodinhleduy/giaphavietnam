@@ -129,7 +129,7 @@ export function SiteLayout() {
               </ul>
             )}
           </div>
-          <div className="grid gap-8 grid-cols-2 sm:grid-cols-3">
+          <div className="grid gap-8 grid-cols-2 sm:grid-cols-[1fr_1fr_minmax(0,1.5fr)]">
             <nav aria-labelledby="f-explore">
               <h2 id="f-explore" className="text-sm font-semibold uppercase tracking-wider text-ink">Khám phá</h2>
               <ul className="mt-2">
@@ -155,7 +155,7 @@ export function SiteLayout() {
               <ul className="mt-3 space-y-2.5 text-ink-2">
                 {site.address && <li className="flex gap-2"><MapPin aria-hidden className="size-4 shrink-0 mt-1" /><span>{site.address}</span></li>}
                 {site.contact_phone && <li className="flex gap-2"><Phone aria-hidden className="size-4 shrink-0 mt-1" /><a href={`tel:${site.contact_phone.replace(/[^\d+]/g, '')}`} className="hover:text-accent hover:underline underline-offset-4">{site.contact_phone}</a></li>}
-                {site.contact_email && <li className="flex gap-2"><Mail aria-hidden className="size-4 shrink-0 mt-1" /><a href={`mailto:${site.contact_email}`} className="break-all hover:text-accent hover:underline underline-offset-4">{site.contact_email}</a></li>}
+                {site.contact_email && <li className="flex gap-2"><Mail aria-hidden className="size-4 shrink-0 mt-1" /><a href={`mailto:${site.contact_email}`} className="[overflow-wrap:anywhere] hover:text-accent hover:underline underline-offset-4">{site.contact_email}</a></li>}
               </ul>
               <Link to="/lien-he" className={cx(flink, 'mt-1 font-semibold !text-accent')}>{site.contact_form === '0' ? 'Trang Liên hệ' : 'Gửi lời nhắn'}<ChevronRight aria-hidden className="size-4" /></Link>
             </div>
