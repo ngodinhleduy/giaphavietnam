@@ -18,7 +18,7 @@
   --color-accent: #a81e24; /* đỏ son, 6.4:1 trên giấy, chữ trắng trên nó 7.3:1 */
   --color-accent-hover: #8a171c;
   --color-accent-soft: #f3e2dc;
-  --color-gold: #8a5f12; /* vàng đồng cho chữ trên nền sáng, 4.9:1 */
+  --color-gold: #7d5510; /* vàng đồng cho chữ trên nền sáng, 5.8:1 */
   --color-gold-soft: #f5ead2;
   --color-gold-bright: #e3b458; /* vàng trên nền tối, 8.8:1 trên nâu trầm */
   --color-success: #166534;
@@ -92,7 +92,7 @@ html.cms {
 [data-tpl="giay-do"] {
   --color-bg: #f8f1dc; --color-surface: #fdf8e9; --color-sunken: #f0e5c5; --color-line: #e4d7b2; --color-line-strong: #86764c;
   --color-ink: #241d0e; --color-ink-2: #4f4426; --color-ink-3: #6a5c35;
-  --color-accent: #a8480a; --color-accent-hover: #873905; --color-accent-soft: #f7e2c8;
+  --color-accent: #963f08; --color-accent-hover: #7a3305; --color-accent-soft: #f7e2c8;
   --color-gold: #7a5800; --color-gold-soft: #f6e7b9; --color-gold-bright: #f2c14e;
   --color-cham: #3a2a0e; --color-cham-2: #eedcab; --color-son: #9a3f08; --color-son-2: #f6dcc4; --color-do: #f4e7bd;
   --radius-sm: 0; --radius-md: 0; --radius-lg: 0; --radius-xl: 0; --radius-2xl: 0; --radius-3xl: 0;
@@ -110,16 +110,17 @@ html.cms {
   --color-bg: #f4efe6; --color-surface: #faf6ef; --color-sunken: #ece5d8; --color-line: #e2d9c8; --color-line-strong: #857a6d;
   --color-ink: #201b17; --color-ink-2: #4c443c; --color-ink-3: #6b6156;
   --color-accent: #a81e24; --color-accent-hover: #8a171c; --color-accent-soft: #f3e2dc;
-  --color-gold: #8a5f12; --color-gold-soft: #f5ead2; --color-gold-bright: #e3b458;
+  --color-gold: #7d5510; --color-gold-soft: #f5ead2; --color-gold-bright: #e3b458;
   --color-cham: #2a1d17; --color-cham-2: #e6d5bd; --color-son: #7a2e2a; --color-son-2: #f1d9d6; --color-do: #efe6d6;
 }
 
 /* Lớp giấy cũ mờ phủ lên nền trang xem. File gốc do chủ trang cung cấp, đã chuyển thành ảnh xám rất nhạt (236..255)
-   rồi nhân với màu nền của mẫu, nên mẫu nào cũng giữ đúng tông của mình và nền chỉ tối đi tối đa 7,5%.
+   rồi nhân với màu nền của mẫu, nên mẫu nào cũng giữ đúng tông của mình. Mảng lớn tối đi không quá 6%;
+   chỉ các nét mảnh của vân giấy đậm hơn (tới 14%), nên vân nhìn rõ mà nền dưới chữ vẫn đủ sáng.
    Thẻ, header, footer vẫn là màu phẳng để chữ dễ đọc. Mẫu Tối giản không dùng. */
 html[data-tpl]:not([data-tpl="toi-gian"]) {
   background-image: url(/hoa-tiet/giay-cu.webp);
-  background-size: 1200px auto;
+  background-size: 1500px auto;
   background-blend-mode: multiply;
 }
 
