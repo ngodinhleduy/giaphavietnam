@@ -87,7 +87,7 @@ function SectionHead({ id, title, to, more }: { id: string; title: string; to?: 
   );
 }
 
-/** Thẻ bài viết nổi bật. Nhiều bài thì tự chuyển sau mỗi 7 giây, có chấm để chọn bài và nút tạm dừng.
+/** Thẻ bài viết nổi bật. Nhiều bài thì tự chuyển sau mỗi 6 giây; chấm chọn bài và nút tạm dừng nằm ngoài thẻ, ngay bên dưới.
     Tự dừng khi rê chuột, khi đang focus bên trong, khi tab bị ẩn, và không tự chạy nếu người dùng chọn giảm chuyển động. */
 function Featured({ items }: { items: ArticleBrief[] }) {
   const [i, setI] = useState(0);
@@ -98,7 +98,7 @@ function Featured({ items }: { items: ArticleBrief[] }) {
   const cur = items[Math.min(i, n - 1)];
   useEffect(() => {
     if (n < 2 || paused || hold) return;
-    const t = setInterval(() => { if (document.visibilityState === 'visible') setI((x) => (x + 1) % n); }, 7000);
+    const t = setInterval(() => { if (document.visibilityState === 'visible') setI((x) => (x + 1) % n); }, 6000);
     return () => clearInterval(t);
   }, [n, paused, hold]);
   const go = (k: number) => setI(((k % n) + n) % n);
@@ -107,7 +107,8 @@ function Featured({ items }: { items: ArticleBrief[] }) {
       onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)}
       onTouchStart={(e) => { touch.current = e.touches[0].clientX; }}
       onTouchEnd={(e) => { const d = e.changedTouches[0].clientX - (touch.current ?? 0); if (n > 1 && Math.abs(d) > 48) go(i + (d < 0 ? 1 : -1)); touch.current = null; }}
-      className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_60px_-28px_rgb(33_28_24/0.55)]">
+>
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_60px_-28px_rgb(33_28_24/0.55)]">
       <Link key={cur.id} to={`/bai-viet/${cur.slug}`} aria-labelledby="h-featured"
         aria-roledescription="slide" aria-label={n > 1 ? `Bài ${i + 1} trên ${n}` : undefined}
         className={cx('gp-fade group grid', cur.cover_file_id && 'md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]')}>
@@ -116,7 +117,7 @@ function Featured({ items }: { items: ArticleBrief[] }) {
             <img src={fileUrl(cur.cover_file_id)} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transform-none" />
           </span>
         )}
-        <span className={cx('flex flex-col justify-center p-6 sm:p-10 lg:p-12', n > 1 && 'pb-4 sm:pb-6 lg:pb-8', !cur.cover_file_id && 'md:min-h-72')}>
+        <span className={cx('flex flex-col justify-center p-6 sm:p-10 lg:p-12', !cur.cover_file_id && 'md:min-h-72')}>
           <span className="text-sm font-semibold uppercase tracking-wider text-accent">Bài viết nổi bật</span>
           <span id="h-featured" className="mt-3 font-serif text-3xl sm:text-4xl font-medium leading-tight text-ink text-balance line-clamp-3">{cur.title}</span>
           {cur.category_name && <span className="mt-3 text-sm text-ink-3">{cur.category_name}</span>}
@@ -124,8 +125,9 @@ function Featured({ items }: { items: ArticleBrief[] }) {
           <span className="mt-6 inline-flex items-center gap-2 font-semibold text-accent">Đọc tiếp<ArrowRight aria-hidden className="gp-arrow size-4" /></span>
         </span>
       </Link>
+      </div>
       {n > 1 && (
-        <div className="flex items-center justify-center gap-1 px-4 pb-3 pt-1 border-t border-line md:border-t-0">
+        <div className="mt-2 flex items-center justify-center gap-1">
           <div role="tablist" aria-label="Chọn bài nổi bật" className="flex items-center">
             {items.map((a, k) => (
               <button key={a.id} type="button" role="tab" aria-selected={k === i} aria-label={`Bài ${k + 1}: ${a.title}`} onClick={() => go(k)}
