@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, fileUrl, shrinkImage, useApi } from '../lib/api.ts';
+import { api, fileUrl, pool, shrinkImage, useApi } from '../lib/api.ts';
 import { formatDate } from '../lib/format.ts';
 import { CalendarDays, Check, FileText, Images, MapPin, Pencil, Plus, Repeat, Save, Trash2, UploadCloud } from 'lucide-react';
 import {
@@ -343,16 +343,10 @@ export function AlbumAdmin() {
     const list = [...files].filter((f) => f.type.startsWith('image/'));
     if (!list.length) return;
     setProgress({ done: 0, total: list.length });
-    const ids: number[] = [];
-    let failed = 0;
-    for (const f of list) {
-      try {
-        ids.push((await api.upload(await shrinkImage(f, 2000))).id);
-      } catch {
-        failed++;
-      }
-      setProgress((p) => p && { ...p, done: p.done + 1 });
-    }
+    // Ba ảnh cùng lúc: nhanh hơn hẳn gửi lần lượt mà chưa chạm giới hạn của Google Drive
+    const res = await pool(list, 3, async (f) => (await api.upload(await shrinkImage(f, 1920))).id, () => setProgress((p) => p && { ...p, done: p.done + 1 }));
+    const ids = res.filter((x): x is number => x != null);
+    const failed = res.length - ids.length;
     if (ids.length) await api.post(`/admin/albums/${id}/photos`, { file_ids: ids });
     setProgress(null);
     toast(failed ? `Tải lên ${ids.length} ảnh, lỗi ${failed} ảnh.` : `Đã tải lên ${ids.length} ảnh.`, failed ? 'error' : 'success');

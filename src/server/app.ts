@@ -266,12 +266,29 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     const deps = c.get('deps');
     const store = f.storage === deps.storage.kind ? deps.storage : deps.readers?.[f.storage];
     if (!store) throw new HttpError(404, `File nằm ở storage "${f.storage}" nhưng storage này chưa được cấu hình.`);
-    const obj = await store.get(f.remote_id);
-    if (!obj) throw new HttpError(404, 'File không còn trên storage.');
-    return new Response(obj.body as any, {
+    // File không bao giờ đổi nội dung (mỗi lần tải lên là một id mới), nên giữ bản sao ở cache của Cloudflare
+    // để lần sau khỏi gọi sang Google Drive. Quyền xem đã được kiểm tra ở trên, trước khi đọc cache.
+    // Cache API chỉ có tác dụng khi trang chạy trên tên miền riêng; trên *.workers.dev và trên Node thì bỏ qua.
+    const edge = (globalThis as any).caches?.default as { match(r: Request): Promise<Response | undefined>; put(r: Request, res: Response): Promise<void> } | undefined;
+    const key = new Request(new URL(`/__file/${f.id}`, c.req.url).toString());
+    const mime = f.mime || 'application/octet-stream';
+    let body: any = edge ? (await edge.match(key).catch(() => undefined))?.body : undefined;
+    if (!body) {
+      const obj = await store.get(f.remote_id);
+      if (!obj) throw new HttpError(404, 'File không còn trên storage.');
+      body = obj.body;
+      let ctx: { waitUntil(p: Promise<unknown>): void } | undefined;
+      try { ctx = c.executionCtx; } catch { /* Node: không có executionCtx */ }
+      if (edge && ctx) {
+        const keep = new Response(obj.body as any, { headers: { 'content-type': mime, 'cache-control': 'public, max-age=2592000' } });
+        ctx.waitUntil(edge.put(key, keep.clone()).catch(() => {}));
+        body = keep.body;
+      }
+    }
+    return new Response(body, {
       headers: {
-        'content-type': f.mime || obj.mime || 'application/octet-stream',
-        'cache-control': isMemberPhoto ? 'private, max-age=86400' : 'public, max-age=604800',
+        'content-type': mime,
+        'cache-control': isMemberPhoto ? 'private, max-age=86400' : 'public, max-age=31536000, immutable',
         'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(f.name)}`,
       },
     });

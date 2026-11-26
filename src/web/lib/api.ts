@@ -66,9 +66,25 @@ export function useApi<T>(path: string | null) {
   return { data, error, loading, reload, setData };
 }
 
-/** Thu nhỏ ảnh trước khi upload để tiết kiệm dung lượng Drive/NAS. */
-export async function shrinkImage(file: File, max = 1600, quality = 0.85): Promise<File> {
-  if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.type === 'image/svg+xml') return file;
+// ---------- Thu nhỏ ảnh trước khi upload ----------
+let shrinker: Worker | null | undefined;
+let jobId = 0;
+const waiting = new Map<number, (r: { ok: boolean; blob: Blob | null; ext: string }) => void>();
+function shrinkWorker(): Worker | null {
+  if (shrinker !== undefined) return shrinker;
+  try {
+    if (typeof OffscreenCanvas === 'undefined') throw new Error('no OffscreenCanvas');
+    const w = new Worker(new URL('./shrink.worker.ts', import.meta.url), { type: 'module' });
+    w.onmessage = (e) => { waiting.get(e.data.id)?.(e.data); waiting.delete(e.data.id); };
+    w.onerror = () => { shrinker = null; for (const r of waiting.values()) r({ ok: false, blob: null, ext: '' }); waiting.clear(); };
+    shrinker = w;
+  } catch { shrinker = null; }
+  return shrinker;
+}
+const skip = (f: File) => !f.type.startsWith('image/') || f.type === 'image/gif' || f.type === 'image/svg+xml';
+
+/** Thu nhỏ trên luồng chính. Chỉ dùng khi trình duyệt không chạy được luồng riêng. */
+async function shrinkHere(file: File, max: number, quality: number): Promise<File> {
   const bmp = await createImageBitmap(file).catch(() => null);
   if (!bmp) return file;
   const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
@@ -80,4 +96,31 @@ export async function shrinkImage(file: File, max = 1600, quality = 0.85): Promi
   const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', quality));
   if (!blob || blob.size >= file.size) return file;
   return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+}
+
+/** Thu nhỏ ảnh trước khi upload: file nhẹ hơn thì gửi nhanh hơn và đỡ tốn dung lượng Drive/NAS.
+    Chạy trong luồng riêng nên trang không khựng; ảnh ra dạng WebP nếu trình duyệt hỗ trợ, không thì JPEG. */
+export async function shrinkImage(file: File, max = 1600, quality = 0.82): Promise<File> {
+  if (skip(file)) return file;
+  const w = shrinkWorker();
+  if (!w) return shrinkHere(file, max, quality);
+  const id = ++jobId;
+  const r = await new Promise<{ ok: boolean; blob: Blob | null; ext: string }>((res) => { waiting.set(id, res); w.postMessage({ id, file, max, quality }); });
+  if (!r.ok) return shrinkHere(file, max, quality);
+  if (!r.blob) return file;
+  return new File([r.blob], file.name.replace(/\.[^.]+$/, '') + r.ext, { type: r.blob.type });
+}
+
+/** Chạy một việc cho từng phần tử, tối đa `limit` việc cùng lúc, giữ nguyên thứ tự kết quả. Lỗi trả về null. */
+export async function pool<T, R>(items: T[], limit: number, run: (item: T, i: number) => Promise<R>, onDone?: () => void): Promise<(R | null)[]> {
+  const out: (R | null)[] = new Array(items.length).fill(null);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      try { out[i] = await run(items[i], i); } catch { out[i] = null; }
+      onDone?.();
+    }
+  }));
+  return out;
 }
