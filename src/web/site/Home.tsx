@@ -209,7 +209,7 @@ export function Home() {
       )}
 
       {next && (
-        <section className={cx('mt-12 sm:mt-16 text-[#f6efe2]', template === 'son' ? 'bg-cham' : template === 'giay-do' ? 'gp-lac' : 'bg-son')} aria-label="Sự kiện gần nhất">
+        <section className={cx('mt-12 sm:mt-16 text-[#f6efe2]', template === 'son' ? 'bg-cham' : template === 'toi-gian' ? 'bg-son' : 'gp-lac')} aria-label="Sự kiện gần nhất">
           <Container className="py-8 sm:py-10 flex flex-wrap items-center gap-x-10 gap-y-3">
             <p className="font-serif font-medium text-5xl sm:text-6xl leading-none whitespace-nowrap">
               {next.day} · {next.month}
