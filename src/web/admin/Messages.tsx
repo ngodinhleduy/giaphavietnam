@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Inbox, MailOpen, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Inbox, MailOpen, Trash2, RefreshCw } from 'lucide-react';
 import { api, useApi } from '../lib/api.ts';
 import { Badge, Button, EmptyState, ErrorState, Loading, Modal, PageHeader, Pagination, TableCard, cx, usePageSize, useToast } from '../components/ui.tsx';
 import { when } from './Admins.tsx';
@@ -14,6 +14,12 @@ export function MessagesAdmin() {
   const [open, setOpen] = useState<Msg | null>(null);
   const [removing, setRemoving] = useState<Msg | null>(null);
   const toast = useToast();
+  // Quay lại tab này sau khi sang chỗ khác: tự tải lại để thấy thư mới
+  useEffect(() => {
+    const on = () => { if (document.visibilityState === 'visible') reload(); };
+    document.addEventListener('visibilitychange', on);
+    return () => document.removeEventListener('visibilitychange', on);
+  }, [reload]);
 
   const mark = async (m: Msg, is_read: number) => {
     try {
@@ -28,7 +34,8 @@ export function MessagesAdmin() {
 
   return (
     <>
-      <PageHeader title="Hòm thư" subtitle={data ? `${data.total} thư${unread ? `, ${unread} chưa đọc ở trang này` : ''}` : undefined} />
+      <PageHeader title="Hòm thư" subtitle={data ? `${data.total} thư${unread ? `, ${unread} chưa đọc ở trang này` : ''}` : undefined}
+        actions={<Button icon={<RefreshCw aria-hidden />} loading={loading && !!data} onClick={async () => { reload(); toast('Đã tải lại hòm thư.'); }}>Tải lại</Button>} />
       <p className="-mt-3 mb-6 text-sm text-ink-2 max-w-2xl">Lời nhắn gửi từ trang Liên hệ. Trả lời qua số điện thoại hoặc email người gửi để lại.</p>
       {loading && !data ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.rows.length ? (
         <EmptyState icon={<Inbox />} title="Chưa có thư nào" text="Lời nhắn gửi từ trang Liên hệ sẽ hiện ở đây." />
