@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.ts';
-import { ArrowUpRight, CircleCheck, Lock, Mail, MapPin, MessageCircle, MessageSquareText, Music2, PenLine, Phone, Play, Send, ThumbsUp } from 'lucide-react';
+import { ArrowUpRight, CircleCheck, Lock, Mail, MapPin, MessageSquareText, Music2, PenLine, Phone, Play, Send } from 'lucide-react';
 import { parsePeople } from '../../shared/site.ts';
 import { initials } from '../lib/format.ts';
 import { Button, Field, Input, Textarea, cx } from '../components/ui.tsx';
@@ -119,8 +119,8 @@ export function ContactPage() {
               <div className="mt-3 grid gap-2">
                 {site.contact_phone && <a href={tel(site.contact_phone)} className={chan}><Phone aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1 tabular-nums">{site.contact_phone}</span></a>}
                 {site.contact_email && <a href={`mailto:${site.contact_email}`} className={chan}><Mail aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1 min-w-0 break-all">{site.contact_email}</span></a>}
-                {site.contact_zalo && <a href={site.contact_zalo} target="_blank" rel="noopener noreferrer" className={chan}><MessageCircle aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1">Nhóm Zalo của họ</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
-                {site.contact_facebook && <a href={site.contact_facebook} target="_blank" rel="noopener noreferrer" className={chan}><ThumbsUp aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1">Facebook</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
+                {site.contact_zalo && <a href={site.contact_zalo} target="_blank" rel="noopener noreferrer" className={chan}><img src="/social/zalo.svg" alt="" className="size-6 shrink-0" /><span className="flex-1">Nhóm Zalo của họ</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
+                {site.contact_facebook && <a href={site.contact_facebook} target="_blank" rel="noopener noreferrer" className={chan}><img src="/social/facebook.svg" alt="" className="size-6 shrink-0" /><span className="flex-1">Facebook</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
                 {site.contact_youtube && <a href={site.contact_youtube} target="_blank" rel="noopener noreferrer" className={chan}><Play aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1">YouTube</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
                 {site.contact_tiktok && <a href={site.contact_tiktok} target="_blank" rel="noopener noreferrer" className={chan}><Music2 aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1">TikTok</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
               </div>

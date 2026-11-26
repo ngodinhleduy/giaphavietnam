@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useApi, fileUrl } from '../lib/api.ts';
 import type { Site } from '../lib/types.ts';
-import { ArrowLeft, ArrowUpRight, ChevronRight, Eye, Mail, MapPin, Menu as MenuIcon, MessageCircle, Music2, Phone, Play, ThumbsUp, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ChevronRight, Eye, Mail, MapPin, Menu as MenuIcon, Music2, Phone, Play, X } from 'lucide-react';
 import { cx, Loading, ErrorState } from '../components/ui.tsx';
 import { TEMPLATES, templateOf, type TemplateId } from '../../shared/site.ts';
 
@@ -77,12 +77,13 @@ export function SiteLayout() {
   );
   const NAV = site.menu?.length ? site.menu : menuLinks(defaultMenu(), new Set());
   // Mạng xã hội khai ở Cấu hình website > Liên hệ và bản đồ. Nút có chữ kèm biểu tượng để người lớn tuổi dễ nhận ra.
+  // Zalo, Facebook dùng file biểu tượng do chủ trang cung cấp (public/social), đã đổi sang màu son của trang.
   const socials = [
-    { label: 'Zalo', href: site.contact_zalo, icon: MessageCircle },
-    { label: 'Facebook', href: site.contact_facebook, icon: ThumbsUp },
+    { label: 'Zalo', href: site.contact_zalo, img: '/social/zalo.svg' },
+    { label: 'Facebook', href: site.contact_facebook, img: '/social/facebook.svg' },
     { label: 'YouTube', href: site.contact_youtube, icon: Play },
     { label: 'TikTok', href: site.contact_tiktok, icon: Music2 },
-  ].filter((x): x is { label: string; href: string; icon: typeof Play } => !!x.href);
+  ].filter((x) => !!x.href) as { label: string; href: string; img?: string; icon?: typeof Play }[];
   const flink = 'inline-flex items-center gap-1 min-h-9 pointer-coarse:min-h-11 text-ink-2 hover:text-accent hover:underline underline-offset-4';
 
   return (
@@ -129,12 +130,15 @@ export function SiteLayout() {
             </Link>
             {(site.site_tagline || site.intro) && <p className="mt-4 text-ink-2 leading-relaxed">{site.intro || site.site_tagline}</p>}
             {socials.length > 0 && (
-              <ul className="mt-5 flex flex-wrap gap-2" aria-label="Mạng xã hội">
+              <ul className="mt-4 -ml-0.5 flex flex-wrap gap-1.5" aria-label="Mạng xã hội">
                 {socials.map((x) => (
                   <li key={x.label}>
-                    <a href={x.href} target="_blank" rel="noopener noreferrer"
-                      className="h-10 pointer-coarse:h-11 pl-3 pr-3.5 inline-flex items-center gap-2 rounded-full bg-accent text-white text-sm font-medium transition-colors hover:bg-accent-hover">
-                      <x.icon aria-hidden className="size-4" />{x.label}<span className="sr-only"> (mở trang khác)</span>
+                    {/* Chỉ có biểu tượng: tên mạng nằm trong aria-label và title */}
+                    <a href={x.href} target="_blank" rel="noopener noreferrer" aria-label={`${x.label} (mở trang khác)`} title={x.label}
+                      className="size-11 inline-flex items-center justify-center rounded-full transition-transform duration-150 hover:scale-110 hover:-translate-y-0.5 motion-reduce:transform-none">
+                      {x.img
+                        ? <img src={x.img} alt="" width={40} height={40} className="size-10" />
+                        : <span className="size-10 inline-flex items-center justify-center rounded-full bg-accent text-white">{x.icon && <x.icon aria-hidden className="size-5" />}</span>}
                     </a>
                   </li>
                 ))}
