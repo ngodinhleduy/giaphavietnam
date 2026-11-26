@@ -111,17 +111,20 @@ function Featured({ items }: { items: ArticleBrief[] }) {
       <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_60px_-28px_rgb(33_28_24/0.55)]">
       <Link key={cur.id} to={`/bai-viet/${cur.slug}`} aria-labelledby="h-featured"
         aria-roledescription="slide" aria-label={n > 1 ? `Bài ${i + 1} trên ${n}` : undefined}
-        className={cx('gp-fade group grid', cur.cover_file_id && 'md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]')}>
-        {cur.cover_file_id && (
-          <span className="block overflow-hidden aspect-[16/10] md:aspect-auto md:h-96">
-            <img src={fileUrl(cur.cover_file_id)} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transform-none" />
-          </span>
-        )}
-        <span className={cx('flex flex-col justify-center p-6 sm:p-10 lg:p-12', !cur.cover_file_id && 'md:min-h-72')}>
+        // Chiều cao thẻ cố định từ md trở lên; ảnh luôn cao bằng thẻ. Trước đây chỉ khung ảnh có chiều cao cố định,
+        // nên bài có tiêu đề dài làm cột chữ cao hơn ảnh và lộ một dải trống dưới ảnh.
+        className="gp-fade group grid md:h-[27rem] md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]">
+        {/* Bài không có ảnh bìa vẫn giữ ô ảnh (nền giấy dó, biểu tượng sách) để mọi thẻ cao bằng nhau */}
+        <span className="flex items-center justify-center overflow-hidden aspect-[16/10] md:aspect-auto md:h-full min-h-0 bg-do">
+          {cur.cover_file_id
+            ? <img src={fileUrl(cur.cover_file_id)} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transform-none" />
+            : <BookOpen aria-hidden className="size-20 text-line-strong" strokeWidth={1} />}
+        </span>
+        <span className="flex flex-col justify-center min-h-0 overflow-hidden p-6 sm:p-10 lg:p-12 max-md:h-80">
           <span className="text-sm font-semibold uppercase tracking-wider text-accent">Bài viết nổi bật</span>
-          <span id="h-featured" className="mt-3 font-serif text-3xl sm:text-4xl font-medium leading-tight text-ink text-balance line-clamp-3">{cur.title}</span>
-          {cur.category_name && <span className="mt-3 text-sm text-ink-3">{cur.category_name}</span>}
-          {cur.summary && <span className="mt-4 font-serif italic text-lg text-ink-2 line-clamp-3">{cur.summary}</span>}
+          <span id="h-featured" className="mt-3 font-serif text-3xl sm:text-4xl font-medium leading-tight text-ink text-balance line-clamp-2 md:line-clamp-3">{cur.title}</span>
+          {cur.category_name && <span className="mt-3 text-sm text-ink-3 truncate">{cur.category_name}</span>}
+          {cur.summary && <span className="mt-4 font-serif italic text-lg text-ink-2 line-clamp-2">{cur.summary}</span>}
           <span className="mt-6 inline-flex items-center gap-2 font-semibold text-accent">Đọc tiếp<ArrowRight aria-hidden className="gp-arrow size-4" /></span>
         </span>
       </Link>
