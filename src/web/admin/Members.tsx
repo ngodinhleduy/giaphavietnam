@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { Download, Plus, Save, SearchX, Trash2, Upload, UserPlus, Users } from 'lucide-react';
+import { Download, Eye, EyeOff, Pencil, Plus, Save, SearchX, Trash2, Upload, UserPlus, Users } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, useApi } from '../lib/api.ts';
 import type { MemberBrief } from '../lib/types.ts';
@@ -8,14 +8,14 @@ import { fold } from '../../shared/slug.ts';
 import { solarToLunar } from '../../shared/lunar.ts';
 import {
   Avatar, Badge, Button, EmptyState, ErrorState, Field, Input, LinkButton, Loading, MemberPicker, Modal, PageHeader, Pagination, SearchInput, TableCard, usePageSize, Segmented, Select,
-  Switch, useToast,
+  Switch, cx, useToast,
 } from '../components/ui.tsx';
 import { DateInput, LunarDayMonth } from '../components/DateInput.tsx';
 const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
 import { ImageUpload, useMe } from './AdminLayout.tsx';
 import { ImportDialog, exportExcel } from './Import.tsx';
 
-type Row = MemberBrief & { father_name: string | null; mother_name: string | null; updated_at: string };
+type Row = MemberBrief & { father_name: string | null; mother_name: string | null; updated_at: string; is_hidden?: number };
 
 export function MembersAdmin() {
   const { data, error, loading, reload } = useApi<Row[]>('/admin/members');
@@ -33,8 +33,28 @@ export function MembersAdmin() {
   }, [data, q, gen]);
   useEffect(() => setPage(0), [q, gen]);
   const maxGen = Math.max(1, ...(data ?? []).map((m) => m.generation ?? 1));
+  const [removing, setRemoving] = useState<Row | null>(null);
+  const [acting, setActing] = useState(false);
+  const toggleHidden = async (m: Row) => {
+    try {
+      await api.put(`/admin/members/${m.id}`, { is_hidden: m.is_hidden ? 0 : 1 });
+      toast(m.is_hidden ? `Đã hiện lại ${m.full_name} trên website.` : `Đã ẩn ${m.full_name} khỏi website.`);
+      reload();
+    } catch (e: any) { toast(e.message, 'error'); }
+  };
+  const remove = async () => {
+    if (!removing) return;
+    setActing(true);
+    try { await api.del(`/admin/members/${removing.id}`); toast(`Đã xóa ${removing.full_name}.`); setRemoving(null); reload(); }
+    catch (e: any) { toast(e.message, 'error'); } finally { setActing(false); }
+  };
+  const act = 'size-9 inline-flex items-center justify-center rounded-lg text-ink-2 cursor-pointer transition-colors hover:bg-surface hover:text-accent focus-visible:bg-surface focus-visible:text-accent';
   return (
     <>
+      <Modal open={!!removing} onClose={() => setRemoving(null)} title="Xóa thành viên?"
+        footer={<><Button onClick={() => setRemoving(null)}>Hủy</Button><Button variant="danger" icon={<Trash2 aria-hidden />} loading={acting} onClick={remove}>Xóa thành viên</Button></>}>
+        <p className="text-ink-2"><b className="text-ink">{removing?.full_name}</b> sẽ bị xóa khỏi gia phả cùng các quan hệ vợ chồng. Không hoàn tác được ở màn này. Người còn con trong phả đồ sẽ không xóa được cho tới khi gỡ liên kết con.</p>
+      </Modal>
       <PageHeader title="Thành viên" subtitle={data ? `${data.length} người` : undefined}
         actions={<>
           {isAdmin && <Button icon={<Upload aria-hidden />} onClick={() => setImporting(true)}>Nhập từ Excel</Button>}
@@ -77,16 +97,19 @@ export function MembersAdmin() {
           <table className="gp-table w-full text-[15px]">
             <thead className="text-left text-sm text-ink-2">
               <tr>
+                <th className="font-medium pl-4 pr-2 h-11 w-14 text-right">STT</th>
                 <th className="font-medium px-4 h-11">Họ tên</th>
                 <th className="font-medium px-4 w-16">Đời</th>
                 <th className="font-medium px-4">Cha / mẹ</th>
                 <th className="font-medium px-4">Năm</th>
                 <th className="font-medium px-4">Loại</th>
+                <th className="font-medium px-4 w-36"><span className="sr-only">Thao tác</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {list.slice(page * PER, page * PER + PER).map((m) => (
-                <tr key={m.id} className="h-13 transition-colors hover:bg-accent-soft/60">
+              {list.slice(page * PER, page * PER + PER).map((m, i) => (
+                <tr key={m.id} className="group/row h-13 transition-colors hover:bg-accent-soft/60 focus-within:bg-accent-soft/60">
+                  <td className="pl-4 pr-2 text-right text-sm text-ink-2 tabular-nums">{page * PER + i + 1}</td>
                   <td className="px-4 py-2">
                     <Link to={`/admin/members/${m.id}`} className="flex items-center gap-3 font-medium text-ink hover:text-accent">
                       <Avatar m={m} size={32} />{m.full_name}
@@ -95,7 +118,17 @@ export function MembersAdmin() {
                   <td className="px-4 tabular-nums">{m.generation}</td>
                   <td className="px-4 text-ink-2 text-sm max-w-64">{[m.father_name, m.mother_name].filter(Boolean).join(' · ') || '—'}</td>
                   <td className="px-4 text-ink-2 text-sm whitespace-nowrap">{lifespan(m)}</td>
-                  <td className="px-4">{m.is_blood ? <Badge>{m.gender === 'male' ? 'Nam' : 'Nữ'}</Badge> : <Badge tone="gold">{m.gender === 'female' ? 'Dâu' : 'Rể'}</Badge>}</td>
+                  <td className="px-4"><span className="inline-flex gap-1.5">{m.is_blood ? <Badge>{m.gender === 'male' ? 'Nam' : 'Nữ'}</Badge> : <Badge tone="gold">{m.gender === 'female' ? 'Dâu' : 'Rể'}</Badge>}{!!m.is_hidden && <Badge tone="danger"><EyeOff aria-hidden />Đang ẩn</Badge>}</span></td>
+                  <td className="px-2">
+                    {/* Thao tác nhanh: hiện khi rê chuột hoặc focus vào dòng; màn cảm ứng luôn hiện */}
+                    <span className="opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 pointer-coarse:opacity-100 transition-opacity flex justify-end gap-0.5">
+                      <Link to={`/admin/members/${m.id}`} className={act} aria-label={`Sửa ${m.full_name}`} title="Chỉnh sửa"><Pencil aria-hidden className="size-[18px]" /></Link>
+                      <button type="button" className={act} onClick={() => toggleHidden(m)} aria-label={m.is_hidden ? `Hiện lại ${m.full_name} trên website` : `Ẩn ${m.full_name} khỏi website`} title={m.is_hidden ? 'Hiện lại trên website' : 'Ẩn khỏi website'}>
+                        {m.is_hidden ? <Eye aria-hidden className="size-[18px]" /> : <EyeOff aria-hidden className="size-[18px]" />}
+                      </button>
+                      <button type="button" className={cx(act, 'hover:!bg-danger-soft hover:!text-danger focus-visible:!bg-danger-soft focus-visible:!text-danger')} onClick={() => setRemoving(m)} aria-label={`Xóa ${m.full_name}`} title="Xóa"><Trash2 aria-hidden className="size-[18px]" /></button>
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

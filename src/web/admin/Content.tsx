@@ -84,24 +84,25 @@ export function ArticlesAdmin() {
                   <tr>
                     {isAdmin && <th className="font-medium pl-3 w-12 h-11"><span className="sr-only">Nổi bật</span><Star aria-hidden className="size-4 mx-auto" /></th>}
                     <th className="font-medium px-4 h-11">Tiêu đề</th>
-                    <th className="font-medium px-4">Chuyên mục</th>
-                    <th className="font-medium px-4">Người viết</th>
-                    <th className="font-medium px-4">Cập nhật</th>
-                    <th className="font-medium px-4">Trạng thái</th>
+                    <th className="font-medium px-4 whitespace-nowrap">Chuyên mục</th>
+                    <th className="font-medium px-4 whitespace-nowrap max-xl:hidden">Người viết</th>
+                    <th className="font-medium px-4 whitespace-nowrap">Cập nhật</th>
+                    <th className="font-medium px-4 whitespace-nowrap">Trạng thái</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
                   {list.slice(page * size, page * size + size).map((a) => (
                     <tr key={a.id} className="h-13 transition-colors hover:bg-accent-soft/60">
                       {isAdmin && <td className="pl-3">{star(a)}</td>}
-                      <td className="px-4 py-2 max-w-[28rem]">
-                        <Link to={`/admin/articles/${a.id}`} className="flex items-center gap-3 font-medium text-ink hover:text-accent">
+                      {/* w-full + max-w-0: cột tiêu đề nhận hết bề rộng còn lại và tự cắt chữ, bảng không phải cuộn ngang */}
+                      <td className="px-4 py-2 w-full max-w-0">
+                        <Link to={`/admin/articles/${a.id}`} title={a.title} className="flex items-center gap-3 min-w-0 font-medium text-ink hover:text-accent">
                           <span aria-hidden className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent"><FileText className="size-4" /></span>
                           <span className="truncate">{a.title}</span>
                         </Link>
                       </td>
                       <td className="px-4 text-sm text-ink-2 whitespace-nowrap">{a.category_name ?? 'Chưa phân loại'}</td>
-                      <td className="px-4 text-sm text-ink-2 whitespace-nowrap">{a.author_name || '—'}</td>
+                      <td className="px-4 text-sm text-ink-2 whitespace-nowrap max-xl:hidden">{a.author_name || '—'}</td>
                       <td className="px-4 text-sm text-ink-2 whitespace-nowrap tabular-nums">{formatDate(a.updated_at.slice(0, 10))}</td>
                       <td className="px-4">{badge(a)}</td>
                     </tr>

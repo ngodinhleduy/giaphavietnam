@@ -43,8 +43,8 @@ export function MessagesAdmin() {
         <TableCard footer={<Pagination page={page} size={PER} total={data.total} onPage={setPage} onSize={setPER} unit="thư" />}>
           <ul className="divide-y divide-line">
             {data.rows.map((m) => (
-              <li key={m.id}>
-                <button type="button" onClick={() => show(m)} className="w-full text-left flex items-start gap-3 px-4 sm:px-5 py-3 hover:bg-accent-soft/60 transition-colors cursor-pointer">
+              <li key={m.id} className="group/row relative transition-colors hover:bg-accent-soft/60 focus-within:bg-accent-soft/60">
+                <button type="button" onClick={() => show(m)} className="w-full text-left flex items-start gap-3 pl-4 sm:pl-5 pr-16 py-3 cursor-pointer">
                   <span aria-hidden className={cx('mt-2 size-2 shrink-0 rounded-full', m.is_read ? 'bg-transparent' : 'bg-brand')} />
                   <span className="flex-1 min-w-0">
                     <span className="flex flex-wrap items-baseline gap-x-2">
@@ -54,6 +54,11 @@ export function MessagesAdmin() {
                     </span>
                     <span className="block text-sm text-ink-2 truncate">{m.subject ? `${m.subject}: ` : ''}{m.body}</span>
                   </span>
+                </button>
+                {/* Nút xóa hiện khi rê chuột hoặc focus vào dòng; trên màn cảm ứng luôn hiện vì không có hover */}
+                <button type="button" onClick={() => setRemoving(m)} aria-label={`Xóa thư của ${m.name}`} title="Xóa thư"
+                  className="opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 pointer-coarse:opacity-100 transition-opacity absolute right-3 top-1/2 -translate-y-1/2 size-9 pointer-coarse:size-11 inline-flex items-center justify-center rounded-lg text-ink-2 cursor-pointer hover:bg-danger-soft hover:text-danger focus-visible:bg-danger-soft focus-visible:text-danger">
+                  <Trash2 aria-hidden className="size-[18px]" />
                 </button>
               </li>
             ))}
