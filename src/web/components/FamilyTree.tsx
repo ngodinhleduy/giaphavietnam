@@ -15,6 +15,8 @@ const GAP_X = 22;
 const ROW_H = CH + 74;
 /** Bề rộng cột đời cố định ở mép trái khung phả đồ */
 export const GEN_W = 56;
+/** Màu thẻ của người đã mất, dùng chung cho cây và phần chú thích */
+export const DEAD = { card: '#e3ddd1', line: '#b3aa9b', frame: '#b9b1a3' };
 
 export type TreeOptions = {
   hideSpouses: boolean;
@@ -328,26 +330,28 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
               className="cursor-pointer outline-none"
               onClick={(e) => { e.stopPropagation(); onSelect(m.id); }}
               onKeyDown={(e) => e.key === 'Enter' && onSelect(m.id)}>
+              {/* Người đã mất: cả thẻ ngả xám, khung ảnh xám đậm, ảnh đen trắng. Người còn sống: thẻ trắng, khung ảnh kem.
+                  Khác nhau về độ sáng chứ không chỉ về màu, nên người mù màu vẫn phân biệt được; dòng năm cũng khác ("Sinh 1946" và "1820 – 1890"). */}
               <rect width={CW} height={CH} rx="6"
-                fill={hit ? '#e3e2de' : n.spouse ? '#f7f7f5' : '#ffffff'}
-                stroke={sel || hit ? '#191919' : m.is_hidden ? '#8f8e8a' : '#d3d2ce'}
+                fill={hit ? '#f3e2dc' : m.is_deceased ? DEAD.card : n.spouse ? '#faf6ef' : '#ffffff'}
+                stroke={sel || hit ? '#a81e24' : m.is_hidden ? '#857a6d' : m.is_deceased ? DEAD.line : '#d8cfbf'}
                 strokeWidth={sel ? 2 : 1} strokeDasharray={m.is_hidden ? '5 4' : undefined} />
               {showPhotos && m.photo_file_id ? (
                 <image href={fileUrl(m.photo_file_id)} x="11" y="11" width="38" height="54" clipPath="url(#gp-avatar)"
                   preserveAspectRatio="xMidYMid slice" filter={m.is_deceased ? 'url(#gp-gray)' : undefined} />
               ) : (
                 <>
-                  <rect x="11" y="11" width="38" height="54" fill={m.is_deceased ? '#e4e3df' : '#f3eee4'} />
-                  <text x="30" y={CH / 2 + 7} textAnchor="middle" fontSize="19" fontWeight="500" fill={m.is_deceased ? '#6b6a66' : '#37352f'}
+                  <rect x="11" y="11" width="38" height="54" fill={m.is_deceased ? DEAD.frame : '#f3eee4'} />
+                  <text x="30" y={CH / 2 + 7} textAnchor="middle" fontSize="19" fontWeight="500" fill={m.is_deceased ? '#3d3832' : '#201b17'}
                     fontFamily="Newsreader, Noto Serif, Georgia, serif">{initials(m.full_name).slice(-1)}</text>
                 </>
               )}
               {/* Khung ảnh: viền đen mảnh, không hoa văn */}
-              <rect x="11" y="11" width="38" height="54" fill="none" stroke="#141414" strokeWidth="2.5" />
-              <text x="60" y={lines.length > 1 ? 24 : 32} fontSize="13.5" fontWeight="600" fill="#37352f">
+              <rect x="11" y="11" width="38" height="54" fill="none" stroke={m.is_deceased ? '#5a554d' : '#141414'} strokeWidth="2.5" />
+              <text x="60" y={lines.length > 1 ? 24 : 32} fontSize="13.5" fontWeight="600" fill={m.is_deceased ? '#3d3832' : '#201b17'}>
                 {lines.map((l, i) => <tspan key={i} x="60" dy={i ? 17 : 0}>{l}</tspan>)}
               </text>
-              <text x="60" y={lines.length > 1 ? 60 : 52} fontSize="12" fill="#6b6a66">
+              <text x="60" y={lines.length > 1 ? 60 : 52} fontSize="12" fill={m.is_deceased ? '#4c443c' : '#6b6156'}>
                 {yrs}{m.generation && !n.spouse ? `${yrs ? ' · ' : ''}Đời ${m.generation}` : ''}{n.spouse ? `${yrs ? ' · ' : ''}${m.gender === 'female' ? 'Vợ' : 'Chồng'}` : ''}
               </text>
               {n.hasKids && (

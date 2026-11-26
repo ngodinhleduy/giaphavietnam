@@ -5,7 +5,7 @@ import type { Marriage, MemberBrief } from '../lib/types.ts';
 import { lifespan } from '../lib/format.ts';
 import { fold } from '../../shared/slug.ts';
 import { Container, useSite } from './SiteLayout.tsx';
-import { FamilyTree, TreeControls, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
+import { DEAD, FamilyTree, TreeControls, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
 import {
   Avatar, Badge, Button, Checkbox, PasswordInput, rankByName, SearchInput, EmptyState, ErrorState, Field, Input, Loading, MemberPicker, PageHeader, Select, cx, useFullscreen,
 } from '../components/ui.tsx';
@@ -210,7 +210,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
               <li>Kéo, lăn chuột hoặc vuốt hai ngón trên trackpad để di chuyển. Chụm hai ngón, hoặc giữ Ctrl (Cmd trên Mac) khi lăn chuột, để phóng to, thu nhỏ.</li>
               <li>Nút mũi tên ở góc trên trái mở phả đồ toàn màn hình. Nhấn Esc để thoát.</li>
               <li>Bấm vào một người để xem thông tin. Nút <b>−</b> dưới thẻ thu gọn nhánh, nút <b>+n</b> mở lại.</li>
-              <li>Thẻ viền nét đứt là dâu hoặc rể. Thẻ nền xám là người đã mất.</li>
+              <li>Thẻ nền xám, ảnh đen trắng là người đã mất. Thẻ trắng là người còn sống. Dâu, rể có ghi Vợ hoặc Chồng dưới tên.</li>
               <li>Tìm tên không cần gõ dấu. Nhấn Enter để nhảy tới kết quả đầu tiên.</li>
             </ul>
           </details>
@@ -257,12 +257,18 @@ function ExportMenu({ onPng, onSvg }: { onPng: () => void; onSvg: () => void }) 
 }
 
 function Legend() {
+  // Mỗi mục là một thẻ thu nhỏ đúng như trên cây: nền thẻ và khung ảnh
+  const card = (bg: string, line: string, frame: string, stroke: string) => (
+    <i aria-hidden className="inline-flex items-center gap-1 w-9 h-5 px-1 rounded-[3px] border" style={{ background: bg, borderColor: line }}>
+      <i className="w-2 h-3 border-[1.5px]" style={{ background: frame, borderColor: stroke }} />
+      <i className="flex-1 h-0.5 rounded" style={{ background: stroke }} />
+    </i>
+  );
   return (
-    <div className="absolute left-[4.25rem] right-3 sm:right-auto bottom-3 rounded-lg bg-surface/95 border border-line px-3 py-2 text-xs text-ink-2 flex flex-wrap gap-x-3 sm:gap-x-4 gap-y-1 no-print">
-      <span className="inline-flex items-center gap-1.5"><i className="size-3 rounded-sm bg-surface border border-line-strong" />Trong họ</span>
-      <span className="inline-flex items-center gap-1.5"><i className="size-3 rounded-sm bg-sunken border border-line-strong" />Dâu / rể</span>
-      <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-3 bg-[#f3eee4] border-2 border-[#141414]" />Còn sống</span>
-      <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-3 bg-[#e4e3df] border-2 border-[#141414]" />Đã mất</span>
+    <div className="absolute left-[4.25rem] right-3 sm:right-auto bottom-3 rounded-lg bg-surface/95 border border-line px-3 py-2 text-xs text-ink-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 no-print">
+      <span className="inline-flex items-center gap-1.5">{card('#ffffff', '#d8cfbf', '#f3eee4', '#141414')}Còn sống</span>
+      <span className="inline-flex items-center gap-1.5">{card(DEAD.card, DEAD.line, DEAD.frame, '#5a554d')}Đã mất (thẻ xám, ảnh đen trắng)</span>
+      <span>Dâu, rể: ghi Vợ hoặc Chồng dưới tên</span>
     </div>
   );
 }
