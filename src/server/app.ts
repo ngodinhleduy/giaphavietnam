@@ -26,7 +26,7 @@ const DAY = 86_400_000;
 const MAX_UPLOAD = 15 * 1024 * 1024;
 
 const PUBLIC_SETTINGS = ['site_name', 'site_tagline', 'intro', 'address', 'map_embed', 'contact', 'template',
-  'contact_intro', 'contact_people', 'contact_email', 'contact_phone', 'contact_zalo', 'contact_facebook', 'contact_form', 'foreword', 'tree_lines'];
+  'contact_intro', 'contact_people', 'contact_email', 'contact_phone', 'contact_zalo', 'contact_facebook', 'contact_youtube', 'contact_tiktok', 'contact_form', 'foreword', 'tree_lines'];
 const FILE_SETTINGS = ['logo_file_id', 'banner_file_id', 'intro_image_file_id', 'favicon_file_id'];
 const MEMBER_FIELDS = [
   'full_name', 'alias', 'gender', 'generation', 'father_id', 'mother_id', 'birth_order', 'is_blood',
@@ -919,10 +919,10 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     // Chuẩn hóa các trường có định dạng riêng trước khi lưu
     if ('template' in b) b.template = templateOf(b.template);
     if ('contact_people' in b) b.contact_people = JSON.stringify(parsePeople(b.contact_people));
-    for (const k of ['contact_zalo', 'contact_facebook']) {
+    for (const k of ['contact_zalo', 'contact_facebook', 'contact_youtube', 'contact_tiktok']) {
       if (!(k in b)) continue;
       const raw = String(b[k] ?? '').trim();
-      if (raw && !safeUrl(raw)) throw bad('Liên kết Zalo, Facebook phải bắt đầu bằng https://');
+      if (raw && !safeUrl(raw)) throw bad('Liên kết Zalo, Facebook, YouTube, TikTok phải bắt đầu bằng https://');
       b[k] = safeUrl(raw);
     }
     if ('contact_email' in b) {

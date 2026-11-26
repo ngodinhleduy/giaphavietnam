@@ -59,6 +59,8 @@ export interface Site {
   contact_phone?: string;
   contact_zalo?: string;
   contact_facebook?: string;
+  contact_youtube?: string;
+  contact_tiktok?: string;
   contact_form?: string;
   categories: { id: number; slug: string; name: string }[];
   logo_file_id: number | null;

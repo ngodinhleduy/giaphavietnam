@@ -15,7 +15,7 @@ const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
 
 // Mọi khóa do trang này lưu. Một nút Lưu chung cho cả sáu tab, giống cách người dùng nghĩ: "lưu cấu hình".
 const KEYS = ['site_name', 'site_tagline', 'intro', 'foreword', 'banner_file_id', 'intro_image_file_id', 'logo_file_id', 'favicon_file_id',
-  'address', 'map_embed', 'contact', 'contact_intro', 'contact_email', 'contact_phone', 'contact_zalo', 'contact_facebook', 'contact_form',
+  'address', 'map_embed', 'contact', 'contact_intro', 'contact_email', 'contact_phone', 'contact_zalo', 'contact_facebook', 'contact_youtube', 'contact_tiktok', 'contact_form',
   'template', 'tree_lines', 'privacy'];
 const TABS = [
   { id: 'general', label: 'Thông tin', icon: Landmark },
@@ -180,6 +180,8 @@ export function SettingsAdmin() {
                 <Field label="Email" htmlFor="c-email" optional><Input id="c-email" type="email" inputMode="email" {...bind('contact_email')} /></Field>
                 <Field label="Nhóm Zalo" htmlFor="c-zalo" optional hint="Link bắt đầu bằng https://"><Input id="c-zalo" inputMode="url" placeholder="https://zalo.me/g/..." {...bind('contact_zalo')} /></Field>
                 <Field label="Facebook" htmlFor="c-fb" optional><Input id="c-fb" inputMode="url" placeholder="https://facebook.com/..." {...bind('contact_facebook')} /></Field>
+                <Field label="YouTube" htmlFor="c-yt" optional><Input id="c-yt" inputMode="url" placeholder="https://youtube.com/@..." {...bind('contact_youtube')} /></Field>
+                <Field label="TikTok" htmlFor="c-tt" optional hint="Các mạng xã hội đã điền sẽ hiện ở chân trang và trang Liên hệ."><Input id="c-tt" inputMode="url" placeholder="https://tiktok.com/@..." {...bind('contact_tiktok')} /></Field>
                 <Field label="Ghi chú ở chân trang" htmlFor="ct" optional className="sm:col-span-2"><Textarea id="ct" rows={2} {...bind('contact')} /></Field>
               </div>
             </Section>

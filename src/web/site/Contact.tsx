@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.ts';
-import { ArrowUpRight, CircleCheck, Lock, Mail, MapPin, MessageCircle, MessageSquareText, PenLine, Phone, Send, ThumbsUp } from 'lucide-react';
+import { ArrowUpRight, CircleCheck, Lock, Mail, MapPin, MessageCircle, MessageSquareText, Music2, PenLine, Phone, Play, Send, ThumbsUp } from 'lucide-react';
 import { parsePeople } from '../../shared/site.ts';
 import { initials } from '../lib/format.ts';
 import { Button, Field, Input, Textarea, cx } from '../components/ui.tsx';
@@ -42,7 +42,7 @@ export function ContactPage() {
   const people = parsePeople(site.contact_people);
   const formOn = site.contact_form !== '0';
   const tel = (v: string) => `tel:${v.replace(/[^\d+]/g, '')}`;
-  const hasInfo = people.length > 0 || site.contact_phone || site.contact_email || site.contact_zalo || site.contact_facebook || site.address;
+  const hasInfo = people.length > 0 || site.contact_phone || site.contact_email || site.contact_zalo || site.contact_facebook || site.contact_youtube || site.contact_tiktok || site.address;
   const chan = 'group flex items-center gap-3 rounded-lg border border-line bg-surface px-3.5 min-h-12 py-2 font-medium text-ink transition-colors hover:border-ink hover:bg-sunken';
 
   return (
@@ -113,7 +113,7 @@ export function ContactPage() {
               </ul>
             </section>
           )}
-          {(site.contact_phone || site.contact_email || site.contact_zalo || site.contact_facebook) && (
+          {(site.contact_phone || site.contact_email || site.contact_zalo || site.contact_facebook || site.contact_youtube || site.contact_tiktok) && (
             <section>
               <h2 className="font-semibold text-ink">Kênh liên hệ</h2>
               <div className="mt-3 grid gap-2">
@@ -121,6 +121,8 @@ export function ContactPage() {
                 {site.contact_email && <a href={`mailto:${site.contact_email}`} className={chan}><Mail aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1 min-w-0 break-all">{site.contact_email}</span></a>}
                 {site.contact_zalo && <a href={site.contact_zalo} target="_blank" rel="noopener noreferrer" className={chan}><MessageCircle aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1">Nhóm Zalo của họ</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
                 {site.contact_facebook && <a href={site.contact_facebook} target="_blank" rel="noopener noreferrer" className={chan}><ThumbsUp aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1">Facebook</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
+                {site.contact_youtube && <a href={site.contact_youtube} target="_blank" rel="noopener noreferrer" className={chan}><Play aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1">YouTube</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
+                {site.contact_tiktok && <a href={site.contact_tiktok} target="_blank" rel="noopener noreferrer" className={chan}><Music2 aria-hidden className="size-5 text-ink-2 shrink-0" /><span className="flex-1">TikTok</span><ArrowUpRight aria-hidden className="size-4 text-ink-2" /><span className="sr-only">(mở trang khác)</span></a>}
               </div>
             </section>
           )}

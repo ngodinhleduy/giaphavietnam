@@ -1,6 +1,6 @@
 // Mẫu giao diện của trang xem và dữ liệu trang Liên hệ. Dùng chung cho máy chủ và trình duyệt.
 export const TEMPLATES = [
-  { id: 'trong-dong', name: 'Trống đồng', desc: 'Nền chàm, trống đồng Đông Sơn xoay chậm. Trang trọng, hợp nhà thờ họ.' },
+  { id: 'trong-dong', name: 'Trống đồng', desc: 'Nền nâu trầm, trống đồng Đông Sơn xoay chậm; có ảnh banner thì ảnh phủ kín phần đầu trang. Trang trọng, hợp nhà thờ họ.' },
   { id: 'giay-do', name: 'Giấy dó', desc: 'Nền giấy sáng, rồng vàng bên phải, chữ canh trái. Ấm, dễ đọc.' },
   { id: 'son', name: 'Sơn son', desc: 'Nền đỏ son với đàn chim Lạc. Nổi bật, hợp dịp lễ tết.' },
   { id: 'toi-gian', name: 'Tối giản', desc: 'Nền trắng, không họa tiết, chữ lớn. Gọn như một trang tài liệu.' },
