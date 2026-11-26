@@ -132,7 +132,7 @@ export function generatePassword(len = 14) {
   return [...crypto.getRandomValues(new Uint32Array(len))].map((n) => chars[n % chars.length]).join('');
 }
 
-export function passwordStrength(p: string): { score: 0 | 1 | 2 | 3; label: string } {
+function passwordStrength(p: string): { score: 0 | 1 | 2 | 3; label: string } {
   if (!p) return { score: 0, label: '' };
   let s = 0;
   if (p.length >= 8) s++;
@@ -482,7 +482,7 @@ export function PageHeader({ title, subtitle, actions, back }: { title: string; 
 }
 
 // ---------- Bảng: khung cao hết màn hình + phân trang ----------
-export const PAGE_SIZES = [10, 20, 50, 100];
+const PAGE_SIZES = [10, 20, 50, 100];
 /** Số dòng mỗi trang, nhớ theo từng bảng trong trình duyệt. */
 export function usePageSize(key: string, initial = 20) {
   const [size, set] = useState(() => {

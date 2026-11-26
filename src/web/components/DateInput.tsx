@@ -16,7 +16,7 @@ const WEEK = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 const pad = (n: number) => String(n).padStart(2, '0');
 const isFull = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
 
-export function displayDate(v: string) {
+function displayDate(v: string) {
   if (!v) return '';
   if (isFull(v)) {
     const [y, m, d] = v.split('-');
@@ -26,7 +26,7 @@ export function displayDate(v: string) {
 }
 
 /** Đọc chuỗi người dùng gõ. Trả về giá trị chuẩn hoặc null nếu sai. */
-export function parseDate(text: string): string | null {
+function parseDate(text: string): string | null {
   const t = text.trim();
   if (!t) return '';
   let m = t.match(/^(\d{4})$/);

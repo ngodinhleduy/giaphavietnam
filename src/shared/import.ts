@@ -85,7 +85,7 @@ const validYmd = (y: number, m: number, d: number) => {
 };
 
 /** Ngày về dạng YYYY-MM-DD hoặc YYYY. undefined: không đọc được. */
-export function parseDate(v: Cell): string | null | undefined {
+function parseDate(v: Cell): string | null | undefined {
   if (v == null || v === '') return null;
   if (v instanceof Date) return isNaN(v.getTime()) ? undefined : `${v.getUTCFullYear()}-${pad(v.getUTCMonth() + 1)}-${pad(v.getUTCDate())}`;
   const s = String(v).trim();
@@ -99,7 +99,7 @@ export function parseDate(v: Cell): string | null | undefined {
   return undefined;
 }
 
-export function parseLunar(v: Cell): { day: number; month: number } | null | undefined {
+function parseLunar(v: Cell): { day: number; month: number } | null | undefined {
   const s = text(v);
   if (!s) return null;
   const m = fold(s).match(/(\d{1,2})\D+(\d{1,2})/);
@@ -138,7 +138,7 @@ const splitList = (v: Cell) => text(v).split(/[;,\n|]+/).map((x) => x.trim()).fi
 
 export type Existing = { id: number; full_name: string; gender: 'male' | 'female'; generation: number | null; birth_date: string | null };
 
-export type ImportItem = {
+type ImportItem = {
   ref: string; line: number; full_name: string; gender: 'male' | 'female'; generation: number;
   father_ref: string | null; mother_ref: string | null;
   alias: string | null; birth_order: number | null; birth_date: string | null; death_date: string | null;

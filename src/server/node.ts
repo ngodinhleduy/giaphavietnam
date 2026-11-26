@@ -9,6 +9,7 @@ import { createApp } from './app.ts';
 import { openNodeDb } from './db-node.ts';
 import { googleDriveStorage, noStorage, type Storage } from './storage.ts';
 import { localStorage } from './storage-local.ts';
+import { SITE_HEADERS } from '../shared/headers.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const env = process.env;
@@ -45,6 +46,16 @@ app.route('/', api);
 
 const dist = join(root, 'dist');
 if (existsSync(dist)) {
+  // Header bảo mật cho trang HTML và file tĩnh (API tự gắn header của nó)
+  app.use('*', async (c, next) => {
+    await next();
+    if (c.req.path.startsWith('/api/')) return;
+    for (const [k, v] of Object.entries(SITE_HEADERS)) {
+      // HSTS chỉ có nghĩa khi chạy qua https; đặt trên http nội bộ là thừa
+      if (k === 'Strict-Transport-Security' && new URL(c.req.url).protocol !== 'https:') continue;
+      c.res.headers.set(k, v);
+    }
+  });
   const rel = relative(process.cwd(), dist) || '.';
   app.use('/assets/*', serveStatic({ root: rel }));
   app.use('*', serveStatic({ root: rel }));

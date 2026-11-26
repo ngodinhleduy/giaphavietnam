@@ -8,13 +8,13 @@ import { initials, year } from '../lib/format.ts';
 import { Minus, Plus, Scan } from 'lucide-react';
 import { FullscreenButton } from './ui.tsx';
 
-export const CW = 190;
-export const CH = 76;
+const CW = 190;
+const CH = 76;
 const SPOUSE_GAP = 14;
 const GAP_X = 22;
 const ROW_H = CH + 74;
 /** Bề rộng cột đời cố định ở mép trái khung phả đồ */
-export const GEN_W = 56;
+const GEN_W = 56;
 /** Màu thẻ của người đã mất, dùng chung cho cây và phần chú thích */
 export const DEAD = { card: '#e3ddd1', line: '#b3aa9b', frame: '#b9b1a3' };
 

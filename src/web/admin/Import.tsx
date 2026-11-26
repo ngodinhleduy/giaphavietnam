@@ -24,7 +24,7 @@ export async function exportExcel() {
   return d.members.length;
 }
 
-export const downloadTemplate = () =>
+const downloadTemplate = () =>
   saveXlsx([
     [1, 'Ngô Văn A', '', 'Nam', 1, '', '', '2', 1, '1850', '12/03/1920', '14/2', 'Có', 'Có', '', 'Quảng Nam', '', '', 'Thủy tổ', '', ''],
     [2, 'Nguyễn Thị B', '', 'Nữ', 1, '', '', '', '', '1855', '', '', 'Có', 'Dâu/rể', '', '', '', '', '', '', ''],

@@ -6,7 +6,7 @@ import type { Marriage, MemberBrief, Site, UpcomingEvent } from '../lib/types.ts
 import { LUNAR_MONTHS } from '../components/DateInput.tsx';
 import { solarToLunar, canChiYear } from '../../shared/lunar.ts';
 import { daysUntil, initials } from '../lib/format.ts';
-import { Button, ErrorState, LinkButton, Loading, Skeleton, cx } from '../components/ui.tsx';
+import { ErrorState, LinkButton, Loading, Skeleton, cx } from '../components/ui.tsx';
 import { FamilyTree, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
 import { logTime, type LogRow } from './Logs.tsx';
 import { useMe } from './AdminLayout.tsx';

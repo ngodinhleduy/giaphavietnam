@@ -1,5 +1,5 @@
 // Lớp DB tối giản, chung cho Cloudflare D1 và SQLite trên Node.
-export type Row = Record<string, any>;
+type Row = Record<string, any>;
 
 export interface DB {
   all<T = Row>(sql: string, params?: unknown[]): Promise<T[]>;

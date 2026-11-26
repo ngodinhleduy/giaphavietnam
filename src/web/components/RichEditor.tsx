@@ -10,7 +10,7 @@ import { api, fileUrl, shrinkImage } from '../lib/api.ts';
 import { cx, Input, Button, Modal, Spinner, useToast } from './ui.tsx';
 
 /** Nội dung cũ viết bằng Markdown thì chuyển sang HTML trước khi đưa vào editor. */
-export function toHtml(v: string) {
+function toHtml(v: string) {
   if (!v) return '';
   return /^\s*</.test(v) ? v : (marked.parse(v, { async: false }) as string);
 }

@@ -1,0 +1,3 @@
+# Gia phả là dữ liệu riêng của dòng họ. Không lập chỉ mục, không thu thập.
+User-agent: *
+Disallow: /

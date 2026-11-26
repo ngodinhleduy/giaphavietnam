@@ -16,7 +16,7 @@ const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
 // Mọi khóa do trang này lưu. Một nút Lưu chung cho cả sáu tab, giống cách người dùng nghĩ: "lưu cấu hình".
 const KEYS = ['site_name', 'site_tagline', 'intro', 'foreword', 'banner_file_id', 'intro_image_file_id', 'logo_file_id', 'favicon_file_id',
   'address', 'map_embed', 'contact', 'contact_intro', 'contact_email', 'contact_phone', 'contact_zalo', 'contact_facebook', 'contact_youtube', 'contact_tiktok', 'contact_form',
-  'template', 'tree_lines', 'privacy'];
+  'template', 'tree_lines', 'privacy', 'protect_living'];
 const TABS = [
   { id: 'general', label: 'Thông tin', icon: Landmark },
   { id: 'images', label: 'Logo và biểu tượng', icon: ImageIcon },
@@ -268,6 +268,18 @@ export function SettingsAdmin() {
         {tab === 'security' && (
           <div className="grid gap-6 xl:grid-cols-2 items-start">
             <PasscodeSection hasPasscode={data.has_passcode} onSave={save} />
+            <Section title="Thông tin người còn sống" icon={<ShieldCheck />}
+              hint="Áp dụng cho người xem trang. Người quản lý đăng nhập vẫn thấy đầy đủ.">
+              <Switch label="Che thông tin riêng của người còn sống" checked={data.protect_living !== '0'}
+                onChange={(v) => save({ protect_living: v ? '1' : '0' })}
+                description="Người còn sống chỉ hiện năm sinh. Ngày sinh đầy đủ, quê quán và nghề nghiệp được ẩn trên phả đồ, hồ sơ và file tải về." />
+              {!data.has_passcode && (
+                <p className="mt-4 flex gap-2 rounded-lg bg-warning-soft px-3 py-2.5 text-sm text-warning">
+                  <Lock aria-hidden className="size-4 shrink-0 mt-0.5" />
+                  <span>Phả đồ đang để công khai: ai có đường dẫn cũng xem được tên, năm sinh và ảnh của mọi người. Đặt mã xem để chỉ người trong họ xem được.</span>
+                </p>
+              )}
+            </Section>
             <StorageSection />
           </div>
         )}
@@ -329,14 +341,14 @@ function PasscodeSection({ hasPasscode, onSave }: { hasPasscode: boolean; onSave
   return (
     <Section title="Mã bảo mật phả đồ" icon={<Lock />} hint="Người xem phải nhập mã này mới thấy cây phả hệ, hồ sơ và ngày giỗ. Bài viết, sự kiện và album vẫn công khai.">
       <p className="mb-4">{hasPasscode ? <Badge tone="success">Đang bật</Badge> : <Badge tone="accent">Đang tắt: ai có link cũng xem được phả đồ</Badge>}</p>
-      <Field label={hasPasscode ? 'Mã mới' : 'Đặt mã'} htmlFor="pc" hint="Tối thiểu 4 ký tự, dễ đọc qua điện thoại. Đổi mã sẽ khóa lại phả đồ với mọi người đang xem.">
+      <Field label={hasPasscode ? 'Mã mới' : 'Đặt mã'} htmlFor="pc" hint="Tối thiểu 6 ký tự, dễ đọc qua điện thoại. Đổi mã sẽ khóa lại phả đồ với mọi người đang xem.">
         <div className="flex flex-wrap gap-2">
           <PasswordInput id="pc" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} className="w-full sm:w-64" />
-          <Button type="button" icon={<Sparkles aria-hidden />} onClick={() => setCode(generatePassword(6).toLowerCase())}>Tạo ngẫu nhiên</Button>
+          <Button type="button" icon={<Sparkles aria-hidden />} onClick={() => setCode(generatePassword(8).toLowerCase())}>Tạo ngẫu nhiên</Button>
         </div>
       </Field>
       <div className="flex flex-wrap gap-2 mt-4">
-        <Button variant="primary" icon={<KeyRound aria-hidden />} disabled={code.length < 4} onClick={async () => { await onSave({ passcode: code }); setCode(''); }}>Lưu mã</Button>
+        <Button variant="primary" icon={<KeyRound aria-hidden />} disabled={code.length < 6} onClick={async () => { await onSave({ passcode: code }); setCode(''); }}>Lưu mã</Button>
         {hasPasscode && <Button variant="danger" onClick={() => confirm('Tắt mã bảo mật? Ai có link cũng sẽ xem được phả đồ.') && onSave({ passcode: '' })}>Tắt mã</Button>}
       </div>
     </Section>

@@ -7,7 +7,7 @@ import { fold } from '../../shared/slug.ts';
 import { Container, useSite } from './SiteLayout.tsx';
 import { DEAD, FamilyTree, TreeControls, useTreeModel, type FamilyTreeHandle, type TreeOptions } from '../components/FamilyTree.tsx';
 import {
-  Avatar, Badge, Button, Checkbox, PasswordInput, rankByName, SearchInput, EmptyState, ErrorState, Field, Input, Loading, MemberPicker, PageHeader, Select, cx, useFullscreen,
+  Avatar, Badge, Button, Checkbox, PasswordInput, rankByName, SearchInput, EmptyState, ErrorState, Field, Loading, MemberPicker, PageHeader, Select, cx, useFullscreen,
 } from '../components/ui.tsx';
 
 type TreeData = { members: MemberBrief[]; marriages: Marriage[] };

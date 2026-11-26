@@ -67,7 +67,7 @@ const DESC = ['', 'con', 'cháu', 'chắt', 'chút', 'chít'];
 const ASC_M = ['', 'bố', 'ông', 'cụ ông', 'kỵ ông'];
 const ASC_F = ['', 'mẹ', 'bà', 'cụ bà', 'kỵ bà'];
 
-export function bloodRelation(ctx: Ctx, aId: number, bId: number): KinshipResult | null {
+function bloodRelation(ctx: Ctx, aId: number, bId: number): KinshipResult | null {
   const A = ctx.byId.get(aId);
   const B = ctx.byId.get(bId);
   if (!A || !B) return null;
