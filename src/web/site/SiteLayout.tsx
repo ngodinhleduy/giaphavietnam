@@ -20,8 +20,8 @@ function MenuEntry({ n, mobile }: { n: MenuLink; mobile?: boolean }) {
   const onPath = path === '/' ? loc.pathname === '/' : loc.pathname === path || loc.pathname.startsWith(path + '/');
   const active = !n.external && onPath && (loc.pathname === path ? (want ?? '') === (path === '/bai-viet' ? have ?? '' : want ?? '') : !want);
   const cls = mobile
-    ? cx('flex h-12 items-center gap-1.5 px-3 rounded-lg font-medium transition-colors', active ? 'text-accent bg-accent-soft' : 'text-ink hover:bg-sunken')
-    : cx('gp-nav relative px-3 h-10 inline-flex items-center gap-1 rounded-lg text-[15px] font-medium max-lg:px-2.5 whitespace-nowrap transition-colors', active ? 'text-accent is-active' : 'text-ink-2 hover:text-ink');
+    ? cx('flex h-12 items-center gap-1.5 px-3 rounded-lg font-serif text-lg font-medium transition-colors', active ? 'text-accent bg-accent-soft' : 'text-ink hover:bg-sunken')
+    : cx('gp-nav relative px-3 h-10 inline-flex items-center gap-1 rounded-lg font-serif text-[17px] font-medium max-lg:px-2.5 max-lg:text-base whitespace-nowrap transition-colors', active ? 'text-accent is-active' : 'text-ink-2 hover:text-ink');
   if (n.external) return <a href={n.to} target="_blank" rel="noopener noreferrer" className={cls}>{n.label}<ArrowUpRight aria-hidden className="size-3.5" /><span className="sr-only"> (mở trang khác)</span></a>;
   return <Link to={n.to} aria-current={active ? 'page' : undefined} className={cls}>{n.label}</Link>;
 }
