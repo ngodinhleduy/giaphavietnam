@@ -1,9 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  ArrowRight, CalendarDays, ChevronRight, CircleCheck, ExternalLink, FileText, History, Images, Inbox, Layers, Lock,
-  Maximize2, Network, PenLine, Settings, TriangleAlert, UserPlus, Users, FileSpreadsheet,
-} from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronRight, CircleCheck, ExternalLink, FileText, History, Images, Inbox, Layers, Lock, Network, PenLine, Settings, TriangleAlert, UserPlus, Users, FileSpreadsheet, ZoomIn, ZoomOut } from 'lucide-react';
 import { useApi } from '../lib/api.ts';
 import type { Marriage, MemberBrief, Site, UpcomingEvent } from '../lib/types.ts';
 import { LUNAR_MONTHS } from '../components/DateInput.tsx';
@@ -263,7 +260,11 @@ function TreePreview({ tree, lines }: { tree?: TreeData; lines?: string }) {
   return (
     <Card title="Phả đồ" icon={<Network />} className="overflow-hidden"
       aside={<span className="flex items-center gap-2">
-        <Button size="sm" icon={<Maximize2 aria-hidden />} onClick={() => ref.current?.fit()}><span className="max-sm:sr-only">Vừa khung</span></Button>
+        {/* Hai nút ghép liền: thu nhỏ, phóng to. Muốn xem cả cây thì thu nhỏ; soạn chi tiết thì sang màn Soạn phả đồ. */}
+        <span role="group" aria-label="Thu phóng phả đồ" className="inline-flex h-8 pointer-coarse:h-10 rounded-lg border border-line-strong bg-surface overflow-hidden divide-x divide-line-strong">
+          <button type="button" onClick={() => ref.current?.zoomBy(1 / 1.3)} aria-label="Thu nhỏ" title="Thu nhỏ" className="w-9 pointer-coarse:w-11 inline-flex items-center justify-center text-ink cursor-pointer transition-colors hover:bg-accent-soft hover:text-accent"><ZoomOut aria-hidden className="size-4" /></button>
+          <button type="button" onClick={() => ref.current?.zoomBy(1.3)} aria-label="Phóng to" title="Phóng to" className="w-9 pointer-coarse:w-11 inline-flex items-center justify-center text-ink cursor-pointer transition-colors hover:bg-accent-soft hover:text-accent"><ZoomIn aria-hidden className="size-4" /></button>
+        </span>
         <LinkButton to="/admin/tree" size="sm" variant="primary" icon={<PenLine aria-hidden />}>Soạn phả đồ</LinkButton>
       </span>}>
       {!tree ? <Loading /> : !tree.members.length ? (
