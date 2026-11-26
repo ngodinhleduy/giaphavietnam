@@ -208,7 +208,7 @@ function Calendar({ id, value, onPick, max }: { id: string; value: string; onPic
       <MonthNav y={y} m={m} set={(ny, nm) => setYm({ y: ny, m: nm })} minY={MIN_YEAR} maxY={today.getFullYear() + 1} />
       <MonthGrid y={y} m={m} selected={(c) => c.iso === value} disabled={(c) => !!max && c.iso > max} onPick={(c) => onPick(c.iso)} onHover={setHover} />
       <p className="mt-2 h-5 text-xs text-ink-2 truncate" aria-hidden>
-        {hover ? <>{formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Số nhỏ là ngày âm. Màu đỏ: mùng 1, rằm, ngày lễ.'}
+        {hover ? <>{formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Màu đỏ: mùng 1, rằm, ngày lễ.'}
       </p>
       <div className="flex items-center justify-between gap-2 mt-1 pt-2 border-t border-line">
         <button type="button" onClick={() => onPick(String(y))} className="h-9 px-2 rounded-md text-sm font-medium text-accent hover:bg-accent-soft cursor-pointer">
@@ -224,9 +224,19 @@ export type EventDate = { calendar: 'lunar' | 'solar'; day: number | null; month
 const WEEKDAY = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
 /**
- * Chọn ngày cho sự kiện ngay trên lịch tháng. Loại lịch (âm hoặc dương) chọn ở đầu lịch:
- * cùng một ô ngày, lưu theo âm lịch thì sự kiện lặp theo ngày âm, lưu theo dương lịch thì lặp theo ngày dương.
+ * Chọn ngày cho sự kiện ngay trên lịch tháng. Mỗi ô đã hiện cả ngày dương lẫn ngày âm nên lịch không có nút đổi loại lịch.
+ * value.calendar chỉ quyết định sự kiện lặp hằng năm theo ngày âm hay ngày dương; nơi dùng đổi nó bằng convertEventDate.
  */
+/** Đổi cách lưu (âm hoặc dương) mà vẫn giữ đúng ô ngày đang chọn trên lịch. */
+export function convertEventDate(v: EventDate, cal: 'lunar' | 'solar'): EventDate {
+  if (cal === v.calendar) return v;
+  if (!v.day || !v.month) return { ...v, calendar: cal };
+  const year = v.year || new Date().getFullYear();
+  if (cal === 'lunar') { const l = solarToLunar(v.day, v.month, year); return { calendar: 'lunar', day: l.day, month: l.month, year: l.year }; }
+  const s = lunarToSolar(v.day, v.month, year);
+  return s ? { calendar: 'solar', day: s[0], month: s[1], year: s[2] } : { ...v, calendar: cal };
+}
+
 export function EventDatePicker({ value, onChange, recurring, invalid }: {
   value: EventDate; onChange: (v: EventDate) => void; recurring: boolean; invalid?: boolean;
 }) {
@@ -255,38 +265,21 @@ export function EventDatePicker({ value, onChange, recurring, invalid }: {
     const l = c.info.lunar;
     onChange(lunar ? { calendar: 'lunar', day: l.day, month: l.month, year: l.year } : { calendar: 'solar', day: c.d, month: m, year: y });
   };
-  const switchTo = (cal: 'lunar' | 'solar') => {
-    if (cal === value.calendar) return;
-    // Giữ nguyên ngày đã chọn trên lịch, chỉ đổi cách lưu
-    const s = solarOf(value, value.year || y);
-    if (!s) return onChange({ ...value, calendar: cal });
-    if (cal === 'solar') return onChange({ calendar: 'solar', day: s[0], month: s[1], year: s[2] });
-    const l = solarToLunar(s[0], s[1], s[2]);
-    onChange({ calendar: 'lunar', day: l.day, month: l.month, year: l.year });
-  };
-
   const next = solarOf(value, recurring ? y : value.year || y);
   const summary = !value.day || !value.month ? null : lunar
     ? `${value.day < 11 ? `Mùng ${value.day}` : `Ngày ${value.day}`} tháng ${LUNAR_MONTHS[value.month - 1]} âm lịch`
     : `Ngày ${value.day} tháng ${value.month} dương lịch`;
   return (
     <div className={cx('rounded-xl border bg-surface p-3', invalid ? 'border-danger' : 'border-line-strong')}>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div role="radiogroup" aria-label="Lưu ngày theo lịch" className="inline-flex p-1 rounded-lg bg-sunken">
-          {([['lunar', 'Âm lịch'], ['solar', 'Dương lịch']] as const).map(([k, l]) => (
-            <button key={k} type="button" role="radio" aria-checked={value.calendar === k} onClick={() => switchTo(k)}
-              className={cx('h-8 pointer-coarse:h-10 px-3 rounded-md text-sm font-medium cursor-pointer transition-colors', value.calendar === k ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink')}>
-              {l}
-            </button>
-          ))}
-        </div>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="text-sm text-ink-2">Số nhỏ là ngày âm lịch</p>
         <button type="button" onClick={() => setYm({ y: thisYear, m: today.getMonth() + 1 })}
           className="h-8 pointer-coarse:h-10 px-2.5 rounded-md text-sm font-medium text-ink-2 hover:bg-sunken hover:text-ink cursor-pointer transition-colors">Hôm nay</button>
       </div>
       <MonthNav y={y} m={m} set={(ny, nm) => setYm({ y: ny, m: nm })} minY={MIN_YEAR} maxY={thisYear + 50} />
       <MonthGrid y={y} m={m} selected={selected} onPick={pick} onHover={setHover} />
       <p className="mt-2 h-5 text-xs text-ink-2 truncate" aria-hidden>
-        {hover ? <>{hover.d}/{m}/{y} · {formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Số nhỏ là ngày âm. Màu đỏ: mùng 1, rằm, ngày lễ.'}
+        {hover ? <>{hover.d}/{m}/{y} · {formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Màu đỏ: mùng 1, rằm, ngày lễ.'}
       </p>
       <p role="status" className="mt-1 pt-2.5 border-t border-line text-sm">
         {!summary ? <span className="text-ink-2">Bấm một ngày trên lịch để chọn.</span> : (

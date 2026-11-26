@@ -8,7 +8,7 @@ import {
 } from '../components/ui.tsx';
 import { ImageUpload, useMe } from './AdminLayout.tsx';
 import { Section } from './Members.tsx';
-import { EventDatePicker } from '../components/DateInput.tsx';
+import { EventDatePicker, convertEventDate } from '../components/DateInput.tsx';
 import { slugify } from '../../shared/slug.ts';
 const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
 
@@ -261,6 +261,15 @@ export function EventsAdmin() {
               </Field>
               <Switch label="Lặp lại hằng năm" checked={edit.recurring} onChange={(v) => setEdit({ ...edit, recurring: v })}
                 description={edit.recurring ? 'Mỗi năm tự hiện lại đúng ngày này.' : 'Chỉ diễn ra một lần, đúng năm đã chọn trên lịch.'} />
+              {edit.recurring && (
+                <div>
+                  <p id="ecal" className="text-sm font-medium text-ink mb-1.5">Lặp theo</p>
+                  <Segmented label="Lặp theo" size="sm" value={edit.calendar}
+                    onChange={(c) => setEdit({ ...edit, ...convertEventDate({ calendar: edit.calendar, day: edit.day, month: edit.month, year: edit.year }, c) })}
+                    options={[{ value: 'lunar', label: 'Ngày âm lịch' }, { value: 'solar', label: 'Ngày dương lịch' }]} />
+                  <p className="mt-1.5 text-sm text-ink-2">{edit.calendar === 'lunar' ? 'Dùng cho giỗ, lễ tế. Ngày dương mỗi năm một khác.' : 'Dùng cho ngày kỷ niệm cố định theo dương lịch.'}</p>
+                </div>
+              )}
               <Field label="Địa điểm" htmlFor="el" optional><Input id="el" value={edit.location} placeholder="Nhà thờ họ" onChange={(e) => setEdit({ ...edit, location: e.target.value })} /></Field>
               <Field label="Mô tả" htmlFor="eds" optional><Textarea id="eds" rows={4} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
             </div>
