@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, fileUrl, pool, shrinkImage, useApi } from '../lib/api.ts';
 import { formatDate } from '../lib/format.ts';
-import { CalendarDays, Check, FileText, Images, MapPin, Pencil, Plus, Repeat, Save, Trash2, UploadCloud } from 'lucide-react';
+import { CalendarDays, Check, FileText, Images, MapPin, Pencil, Plus, Repeat, Save, Star, Trash2, UploadCloud } from 'lucide-react';
 import {
   Badge, Button, EmptyState, ErrorState, Field, Input, LinkButton, Loading, Modal, PageHeader, Pagination, Segmented, TableCard, usePageSize, Select, Spinner, Switch, Textarea, cx, useToast,
 } from '../components/ui.tsx';
@@ -21,6 +21,32 @@ export function ArticlesAdmin() {
   const list = (data ?? []).filter((a) => status === 'all' || String(a.published) === status);
   const count = (v: number) => (data ?? []).filter((a) => a.published === v).length;
   useEffect(() => setPage(0), [status]);
+  const isAdmin = useMe()?.role === 'admin';
+  const toast = useToast();
+  const MAX = 5;
+  const featured = (data ?? []).filter((a) => a.featured > 0).sort((x, y) => x.featured - y.featured);
+  const [starring, setStarring] = useState<number | null>(null);
+  const toggleStar = async (a: any) => {
+    const ids = featured.map((x) => x.id);
+    const next = a.featured ? ids.filter((i) => i !== a.id) : [...ids, a.id];
+    if (next.length > MAX) return toast(`Đã đủ ${MAX} bài nổi bật. Bỏ sao một bài khác trước.`, 'error');
+    setStarring(a.id);
+    try { await api.put('/admin/featured', { ids: next }); toast(a.featured ? 'Đã bỏ khỏi bài nổi bật.' : `Đã đặt làm bài nổi bật (${next.length}/${MAX}).`); reload(); }
+    catch (e: any) { toast(e.message, 'error'); } finally { setStarring(null); }
+  };
+  /** Nút sao. Bài chưa đăng không đặt nổi bật được, nên hiện mờ kèm lý do. */
+  const star = (a: any) => {
+    const can = a.published === 1;
+    const label = !can ? 'Chỉ bài đã đăng mới đặt nổi bật được' : a.featured ? `Bỏ nổi bật: ${a.title}` : `Đặt nổi bật: ${a.title}`;
+    return (
+      <button type="button" aria-pressed={!!a.featured} aria-label={label} title={!can ? label : a.featured ? 'Đang nổi bật, bấm để bỏ' : 'Đặt làm bài nổi bật'}
+        disabled={!can || starring === a.id} onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleStar(a); }}
+        className={cx('size-9 pointer-coarse:size-11 shrink-0 inline-flex items-center justify-center rounded-lg cursor-pointer transition-colors disabled:cursor-not-allowed disabled:text-line',
+          a.featured ? 'text-brand hover:bg-brand-soft' : 'text-ink-2 hover:bg-sunken hover:text-ink')}>
+        <Star aria-hidden className="size-[18px]" fill={a.featured ? 'currentColor' : 'none'} />
+      </button>
+    );
+  };
   const badge = (a: any) => (a.published === 1 ? <Badge tone="success">Đã đăng</Badge> : a.published === 2 ? <Badge tone="gold">Chờ duyệt</Badge> : <Badge>Nháp</Badge>);
   return (
     <>
@@ -31,16 +57,18 @@ export function ArticlesAdmin() {
           action={<LinkButton to="/admin/articles/new" variant="primary" icon={<Plus aria-hidden />}>Viết bài đầu tiên</LinkButton>} />
       ) : (
         <>
-          <div className="mb-4">
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
             <Segmented label="Lọc theo trạng thái" size="sm" value={status} onChange={setStatus}
               options={[{ value: 'all', label: `Tất cả ${data.length}` }, { value: '1', label: `Đã đăng ${count(1)}` }, { value: '2', label: `Chờ duyệt ${count(2)}` }, { value: '0', label: `Nháp ${count(0)}` }]} />
+            {isAdmin && <p className="inline-flex items-center gap-1.5 text-sm text-ink-2"><Star aria-hidden className="size-4 text-brand" fill="currentColor" />Bài nổi bật trên trang chủ: <b className="font-semibold text-ink tabular-nums">{featured.length}/{MAX}</b></p>}
           </div>
           <TableCard footer={<Pagination page={page} size={size} total={list.length} onPage={setPage} onSize={setSize} unit="bài" />}>
             {!list.length && <p className="p-8 text-center text-ink-2">Không có bài nào ở trạng thái này.</p>}
             <ul className="md:hidden divide-y divide-line">
               {list.slice(page * size, page * size + size).map((a) => (
                 <li key={a.id}>
-                  <Link to={`/admin/articles/${a.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-accent-soft/60 transition-colors">
+                  <Link to={`/admin/articles/${a.id}`} className="flex items-center gap-2 pl-2 pr-4 py-2.5 hover:bg-accent-soft/60 transition-colors">
+                    {isAdmin ? star(a) : <span className="w-2" />}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{a.title}</p>
                       <p className="text-sm text-ink-2 truncate">{a.category_name ?? 'Chưa phân loại'} · {formatDate(a.updated_at.slice(0, 10))}</p>
@@ -54,6 +82,7 @@ export function ArticlesAdmin() {
               <table className="gp-table hidden md:table w-full text-[15px]">
                 <thead className="text-left text-sm text-ink-2">
                   <tr>
+                    {isAdmin && <th className="font-medium pl-3 w-12 h-11"><span className="sr-only">Nổi bật</span><Star aria-hidden className="size-4 mx-auto" /></th>}
                     <th className="font-medium px-4 h-11">Tiêu đề</th>
                     <th className="font-medium px-4">Chuyên mục</th>
                     <th className="font-medium px-4">Người viết</th>
@@ -64,6 +93,7 @@ export function ArticlesAdmin() {
                 <tbody className="divide-y divide-line">
                   {list.slice(page * size, page * size + size).map((a) => (
                     <tr key={a.id} className="h-13 transition-colors hover:bg-accent-soft/60">
+                      {isAdmin && <td className="pl-3">{star(a)}</td>}
                       <td className="px-4 py-2 max-w-[28rem]">
                         <Link to={`/admin/articles/${a.id}`} className="flex items-center gap-3 font-medium text-ink hover:text-accent">
                           <span aria-hidden className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent"><FileText className="size-4" /></span>

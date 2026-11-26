@@ -13,6 +13,8 @@ export const CH = 76;
 const SPOUSE_GAP = 14;
 const GAP_X = 22;
 const ROW_H = CH + 74;
+/** Bề rộng cột đời cố định ở mép trái khung phả đồ */
+export const GEN_W = 56;
 
 export type TreeOptions = {
   hideSpouses: boolean;
@@ -181,9 +183,8 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
   const rows = useMemo(() => {
     const m = new Map<number, number>();
     for (const n of nodes) if (!n.spouse && n.m.generation && !m.has(n.y)) m.set(n.y, n.m.generation);
-    if (options.rootId) return [] as { y: number; gen: number }[];
     return [...m].map(([y, gen]) => ({ y, gen })).sort((a, b) => a.y - b.y);
-  }, [nodes, options.rootId]);
+  }, [nodes]);
   const pos = useMemo(() => new Map(nodes.filter((n) => !n.spouse || !nodes.some((o) => o.m.id === n.m.id && !o.spouse)).map((n) => [n.m.id, n])), [nodes]);
 
   useEffect(() => {
@@ -220,7 +221,7 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
     const svg = svgRef.current;
     if (!svg || !zoomRef.current || !nodes.length) return;
     const { width, height } = svg.getBoundingClientRect();
-    const lead = rows.length ? 64 : 0; // chừa lề trái cho nhãn đời
+    const lead = rows.length ? GEN_W + 64 : 0; // chừa lề trái cho cột đời và cụm nút
     const bw = bounds.x1 - bounds.x0 + lead;
     const bh = bounds.y1 - bounds.y0;
     const kFit = Math.min(1, (width - 48) / bw, (height - 48) / bh);
@@ -263,6 +264,7 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
     const clone = gRef.current!.cloneNode(true) as SVGGElement;
     clone.setAttribute('transform', `translate(${pad + lead - bounds.x0},${pad - bounds.y0})`);
     clone.querySelectorAll('[data-noexport]').forEach((el) => el.remove());
+    clone.querySelectorAll('[data-exportonly]').forEach((el) => el.removeAttribute('display'));
     if (!withImages) clone.querySelectorAll('image').forEach((el) => el.remove());
     else clone.querySelectorAll('image').forEach((el) => el.setAttribute('href', location.origin + el.getAttribute('href')));
     const defs = svgRef.current!.querySelector('defs')!.outerHTML;
@@ -306,7 +308,8 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
           {rows.map((r, i) => (
             <g key={r.y}>
               {i % 2 === 1 && <rect data-noexport x={bounds.x0 - 20000} y={r.y - (ROW_H - CH) / 2} width={bounds.x1 - bounds.x0 + 40000} height={ROW_H} fill="#f7f7f5" />}
-              <text x={bounds.x0 - 28} y={r.y + CH / 2 + 4} textAnchor="end" fontSize="12" fontWeight="500" fill="#6b6a66">Đời {r.gen}</text>
+              {/* Nhãn đời nằm trong cây chỉ dùng khi xuất ảnh. Trên màn hình đã có cột đời cố định ở mép trái. */}
+              <text data-exportonly display="none" x={bounds.x0 - 28} y={r.y + CH / 2 + 4} textAnchor="end" fontSize="12" fontWeight="500" fill="#6b6a66">Đời {r.gen}</text>
             </g>
           ))}
         </g>
@@ -362,6 +365,26 @@ export const FamilyTree = forwardRef<FamilyTreeHandle, {
           );
         })}
       </g>
+      {/* Cột đời cố định ở mép trái: chỉ trượt theo chiều dọc và co giãn theo mức zoom, nên kéo cây sang ngang vẫn biết đang ở đời nào. */}
+      {rows.length > 0 && (
+        <g aria-hidden="true" pointerEvents="none">
+          {rows.map((r, i) => {
+            const y = t.applyY(r.y - (ROW_H - CH) / 2);
+            const h = ROW_H * t.k;
+            return (
+              <g key={r.y}>
+                <rect x="0" y={y} width={GEN_W} height={h} fill={i % 2 ? '#ece5d8' : '#f6f1e8'} />
+                {h >= 14 && (
+                  <text x={GEN_W / 2} y={y + h / 2 + 4} textAnchor="middle" fontSize={h < 34 ? 11 : 12.5} fontWeight="600" fill="#4c443c">
+                    {h < 34 ? r.gen : `Đời ${r.gen}`}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+          <line x1={GEN_W} y1="-10" x2={GEN_W} y2="100000" stroke="#d3cab9" />
+        </g>
+      )}
     </svg>
   );
 });
@@ -371,7 +394,7 @@ export function TreeControls({ onZoom, onFit, fs }: { onZoom: (k: number) => voi
   // Khung nhóm rộng 40px tính cả viền, bằng đúng nút toàn màn hình bên dưới
   const b = 'w-full h-10 inline-flex items-center justify-center text-ink cursor-pointer transition-colors hover:bg-accent-soft hover:text-accent';
   return (
-    <div className="absolute left-3 top-3 z-10 flex flex-col gap-2 no-print" onClick={(e) => e.stopPropagation()}>
+    <div className="absolute left-[4.25rem] top-3 z-10 flex flex-col gap-2 no-print" onClick={(e) => e.stopPropagation()}>
       <div className="w-10 flex flex-col rounded-lg border border-line-strong bg-surface shadow-sm overflow-hidden divide-y divide-line">
         <button type="button" className={b} aria-label="Phóng to" title="Phóng to" onClick={() => onZoom(1.3)}><Plus aria-hidden className="size-[18px]" /></button>
         <button type="button" className={b} aria-label="Thu nhỏ" title="Thu nhỏ" onClick={() => onZoom(1 / 1.3)}><Minus aria-hidden className="size-[18px]" /></button>

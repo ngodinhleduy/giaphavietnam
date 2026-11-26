@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApi, fileUrl } from '../lib/api.ts';
 import type { ArticleBrief, UpcomingEvent } from '../lib/types.ts';
-import { ArrowRight, BookOpen, CalendarDays, FileText, Images, MapPin, Network } from 'lucide-react';
+import { ArrowRight, BookOpen, CalendarDays, FileText, Images, MapPin, Network, Pause, Play } from 'lucide-react';
 import type { Site } from '../lib/types.ts';
 import type { TemplateId } from '../../shared/site.ts';
 import { Container, useSite } from './SiteLayout.tsx';
@@ -86,9 +87,66 @@ function SectionHead({ id, title, to, more }: { id: string; title: string; to?: 
   );
 }
 
+/** Thẻ bài viết nổi bật. Nhiều bài thì tự chuyển sau mỗi 7 giây, có chấm để chọn bài và nút tạm dừng.
+    Tự dừng khi rê chuột, khi đang focus bên trong, khi tab bị ẩn, và không tự chạy nếu người dùng chọn giảm chuyển động. */
+function Featured({ items }: { items: ArticleBrief[] }) {
+  const [i, setI] = useState(0);
+  const [paused, setPaused] = useState(() => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const [hold, setHold] = useState(false);
+  const touch = useRef<number | null>(null);
+  const n = items.length;
+  const cur = items[Math.min(i, n - 1)];
+  useEffect(() => {
+    if (n < 2 || paused || hold) return;
+    const t = setInterval(() => { if (document.visibilityState === 'visible') setI((x) => (x + 1) % n); }, 7000);
+    return () => clearInterval(t);
+  }, [n, paused, hold]);
+  const go = (k: number) => setI(((k % n) + n) % n);
+  return (
+    <section aria-roledescription="carousel" aria-label="Bài viết nổi bật"
+      onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)}
+      onTouchStart={(e) => { touch.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => { const d = e.changedTouches[0].clientX - (touch.current ?? 0); if (n > 1 && Math.abs(d) > 48) go(i + (d < 0 ? 1 : -1)); touch.current = null; }}
+      className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_60px_-28px_rgb(33_28_24/0.55)]">
+      <Link key={cur.id} to={`/bai-viet/${cur.slug}`} aria-labelledby="h-featured"
+        aria-roledescription="slide" aria-label={n > 1 ? `Bài ${i + 1} trên ${n}` : undefined}
+        className={cx('gp-fade group grid', cur.cover_file_id && 'md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]')}>
+        {cur.cover_file_id && (
+          <span className="block overflow-hidden aspect-[16/10] md:aspect-auto md:h-96">
+            <img src={fileUrl(cur.cover_file_id)} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transform-none" />
+          </span>
+        )}
+        <span className={cx('flex flex-col justify-center p-6 sm:p-10 lg:p-12', n > 1 && 'pb-4 sm:pb-6 lg:pb-8', !cur.cover_file_id && 'md:min-h-72')}>
+          <span className="text-sm font-semibold uppercase tracking-wider text-accent">Bài viết nổi bật</span>
+          <span id="h-featured" className="mt-3 font-serif text-3xl sm:text-4xl font-medium leading-tight text-ink text-balance line-clamp-3">{cur.title}</span>
+          {cur.category_name && <span className="mt-3 text-sm text-ink-3">{cur.category_name}</span>}
+          {cur.summary && <span className="mt-4 font-serif italic text-lg text-ink-2 line-clamp-3">{cur.summary}</span>}
+          <span className="mt-6 inline-flex items-center gap-2 font-semibold text-accent">Đọc tiếp<ArrowRight aria-hidden className="gp-arrow size-4" /></span>
+        </span>
+      </Link>
+      {n > 1 && (
+        <div className="flex items-center justify-center gap-1 px-4 pb-3 pt-1 border-t border-line md:border-t-0">
+          <div role="tablist" aria-label="Chọn bài nổi bật" className="flex items-center">
+            {items.map((a, k) => (
+              <button key={a.id} type="button" role="tab" aria-selected={k === i} aria-label={`Bài ${k + 1}: ${a.title}`} onClick={() => go(k)}
+                className="group/dot h-11 px-1.5 inline-flex items-center cursor-pointer">
+                <span className={cx('block h-2.5 rounded-full transition-all duration-300', k === i ? 'w-8 bg-accent' : 'w-2.5 bg-line-strong group-hover/dot:bg-ink')} />
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => setPaused((v) => !v)} aria-label={paused ? 'Tiếp tục tự chuyển bài' : 'Tạm dừng tự chuyển bài'} title={paused ? 'Tiếp tục tự chuyển bài' : 'Tạm dừng tự chuyển bài'}
+            className="ml-1 size-11 inline-flex items-center justify-center rounded-full text-ink-2 cursor-pointer transition-colors hover:bg-sunken hover:text-ink">
+            {paused ? <Play aria-hidden className="size-4" /> : <Pause aria-hidden className="size-4" />}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function Home() {
   const { site, template } = useSite();
-  const articles = useApi<ArticleBrief[]>('/articles?limit=5');
+  const articles = useApi<ArticleBrief[]>('/articles?limit=9');
   const events = useApi<UpcomingEvent[]>('/events/upcoming?days=120');
   const next = events.data?.[0];
   const QUICK = [
@@ -98,31 +156,20 @@ export function Home() {
     { to: '/album', icon: Images, label: 'Thư viện', sub: 'Ảnh tư liệu' },
   ];
 
-  const featured = template !== 'toi-gian' ? articles.data?.[0] : undefined;
-  const rest = featured ? (articles.data ?? []).slice(1) : articles.data ?? [];
+  // Bài nổi bật do quản trị viên chọn (tối đa 5). Chưa chọn bài nào thì lấy bài mới nhất.
+  const picked = useApi<ArticleBrief[]>('/articles/featured');
+  const slides = template === 'toi-gian' || picked.loading ? [] : picked.data?.length ? picked.data : (articles.data ?? []).slice(0, 1);
+  const shown = new Set(slides.map((a) => a.id));
+  const rest = (articles.data ?? []).filter((a) => !shown.has(a.id)).slice(0, 4);
   const hasForeword = !!site.foreword && !!site.foreword.replace(/<[^>]*>/g, '').trim();
 
   return (
     <>
-      <Hero site={site} template={template} lift={!!featured} />
+      <Hero site={site} template={template} lift={slides.length > 0} />
 
-      {featured && (
+      {slides.length > 0 && (
         <Container className="relative z-10 -mt-24 sm:-mt-28">
-          <Link to={`/bai-viet/${featured.slug}`} aria-labelledby="h-featured"
-            className={cx('group grid overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_60px_-28px_rgb(33_28_24/0.55)] transition-shadow hover:shadow-[0_28px_64px_-24px_rgb(33_28_24/0.6)]', featured.cover_file_id && 'md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]')}>
-            {featured.cover_file_id && (
-              <span className="block overflow-hidden aspect-[16/10] md:aspect-auto md:min-h-80">
-                <img src={fileUrl(featured.cover_file_id)} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transform-none" />
-              </span>
-            )}
-            <span className="flex flex-col justify-center p-6 sm:p-10 lg:p-12">
-              <span className="text-sm font-semibold uppercase tracking-wider text-accent">Bài viết nổi bật</span>
-              <span id="h-featured" className="mt-3 font-serif text-3xl sm:text-4xl font-medium leading-tight text-ink text-balance">{featured.title}</span>
-              {featured.category_name && <span className="mt-3 text-sm text-ink-3">{featured.category_name}</span>}
-              {featured.summary && <span className="mt-4 font-serif italic text-lg text-ink-2 line-clamp-3">{featured.summary}</span>}
-              <span className="mt-6 inline-flex items-center gap-2 font-semibold text-accent">Đọc tiếp<ArrowRight aria-hidden className="gp-arrow size-4" /></span>
-            </span>
-          </Link>
+          <Featured items={slides} />
         </Container>
       )}
 

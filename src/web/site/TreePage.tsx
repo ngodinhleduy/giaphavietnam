@@ -192,7 +192,7 @@ function TreeView({ data, locked, onLock }: { data: TreeData; locked: boolean; o
               })} />
             <TreeControls onZoom={(k) => ref.current?.zoomBy(k)} onFit={() => ref.current?.fit()} fs={fs} />
             {opt.rootId && (
-              <div className="absolute left-16 right-3 sm:right-auto top-3 flex items-center gap-2 rounded-lg bg-surface border border-line pl-3 pr-1 min-h-10 text-sm no-print">
+              <div className="absolute left-[7.5rem] right-3 sm:right-auto top-3 flex items-center gap-2 rounded-lg bg-surface border border-line pl-3 pr-1 min-h-10 text-sm no-print">
                 <span className="flex-1 min-w-0 truncate">Hậu duệ của <b>{model.byId.get(opt.rootId)?.full_name}</b></span>
                 <Button size="sm" variant="ghost" onClick={() => setOpt((o) => ({ ...o, rootId: null }))}>Về gốc</Button>
               </div>
@@ -258,7 +258,7 @@ function ExportMenu({ onPng, onSvg }: { onPng: () => void; onSvg: () => void }) 
 
 function Legend() {
   return (
-    <div className="absolute left-3 right-3 sm:right-auto bottom-3 rounded-lg bg-surface/95 border border-line px-3 py-2 text-xs text-ink-2 flex flex-wrap gap-x-3 sm:gap-x-4 gap-y-1 no-print">
+    <div className="absolute left-[4.25rem] right-3 sm:right-auto bottom-3 rounded-lg bg-surface/95 border border-line px-3 py-2 text-xs text-ink-2 flex flex-wrap gap-x-3 sm:gap-x-4 gap-y-1 no-print">
       <span className="inline-flex items-center gap-1.5"><i className="size-3 rounded-sm bg-surface border border-line-strong" />Trong họ</span>
       <span className="inline-flex items-center gap-1.5"><i className="size-3 rounded-sm bg-sunken border border-line-strong" />Dâu / rể</span>
       <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-3 bg-[#f3eee4] border-2 border-[#141414]" />Còn sống</span>

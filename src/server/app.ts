@@ -52,6 +52,7 @@ const LOG_RES: Record<string, { label: string; table?: string; col?: string; onl
   albums: { label: 'album', table: 'albums', col: 'title' },
   photos: { label: 'ảnh trong album' },
   settings: { label: 'cài đặt' },
+  featured: { label: 'bài viết nổi bật' },
   admins: { label: 'tài khoản', table: 'admins', col: 'username' },
   password: { label: 'của chính mình' },
   menu: { label: 'menu website' },
@@ -59,7 +60,7 @@ const LOG_RES: Record<string, { label: string; table?: string; col?: string; onl
   messages: { label: 'thư trong hòm thư', table: 'messages', col: 'name', only: ['DELETE'] },
 };
 // Biên tập viên không được đụng tới các nhóm này
-const ADMIN_ONLY = ['settings', 'admins', 'logs', 'menu', 'messages', 'categories', 'storage', 'recompute-generations', 'import-url', 'domain'];
+const ADMIN_ONLY = ['settings', 'admins', 'logs', 'menu', 'messages', 'categories', 'storage', 'recompute-generations', 'import-url', 'domain', 'featured'];
 const IMPORT_MAX = 25;
 const IMPORT_HOSTS = ['s3.cloudzone.vn'];
 
@@ -97,6 +98,15 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   async function isAdmin(c: C) {
     const p = await verifyToken(getCookie(c, ADMIN_COOKIE), c.get('deps').secret);
     return p?.role === 'admin' ? Number(p.sub) : null;
+  }
+
+  const MAX_FEATURED = 5;
+  async function featuredIds(c: C): Promise<number[]> {
+    const row = await db(c).first<{ value: string }>("SELECT value FROM settings WHERE key = 'featured_articles'");
+    try {
+      const v = JSON.parse(row?.value || '[]');
+      return Array.isArray(v) ? [...new Set(v.map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, MAX_FEATURED) : [];
+    } catch { return []; }
   }
 
   async function canView(c: C) {
@@ -183,6 +193,16 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     return c.json(rows);
   });
 
+  // Bài viết nổi bật: tối đa 5 bài do quản trị viên chọn, lưu thứ tự trong settings. Chỉ trả bài đang đăng.
+  app.get('/articles/featured', async (c) => {
+    const ids = await featuredIds(c);
+    if (!ids.length) return c.json([]);
+    const rows = await db(c).all<any>(
+      `SELECT a.id, a.slug, a.title, a.summary, a.cover_file_id, a.created_at, c.slug AS category_slug, c.name AS category_name
+       FROM articles a LEFT JOIN categories c ON c.id = a.category_id
+       WHERE a.published = 1 AND a.id IN (${ids.map(() => '?').join(',')})`, ids);
+    return c.json(ids.map((id) => rows.find((r) => r.id === id)).filter(Boolean));
+  });
   app.get('/articles/:slug', async (c) => {
     const admin = await isAdmin(c);
     const row = await db(c).first(
@@ -769,14 +789,27 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
   });
 
   // Articles
-  app.get('/admin/articles', async (c) =>
-    c.json(
-      await db(c).all(
-        `SELECT a.id, a.slug, a.title, a.published, a.created_at, a.updated_at, a.author_name, c.name AS category_name
-         FROM articles a LEFT JOIN categories c ON c.id = a.category_id ORDER BY a.published = 2 DESC, a.created_at DESC, a.id DESC`,
-      ),
-    ),
-  );
+  app.get('/admin/articles', async (c) => {
+    const rows = await db(c).all<any>(
+      `SELECT a.id, a.slug, a.title, a.published, a.created_at, a.updated_at, a.author_name, c.name AS category_name
+       FROM articles a LEFT JOIN categories c ON c.id = a.category_id ORDER BY a.published = 2 DESC, a.created_at DESC, a.id DESC`,
+    );
+    const feat = await featuredIds(c);
+    // featured: vị trí trong danh sách nổi bật (1..5), 0 là không nổi bật. Bài đã gỡ đăng không còn tính.
+    return c.json(rows.map((r) => ({ ...r, featured: r.published === 1 ? feat.indexOf(r.id) + 1 : 0 })));
+  });
+  // Chọn bài viết nổi bật cho trang chủ. Chỉ quản trị viên.
+  app.put('/admin/featured', async (c) => {
+    const b = await c.req.json<{ ids?: unknown }>();
+    const ids = Array.isArray(b.ids) ? [...new Set(b.ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))] : [];
+    if (ids.length > MAX_FEATURED) throw bad(`Chỉ chọn được tối đa ${MAX_FEATURED} bài nổi bật. Hãy bỏ bớt một bài trước.`);
+    if (ids.length) {
+      const ok = await db(c).all<{ id: number }>(`SELECT id FROM articles WHERE published = 1 AND id IN (${ids.map(() => '?').join(',')})`, ids);
+      if (ok.length !== ids.length) throw bad('Chỉ bài đã đăng mới đặt làm nổi bật được.');
+    }
+    await db(c).run("INSERT OR REPLACE INTO settings (key, value) VALUES ('featured_articles', ?)", [JSON.stringify(ids)]);
+    return c.json({ ids });
+  });
   app.get('/admin/articles/:id', async (c) => {
     const a = await db(c).first('SELECT * FROM articles WHERE id = ?', [c.req.param('id')]);
     if (!a) throw new HttpError(404, 'Không tìm thấy.');
