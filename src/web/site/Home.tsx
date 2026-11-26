@@ -21,9 +21,11 @@ function Hero({ site, template, lift }: { site: Site; template: TemplateId; lift
   const centered = dark && !photo;
   const soft = dark ? (template === 'son' && !photo ? 'text-son-2' : 'text-cham-2') : 'text-ink-2';
   const redOnRed = template === 'son' && !photo;
+  // Trên nền tối, nút màu nhấn chỉ nổi khi màu nhấn là đỏ son trên ảnh. Các trường hợp còn lại dùng nút sáng để đủ tương phản với nền.
+  const lightBtn = dark && !(template === 'son' && photo);
   const actions = (
     <div className={cx('mt-8 flex flex-wrap gap-3', centered && 'justify-center')}>
-      <Link to="/pha-do" className={cx(btn, redOnRed ? 'bg-white text-ink hover:bg-do hover:shadow-lg' : 'bg-accent text-white hover:bg-accent-hover hover:shadow-lg')}>
+      <Link to="/pha-do" className={cx(btn, lightBtn ? 'bg-surface text-ink hover:bg-white hover:shadow-lg' : 'bg-accent text-white hover:bg-accent-hover hover:shadow-lg')}>
         <Network aria-hidden className="size-5" />Xem phả đồ<ArrowRight aria-hidden className="gp-arrow size-4" />
       </Link>
       <Link to="/bai-viet" className={cx(btn, dark ? 'border border-white/60 text-white hover:bg-white/10 hover:border-white' : 'border border-line-strong text-ink hover:bg-surface hover:border-ink')}>
@@ -207,7 +209,7 @@ export function Home() {
       )}
 
       {next && (
-        <section className={cx('mt-12 sm:mt-16 text-[#f6efe2]', template === 'son' ? 'bg-cham' : 'gp-lac')} aria-label="Sự kiện gần nhất">
+        <section className={cx('mt-12 sm:mt-16 text-[#f6efe2]', template === 'son' ? 'bg-cham' : template === 'giay-do' ? 'gp-lac' : 'bg-son')} aria-label="Sự kiện gần nhất">
           <Container className="py-8 sm:py-10 flex flex-wrap items-center gap-x-10 gap-y-3">
             <p className="font-serif font-medium text-5xl sm:text-6xl leading-none whitespace-nowrap">
               {next.day} · {next.month}

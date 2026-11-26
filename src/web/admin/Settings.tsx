@@ -210,7 +210,7 @@ export function SettingsAdmin() {
         )}
 
         {tab === 'template' && (
-          <Section title="Mẫu trang" icon={<LayoutTemplate />} hint="Nội dung giữ nguyên, chỉ đổi cách trình bày trang chủ.">
+          <Section title="Mẫu trang" icon={<LayoutTemplate />} hint="Nội dung giữ nguyên. Mỗi mẫu đổi bảng màu, độ bo góc và phần đầu trang chủ của cả trang xem.">
             <div role="radiogroup" aria-label="Mẫu trang" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {TEMPLATES.map((t) => {
                 const on = chosen === t.id;
@@ -286,28 +286,40 @@ export function SettingsAdmin() {
 
 /** Ảnh thu nhỏ vẽ bằng CSS, mô phỏng phần đầu trang chủ của từng mẫu. */
 function TemplateThumb({ id }: { id: TemplateId }) {
-  const bar = (w: string, tone: string, h = 'h-1.5') => <span className={cx('block rounded-full', h, w, tone)} />;
-  const light = id === 'giay-do' || id === 'toi-gian';
-  const tone = light ? 'bg-ink' : 'bg-white';
-  const sub = light ? 'bg-ink/30' : 'bg-white/45';
+  // data-tpl nạp đúng bảng màu và độ bo góc của mẫu vào ô xem trước (xem index.css), nên ô này luôn khớp với trang thật.
+  const bar = (w: string, tone: string, h = 'h-1.5') => <span className={cx('block rounded-sm', h, w, tone)} />;
+  const darkHero = id === 'trong-dong' || id === 'son';
+  const tone = darkHero ? 'bg-white' : 'bg-ink';
+  const sub = darkHero ? 'bg-white/45' : 'bg-ink/30';
   return (
-    <span aria-hidden className={cx('relative block aspect-[16/10] overflow-hidden',
-      id === 'trong-dong' && 'bg-cham', id === 'giay-do' && 'bg-do', id === 'son' && 'gp-lac !bg-[length:150px_64px]', id === 'toi-gian' && 'bg-white')}>
-      {id === 'trong-dong' && <img src="/hoa-tiet/trong-dong.webp" alt="" className="absolute left-1/2 top-1/2 w-[105%] max-w-none -translate-x-1/2 -translate-y-1/2 opacity-80" />}
-      {id === 'giay-do' && <img src="/hoa-tiet/rong.webp" alt="" className="absolute -right-[8%] top-1/2 w-[72%] -translate-y-1/2 opacity-70" />}
-      {id === 'son' && <span className="absolute inset-0 bg-son/55" />}
-      <span className={cx('absolute inset-x-0 top-0 h-[13%] flex items-center gap-1 px-[6%]', light ? 'bg-white/80 border-b border-line' : 'bg-black/15')}>
-        <span className={cx('size-1.5 rounded-full', tone)} />{bar('w-[16%]', tone, 'h-1')}
-        <span className="ml-auto flex gap-1">{bar('w-3', sub, 'h-1')}{bar('w-3', sub, 'h-1')}{bar('w-3', sub, 'h-1')}</span>
+    <span aria-hidden data-tpl={id} className="relative block aspect-[16/10] overflow-hidden bg-bg">
+      {/* Thanh menu */}
+      <span className="absolute inset-x-0 top-0 h-[12%] flex items-center gap-1 px-[6%] bg-bg border-b border-line">
+        <span className="size-1.5 rounded-full bg-accent" />{bar('w-[16%]', 'bg-ink', 'h-1')}
+        <span className="ml-auto flex gap-1">{bar('w-3', 'bg-accent', 'h-1')}{bar('w-3', 'bg-ink/30', 'h-1')}{bar('w-3', 'bg-ink/30', 'h-1')}</span>
       </span>
-      <span className={cx('absolute inset-x-[8%] top-[34%] flex flex-col gap-1.5', (id === 'trong-dong' || id === 'son') ? 'items-center' : 'items-start', id === 'giay-do' && 'right-[48%]')}>
-        {bar('w-[30%]', sub, 'h-1')}{bar(id === 'giay-do' ? 'w-[92%]' : 'w-[58%]', tone, 'h-2.5')}{bar(id === 'giay-do' ? 'w-[70%]' : 'w-[42%]', sub)}
-        <span className="mt-1 flex gap-1">
-          <span className={cx('h-2.5 w-8 rounded-sm', light ? 'bg-ink' : 'bg-white')} />
-          <span className={cx('h-2.5 w-8 rounded-sm border', light ? 'border-ink/50' : 'border-white/70')} />
+      {/* Phần đầu trang */}
+      <span className={cx('absolute inset-x-0 top-[12%] h-[50%] overflow-hidden',
+        id === 'trong-dong' && 'bg-cham', id === 'giay-do' && 'bg-do', id === 'son' && 'gp-lac !bg-[length:150px_64px]', id === 'toi-gian' && 'bg-bg')}>
+        {id === 'trong-dong' && <img src="/hoa-tiet/trong-dong.webp" alt="" className="absolute left-1/2 top-1/2 w-[80%] max-w-none -translate-x-1/2 -translate-y-1/2 opacity-70" />}
+        {id === 'giay-do' && <img src="/hoa-tiet/rong.webp" alt="" className="absolute -right-[8%] top-1/2 w-[62%] -translate-y-1/2 opacity-70" />}
+        <span className={cx('absolute inset-x-[8%] top-[22%] flex flex-col gap-1.5', darkHero ? 'items-center' : 'items-start', id === 'giay-do' && 'right-[48%]')}>
+          {bar(id === 'giay-do' ? 'w-[92%]' : 'w-[52%]', tone, 'h-2.5')}{bar(id === 'giay-do' ? 'w-[70%]' : 'w-[38%]', sub)}
+          <span className="mt-1 flex gap-1">
+            <span className={cx('h-2.5 w-8 rounded-sm', darkHero ? 'bg-surface' : 'bg-accent')} />
+            <span className={cx('h-2.5 w-8 rounded-sm border', darkHero ? 'border-white/70' : 'border-ink/50')} />
+          </span>
         </span>
       </span>
-      {id === 'toi-gian' && <span className="absolute inset-x-[8%] bottom-[14%] h-px bg-line-strong" />}
+      {/* Thẻ nội dung: cho thấy màu nhấn và độ bo góc của mẫu */}
+      <span className="absolute inset-x-[6%] top-[54%] bottom-[8%] flex gap-[4%]">
+        {[0, 1, 2].map((k) => (
+          <span key={k} className="flex-1 rounded-xl border border-line bg-surface p-[5%] flex flex-col gap-1">
+            <span className="size-2.5 rounded-lg bg-accent-soft border border-accent/40" />
+            {bar('w-[70%]', 'bg-ink', 'h-1')}{bar('w-[45%]', 'bg-accent', 'h-1')}
+          </span>
+        ))}
+      </span>
     </span>
   );
 }
