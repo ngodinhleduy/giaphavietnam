@@ -31,6 +31,18 @@ export function SiteLayout() {
   const [menu, setMenu] = useState(false);
   const loc = useLocation();
   useEffect(() => setMenu(false), [loc.pathname, loc.search]);
+  // Liên kết dạng /#ten-khoi: cuộn tới khối đó. Thử lại vài lần vì nội dung trang tải sau.
+  useEffect(() => {
+    if (!loc.hash) return;
+    const id = decodeURIComponent(loc.hash.slice(1));
+    let tries = 0;
+    const t = setInterval(() => {
+      const el = document.getElementById(id);
+      if (el) { el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); el.focus?.({ preventScroll: true }); }
+      if (el || ++tries > 20) clearInterval(t);
+    }, 150);
+    return () => clearInterval(t);
+  }, [loc.hash, loc.pathname, loc.key]);
   useEffect(() => {
     if (!site) return;
     document.title = site.site_name;
@@ -133,13 +145,10 @@ export function SiteLayout() {
             <nav aria-labelledby="f-explore">
               <h2 id="f-explore" className="text-sm font-semibold uppercase tracking-wider text-ink">Khám phá</h2>
               <ul className="mt-2">
-                {NAV.map((n) => (
-                  <li key={n.to + n.label}>
-                    {n.external
-                      ? <a href={n.to} target="_blank" rel="noopener noreferrer" className={flink}>{n.label}<ArrowUpRight aria-hidden className="size-3.5" /><span className="sr-only"> (mở trang khác)</span></a>
-                      : <Link to={n.to} className={flink}>{n.label}</Link>}
-                  </li>
-                ))}
+                <li><Link to="/" className={flink}>Tổng quan gia tộc</Link></li>
+                <li><Link to="/pha-do" className={flink}>Phả đồ</Link></li>
+                {/* Khối Nhà thờ họ nằm cuối trang chủ, chỉ có khi đã khai địa chỉ hoặc bản đồ; chưa có thì dẫn về trang Liên hệ */}
+                <li><Link to={site.address || site.map_embed ? '/#nha-tho-ho' : '/lien-he'} className={flink}>Nhà thờ họ</Link></li>
               </ul>
             </nav>
             <nav aria-labelledby="f-docs">

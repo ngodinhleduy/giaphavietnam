@@ -265,7 +265,7 @@ export function Home() {
 
       {(site.address || site.map_embed) && (
         <Container className="pb-4">
-          <section aria-labelledby="h-map" className="rounded-xl border border-line bg-surface overflow-hidden">
+          <section id="nha-tho-ho" tabIndex={-1} aria-labelledby="h-map" className="scroll-mt-24 rounded-xl border border-line bg-surface overflow-hidden outline-none">
             <div className="p-5">
               <h2 id="h-map" className="font-serif text-2xl font-medium">Nhà thờ họ</h2>
               {site.address && <p className="mt-1 inline-flex items-start gap-1.5 text-ink-2"><MapPin aria-hidden className="size-4 mt-1 shrink-0" />{site.address}</p>}
