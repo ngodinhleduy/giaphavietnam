@@ -38,7 +38,7 @@ function deps(env: CfEnv): Deps {
         )
       : noStorage();
   const cloudflare = env.CF_ACCOUNT_ID
-    ? { token: env.CF_API_TOKEN ?? '', accountId: env.CF_ACCOUNT_ID, worker: env.CF_WORKER_NAME || 'giaphavietnam' }
+    ? { token: env.CF_API_TOKEN ?? '', accountId: env.CF_ACCOUNT_ID, worker: env.CF_WORKER_NAME || 'ngodinhtoc' }
     : undefined;
   const d = { db, storage, secret: env.JWT_SECRET, cloudflare };
   cached = { key, deps: d };
