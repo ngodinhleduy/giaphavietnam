@@ -10,6 +10,17 @@ import { Button, Field, Input, Loading, PasswordInput, Spinner, cx, useToast } f
 
 export type Me = { id: number; username: string; display_name: string; role: 'admin' | 'editor'; branch: string | null };
 const MeCtx = createContext<Me | null>(null);
+
+type Brand = { name: string; logo: number | null; favicon: number | null };
+/** Logo tải lên ở Cấu hình website. Chưa có logo thì hiện chữ cái đầu của tên họ trên nền màu chính. */
+function BrandLogo({ brand, className }: { brand: Brand; className?: string }) {
+  if (brand.logo) return <img src={fileUrl(brand.logo)} alt="" className={cx('shrink-0 rounded-full object-cover', className)} />;
+  return (
+    <span aria-hidden className={cx('shrink-0 rounded-full bg-accent text-white inline-flex items-center justify-center font-serif font-semibold', className)}>
+      {brand.name.trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || 'G'}
+    </span>
+  );
+}
 export const useMe = () => useContext(MeCtx);
 
 type CountKey = 'members' | 'events' | 'articles' | 'unread' | 'pending';
@@ -43,7 +54,9 @@ export function AdminLayout() {
   const nav = useNavigate();
   const loc = useLocation();
   const [counts, setCounts] = useState<Counts>({});
-  const [siteName, setSiteName] = useState('');
+  // Tên, logo và favicon lấy từ Cấu hình website, giống trang xem
+  const [brand, setBrand] = useState<Brand>({ name: '', logo: null, favicon: null });
+  const siteName = brand.name;
   const load = () =>
     api.get<Me>('/admin/me').then(setMe).catch(async () => {
       setMe(null);
@@ -58,16 +71,27 @@ export function AdminLayout() {
     return () => document.documentElement.classList.remove('cms');
   }, []);
 
+  // Tải lại khi đổi trang để logo vừa thay ở Cấu hình website hiện ngay
+  useEffect(() => {
+    api.get<{ site_name: string; logo_file_id: number | null; favicon_file_id: number | null }>('/site')
+      .then((x) => setBrand({ name: x.site_name, logo: x.logo_file_id, favicon: x.favicon_file_id })).catch(() => {});
+  }, [loc.pathname]);
+  useEffect(() => {
+    if (!brand.favicon) return;
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+    link.href = fileUrl(brand.favicon);
+  }, [brand.favicon]);
+
   // Số đếm trên menu: tải lại mỗi khi đổi trang để phản ánh thao tác vừa làm
   useEffect(() => {
     if (!me) return;
     api.get<Counts>('/admin/stats').then(setCounts).catch(() => {});
-    if (!siteName) api.get<{ site_name: string }>('/site').then((x) => setSiteName(x.site_name)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, loc.pathname]);
 
   if (me === undefined) return <Loading />;
-  if (!me) return <Login setup={setup} onDone={load} />;
+  if (!me) return <Login setup={setup} onDone={load} brand={brand} />;
   const logout = async () => { await api.post('/admin/logout'); setMe(null); nav('/admin'); };
 
   return (
@@ -75,12 +99,12 @@ export function AdminLayout() {
       <div className="min-h-screen md:grid md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr] 2xl:grid-cols-[264px_1fr]">
         <aside className="bg-surface border-b md:border-b-0 md:border-r border-line md:h-screen md:sticky md:top-0 md:z-20 flex flex-col max-md:sticky max-md:top-0 max-md:z-30 pt-[env(safe-area-inset-top)]">
           <div className="md:hidden flex items-center gap-2 h-14 px-4 border-b border-line">
-            <img src="/logo-ngo-toc.svg" alt="" width={36} height={36} className="size-9 shrink-0" />
+            <BrandLogo brand={brand} className="size-9" />
             <span className="font-semibold flex-1 truncate">{siteName || 'Quản trị'}</span>
             <UserMenu me={me} onLogout={logout} compact />
           </div>
           <div className="hidden md:flex items-center gap-3 px-4 pt-5 pb-3">
-            <img src="/logo-ngo-toc.svg" alt="" width={44} height={44} className="size-11 shrink-0" />
+            <BrandLogo brand={brand} className="size-11" />
             <span className="min-w-0">
               <span className="block font-semibold text-ink leading-snug truncate">{siteName || 'Gia phả'}</span>
               <span className="block text-sm text-ink-2">Trang quản trị</span>
@@ -181,7 +205,7 @@ function UserMenu({ me, onLogout, compact }: { me: Me; onLogout: () => void; com
   );
 }
 
-function Login({ setup, onDone }: { setup: boolean; onDone: () => void }) {
+function Login({ setup, onDone, brand }: { setup: boolean; onDone: () => void; brand: Brand }) {
   const [f, setF] = useState({ username: '', password: '', display_name: '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -203,7 +227,7 @@ function Login({ setup, onDone }: { setup: boolean; onDone: () => void }) {
     <div className="min-h-screen flex items-center justify-center p-4">
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 sm:p-8 shadow-sm space-y-4">
         <div>
-          <img src="/logo-ngo-toc.svg" alt="" width={64} height={64} className="size-16 mb-4" />
+          <BrandLogo brand={brand} className="size-16 mb-4 text-2xl" />
           <h1 className="font-serif text-2xl font-semibold">{setup ? 'Tạo tài khoản quản trị' : 'Đăng nhập quản trị'}</h1>
           {setup && <p className="mt-1 text-sm text-ink-2">Lần chạy đầu tiên. Tài khoản này có toàn quyền.</p>}
         </div>
