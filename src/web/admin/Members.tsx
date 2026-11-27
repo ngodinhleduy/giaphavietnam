@@ -315,14 +315,14 @@ export function MemberForm() {
   const nextTrail: Trail = self ? [...trail.filter((t) => t.id !== self), { id: self, name: saved.full_name || f.full_name }].slice(-3) : trail;
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-[88rem]">
       <PageHeader title={isNew ? 'Thêm thành viên' : f.full_name || 'Thành viên'}
         back={[{ to: '/admin/members', label: 'Thành viên' }, ...trail.map((t, i) => ({ to: `/admin/members/${t.id}`, label: t.name, state: { trail: trail.slice(0, i) } }))]}
         subtitle={!isNew && f.generation ? `Đời thứ ${f.generation}${dirty ? ' · Có thay đổi chưa lưu' : ''}` : dirty && !isNew ? 'Có thay đổi chưa lưu' : undefined}
         actions={!isNew ? <a href={`/thanh-vien/${id}`} target="_blank" rel="noreferrer" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem trang</a> : undefined} />
 
       <form onSubmit={(e) => { e.preventDefault(); save(); }} noValidate
-        className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px] 2xl:grid-cols-[1fr_380px] max-w-[88rem] max-lg:pb-24">
+        className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px] 2xl:grid-cols-[1fr_380px] max-lg:pb-24">
         <div className="space-y-4 sm:space-y-6 min-w-0">
           {/* ===== Chính ===== */}
           <Section title="Thông tin chính">
@@ -520,7 +520,7 @@ export function MemberForm() {
           {children.length > 0 && <> Người này có <b className="text-ink">{children.length} người con</b>; các con sẽ mất liên kết cha/mẹ và hiện như một nhánh riêng.</>}
         </p>
       </Modal>
-    </>
+    </div>
   );
 }
 

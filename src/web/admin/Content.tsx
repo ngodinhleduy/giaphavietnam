@@ -162,10 +162,10 @@ export function ArticleForm() {
   };
   if (detail.loading) return <Loading />;
   return (
-    <>
+    <div className="mx-auto w-full max-w-[88rem]">
       <PageHeader back={[{ to: '/admin/articles', label: 'Bài viết' }]} title={isNew ? 'Viết bài mới' : f.title.trim() || 'Sửa bài viết'}
         actions={!isNew && f.published === 1 ? <a href={`/bai-viet/${f.slug}`} target="_blank" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem bài</a> : undefined} />
-      <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] 2xl:grid-cols-[1fr_340px] max-w-[88rem] max-lg:pb-20">
+      <form onSubmit={save} className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_300px] 2xl:grid-cols-[1fr_340px] max-lg:pb-20">
         <div className="space-y-4 min-w-0">
           <Field label="Tiêu đề" htmlFor="t" required aside={`${f.title.length}/120`}>
             <Input id="t" value={f.title} maxLength={120} onChange={(e) => setF({ ...f, title: e.target.value })} className="text-lg h-12" placeholder="Ví dụ: Lịch sử nhà thờ họ" />
@@ -217,7 +217,7 @@ export function ArticleForm() {
         footer={<><Button onClick={() => setDel(false)}>Hủy</Button><Button variant="danger" onClick={async () => { await api.del(`/admin/articles/${id}`); nav('/admin/articles'); }}>Xóa</Button></>}>
         <p className="text-ink-2">Bài “{f.title}” sẽ bị xóa vĩnh viễn.</p>
       </Modal>
-    </>
+    </div>
   );
 }
 

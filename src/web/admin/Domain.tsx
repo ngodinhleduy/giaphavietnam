@@ -91,10 +91,10 @@ export function DomainAdmin() {
 
   if (loading && !data) return <Loading />;
   if (error || !data) return (
-    <>
+    <div className="mx-auto w-full max-w-[72rem]">
       <PageHeader title="Tên miền" />
       <ErrorState error={error ?? 'Lỗi'} onRetry={reload} />
-    </>
+    </div>
   );
 
   const add = async () => {
@@ -116,9 +116,9 @@ export function DomainAdmin() {
   };
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-[72rem]">
       <PageHeader title="Tên miền" subtitle="Gắn tên miền riêng bạn đã mua vào trang gia phả." />
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] items-start max-w-[72rem]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] items-start">
         <div className="grid gap-6 min-w-0">
           <Section title="Địa chỉ hiện tại" icon={<Globe />}>
             <ul className="grid gap-2">
@@ -225,7 +225,7 @@ export function DomainAdmin() {
         footer={<><Button onClick={() => setRemoving(false)}>Hủy</Button><Button variant="danger" icon={<Trash2 aria-hidden />} loading={busy === 'remove'} onClick={remove}>Gỡ tên miền</Button></>}>
         <p className="text-ink-2"><b className="text-ink font-mono break-all">{data.domain}</b> sẽ không còn mở ra trang gia phả. Địa chỉ mặc định <span className="font-mono break-all">{data.host}</span> vẫn chạy. Vùng DNS trên Cloudflare được giữ nguyên, bạn gắn lại lúc nào cũng được.</p>
       </Modal>
-    </>
+    </div>
   );
 }
 

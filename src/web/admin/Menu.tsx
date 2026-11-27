@@ -49,13 +49,13 @@ export function MenuAdmin() {
   const shown = items.filter((i) => i.visible).length;
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-[72rem]">
       <PageHeader title="Menu website" subtitle="Thanh menu ở đầu trang xem"
         actions={<>
           <Button icon={<RotateCcw aria-hidden />} onClick={() => setItems(defaultMenu())}>Về mặc định</Button>
           <Button variant="primary" icon={<Save aria-hidden />} loading={busy} disabled={!dirty} onClick={save}>Lưu menu</Button>
         </>} />
-      <div className="grid gap-6 xl:grid-cols-[1fr_22rem] items-start max-w-[72rem]">
+      <div className="grid gap-6 xl:grid-cols-[1fr_22rem] items-start">
         <Section title={`Các mục (${shown} đang hiện)`} hint="Dùng mũi tên để đổi thứ tự. Nên giữ tối đa 7 mục.">
           <p className="sr-only" role="status">{moved}</p>
           <ol className="divide-y divide-line -mx-1">
@@ -112,6 +112,6 @@ export function MenuAdmin() {
         </div>
       </div>
       {dirty && <p className="mt-4 text-sm text-ink-2" role="status">Có thay đổi chưa lưu.</p>}
-    </>
+    </div>
   );
 }

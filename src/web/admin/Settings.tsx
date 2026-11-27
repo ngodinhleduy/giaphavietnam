@@ -79,7 +79,7 @@ export function SettingsAdmin() {
   const lines = ['curve', 'straight'].includes(f.tree_lines) ? f.tree_lines : 'ortho';
 
   return (
-    <div className="pb-24">
+    <div className="mx-auto w-full max-w-[80rem] pb-24">
       <PageHeader title="Cấu hình website" subtitle="Tên, hình ảnh, liên hệ và cách trình bày của trang xem." />
       <div role="tablist" aria-label="Nhóm cấu hình" className="flex gap-1 mb-6 border-b border-line overflow-x-auto [scrollbar-width:none]">
         {TABS.map((t) => (
@@ -92,7 +92,7 @@ export function SettingsAdmin() {
         ))}
       </div>
 
-      <div id="settings-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="max-w-[80rem]">
+      <div id="settings-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
         {tab === 'general' && (
           <div className="grid gap-6">
             <Section title="Thông tin gia phả" icon={<Landmark />}>
@@ -420,10 +420,10 @@ function StorageSection() {
 /** Tài khoản của người đang đăng nhập: mọi vai trò đều vào được. */
 export function AccountPage() {
   return (
-    <>
+    <div className="mx-auto w-full max-w-[60rem]">
       <PageHeader title="Tài khoản của tôi" />
-      <div className="max-w-[60rem]"><AccountSection /></div>
-    </>
+      <AccountSection />
+    </div>
   );
 }
 
