@@ -447,7 +447,8 @@ export function MemberPicker({ members, value, onChange, placeholder = 'Gõ tên
   );
 }
 
-export type Crumb = { to: string; label: string };
+/** state: trạng thái đi kèm khi bấm (ví dụ đường đã đi qua các hồ sơ) */
+export type Crumb = { to: string; label: string; state?: unknown };
 /** Tiêu đề trang. back: đường dẫn về các cấp trên, hiện thành nút quay lại kèm breadcrumb. */
 export function PageHeader({ title, subtitle, actions, back }: { title: string; subtitle?: string; actions?: ReactNode; back?: Crumb[] }) {
   const parent = back?.[back.length - 1];
@@ -455,18 +456,18 @@ export function PageHeader({ title, subtitle, actions, back }: { title: string; 
     <div className="mb-6">
       {parent && (
         <nav aria-label="Đường dẫn" className="flex items-center gap-2 mb-3 min-w-0">
-          <Link to={parent.to} aria-label={`Quay lại ${parent.label}`} title={`Quay lại ${parent.label}`}
+          <Link to={parent.to} state={parent.state} aria-label={`Quay lại ${parent.label}`} title={`Quay lại ${parent.label}`}
             className="size-9 pointer-coarse:size-11 shrink-0 inline-flex items-center justify-center rounded-lg border border-line-strong bg-surface text-ink transition-colors hover:bg-accent-soft hover:border-accent hover:text-accent">
             <ArrowLeft aria-hidden className="size-[18px]" />
           </Link>
-          <ol className="flex items-center gap-1.5 min-w-0 text-sm text-ink-2">
+          <ol className="flex items-center gap-1.5 min-w-0 text-sm text-ink-2 overflow-x-auto [scrollbar-width:none]">
             {back!.map((c) => (
               <li key={c.to} className="flex items-center gap-1.5 shrink-0">
-                <Link to={c.to} className="inline-flex items-center min-h-9 hover:text-accent hover:underline underline-offset-4">{c.label}</Link>
+                <Link to={c.to} state={c.state} className="inline-flex items-center min-h-9 max-w-[14rem] hover:text-accent hover:underline underline-offset-4"><span className="truncate">{c.label}</span></Link>
                 <ChevronRight aria-hidden className="size-3.5" />
               </li>
             ))}
-            <li aria-current="page" className="font-medium text-ink truncate">{title}</li>
+            <li aria-current="page" className="font-medium text-ink whitespace-nowrap">{title}</li>
           </ol>
         </nav>
       )}

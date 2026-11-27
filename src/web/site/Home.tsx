@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { mapEmbedUrl } from '../../shared/map.ts';
 import { useApi, fileUrl } from '../lib/api.ts';
 import type { ArticleBrief, UpcomingEvent } from '../lib/types.ts';
 import { ArrowRight, BookOpen, CalendarDays, FileText, Images, MapPin, Network, Pause, Play } from 'lucide-react';
@@ -279,7 +280,7 @@ export function Home() {
             </div>
             {site.map_embed && (
               <iframe title="Bản đồ nhà thờ họ" className="w-full h-80 border-0" loading="lazy"
-                src={site.map_embed.startsWith('http') ? site.map_embed : `https://www.google.com/maps?q=${encodeURIComponent(site.map_embed)}&output=embed`} />
+                src={mapEmbedUrl(site.map_embed, site.address) ?? undefined} />
             )}
           </section>
         </Container>

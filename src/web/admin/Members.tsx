@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { Download, Eye, EyeOff, Pencil, Plus, Save, SearchX, Trash2, Upload, UserPlus, Users } from 'lucide-react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Download, Eye, EyeOff, MapPin, Pencil, Plus, Save, SearchX, Trash2, Upload, UserPlus, Users } from 'lucide-react';
+import { MapField } from '../components/MapEmbed.tsx';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, useApi } from '../lib/api.ts';
 import type { MemberBrief } from '../lib/types.ts';
 import { lifespan } from '../lib/format.ts';
@@ -8,7 +9,7 @@ import { fold } from '../../shared/slug.ts';
 import { solarToLunar } from '../../shared/lunar.ts';
 import {
   Avatar, Badge, Button, EmptyState, ErrorState, Field, Input, LinkButton, Loading, MemberPicker, Modal, PageHeader, Pagination, SearchInput, TableCard, usePageSize, Segmented, Select,
-  Switch, cx, useToast,
+  Switch, Textarea, cx, useToast,
 } from '../components/ui.tsx';
 import { DateInput, LunarDayMonth } from '../components/DateInput.tsx';
 const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
@@ -144,13 +145,13 @@ type Form = {
   full_name: string; alias: string; gender: 'male' | 'female'; father_id: number | null; mother_id: number | null;
   birth_order: string; is_blood: boolean; is_deceased: boolean; birth_date: string; death_date: string;
   death_lunar_day: string; death_lunar_month: string; branch: string; hometown: string; occupation: string;
-  burial_place: string; bio: string; photo_file_id: number | null; generation: string;
+  burial_place: string; burial_map: string; bio: string; photo_file_id: number | null; generation: string;
   is_hidden: boolean; title_role: string; child_type: string;
 };
 const EMPTY: Form = {
   full_name: '', alias: '', gender: 'male', father_id: null, mother_id: null, birth_order: '', is_blood: true,
   is_deceased: false, birth_date: '', death_date: '', death_lunar_day: '', death_lunar_month: '', branch: '', hometown: '',
-  occupation: '', burial_place: '', bio: '', photo_file_id: null, generation: '',
+  occupation: '', burial_place: '', burial_map: '', bio: '', photo_file_id: null, generation: '',
   is_hidden: false, title_role: '', child_type: 'biological',
 };
 type MarriageRow = { id: number; husband_id: number; wife_id: number; husband_name: string; wife_name: string; order_no: number };
@@ -172,6 +173,9 @@ export function MemberForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [spouseOpen, setSpouseOpen] = useState(false);
+  const [childOpen, setChildOpen] = useState(false);
+  // Đường đã đi qua các hồ sơ (cha, vợ chồng, con), để breadcrumb và nút quay lại về đúng người vừa xem
+  const trail: Trail = ((useLocation().state as any)?.trail ?? []) as Trail;
   const [delOpen, setDelOpen] = useState(false);
   const [quick, setQuick] = useState<{ role: 'father' | 'mother'; name: string } | null>(null);
   const [lunarAuto, setLunarAuto] = useState(false);
@@ -196,7 +200,7 @@ export function MemberForm() {
         full_name: d.full_name, alias: s(d.alias), gender: d.gender, father_id: d.father_id, mother_id: d.mother_id,
         birth_order: s(d.birth_order), is_blood: !!d.is_blood, is_deceased: !!d.is_deceased, birth_date: s(d.birth_date),
         death_date: s(d.death_date), death_lunar_day: s(d.death_lunar_day), death_lunar_month: s(d.death_lunar_month),
-        branch: s(d.branch), hometown: s(d.hometown), occupation: s(d.occupation), burial_place: s(d.burial_place),
+        branch: s(d.branch), hometown: s(d.hometown), occupation: s(d.occupation), burial_place: s(d.burial_place), burial_map: s(d.burial_map),
         bio: s(d.bio), photo_file_id: d.photo_file_id, generation: s(d.generation),
         is_hidden: !!d.is_hidden, title_role: s(d.title_role), child_type: d.child_type || 'biological',
       };
@@ -218,8 +222,13 @@ export function MemberForm() {
   const self = isNew ? null : Number(id);
   const branches = useMemo(() => [...new Set(members.map((m) => m.branch).filter(Boolean))] as string[], [members]);
   const father = members.find((m) => m.id === f.father_id);
-  const hasExtra = !!(f.alias || f.branch || f.hometown || f.occupation || f.burial_place || !f.is_blood || f.is_hidden || f.title_role || f.child_type !== 'biological');
+  const hasExtra = !!(f.alias || f.branch || f.hometown || f.occupation || !f.is_blood || f.is_hidden || f.title_role || f.child_type !== 'biological');
 
+  // Ngày âm ứng với ngày mất (khi ngày mất có đủ ngày tháng năm), để nhắc nếu ngày giỗ đang chọn khác đi
+  const deathLunar = (() => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(f.death_date);
+    return f.is_deceased && m ? solarToLunar(Number(m[3]), Number(m[2]), Number(m[1])) : null;
+  })();
   // Ngày mất đầy đủ mà chưa có ngày giỗ thì tự điền
   const onDeathDate = (v: string) => {
     setF((x) => {
@@ -252,7 +261,7 @@ export function MemberForm() {
     const body = {
       ...f, full_name: f.full_name.trim(), birth_order: n(f.birth_order), death_lunar_day: f.is_deceased ? n(f.death_lunar_day) : null,
       death_lunar_month: f.is_deceased ? n(f.death_lunar_month) : null, death_date: f.is_deceased ? f.death_date : null,
-      burial_place: f.is_deceased ? f.burial_place : null,
+      burial_place: f.is_deceased ? f.burial_place : null, burial_map: f.is_deceased ? f.burial_map : null,
       generation: n(f.generation), is_blood: f.is_blood ? 1 : 0, is_deceased: f.is_deceased ? 1 : 0, is_hidden: f.is_hidden ? 1 : 0,
       spouse_id: isNew ? (sp.get('spouse') ? Number(sp.get('spouse')) : null) : undefined,
     };
@@ -263,7 +272,10 @@ export function MemberForm() {
       setSaved(f);
       toast(`Đã lưu ${f.full_name.trim()}.`);
       all.reload();
-      if (then === 'child') {
+      if (then === 'child' && !isNew) {
+        setChildOpen(true); // người đã có hồ sơ: mở hộp thoại thêm con ngay tại đây
+        detail.reload();
+      } else if (then === 'child') {
         const mr = (detail.data?.marriages ?? []) as MarriageRow[];
         const spouse = mr.length === 1 ? (mr[0].husband_id === newId ? mr[0].wife_id : mr[0].husband_id) : null;
         const q = new URLSearchParams({ [f.gender === 'male' ? 'father' : 'mother']: String(newId) });
@@ -299,10 +311,13 @@ export function MemberForm() {
   const marriages: MarriageRow[] = detail.data?.marriages ?? [];
   const children = self ? members.filter((m) => m.father_id === self || m.mother_id === self) : [];
   const childGen = Number(f.generation) || (father?.generation ? father.generation + 1 : 0);
+  // Bấm sang hồ sơ người thân thì người đang xem được nối vào đường đi. Giữ 3 người gần nhất để breadcrumb không quá dài.
+  const nextTrail: Trail = self ? [...trail.filter((t) => t.id !== self), { id: self, name: saved.full_name || f.full_name }].slice(-3) : trail;
 
   return (
     <>
-      <PageHeader back={[{ to: '/admin/members', label: 'Thành viên' }]} title={isNew ? 'Thêm thành viên' : f.full_name || 'Thành viên'}
+      <PageHeader title={isNew ? 'Thêm thành viên' : f.full_name || 'Thành viên'}
+        back={[{ to: '/admin/members', label: 'Thành viên' }, ...trail.map((t, i) => ({ to: `/admin/members/${t.id}`, label: t.name, state: { trail: trail.slice(0, i) } }))]}
         subtitle={!isNew && f.generation ? `Đời thứ ${f.generation}${dirty ? ' · Có thay đổi chưa lưu' : ''}` : dirty && !isNew ? 'Có thay đổi chưa lưu' : undefined}
         actions={!isNew ? <a href={`/thanh-vien/${id}`} target="_blank" rel="noreferrer" className="h-10 px-4 inline-flex items-center rounded-lg border border-line-strong bg-surface font-medium hover:bg-sunken">Xem trang</a> : undefined} />
 
@@ -325,7 +340,7 @@ export function MemberForm() {
                   options={[{ value: 'alive', label: 'Còn sống' }, { value: 'dead', label: 'Đã mất' }]} />
               </Field>
               <Field label="Ngày sinh" htmlFor="bd" hint="Không rõ ngày thì gõ năm, hoặc chọn “Chỉ biết năm” trong lịch.">
-                <DateInput id="bd" value={f.birth_date} onChange={(v) => set('birth_date', v)} max={todayIso()} />
+                <DateInput id="bd" value={f.birth_date} onChange={(v) => set('birth_date', v)} showLunar max={todayIso()} />
               </Field>
               {f.is_deceased && (
                 <Field label="Ngày mất" htmlFor="dd" error={errors.death_date}>
@@ -334,13 +349,33 @@ export function MemberForm() {
               )}
               {f.is_deceased && (
                 <Field label="Ngày giỗ (âm lịch)" htmlFor="ld" error={errors.death_lunar} className="sm:col-span-2"
-                  hint={lunarAuto ? 'Đã tự điền theo ngày mất. Sửa lại nếu gia đình giỗ ngày khác.' : 'Ngày giỗ hằng năm hiện trên lịch sự kiện.'}>
+                  hint={lunarAuto ? 'Đã tự điền theo ngày mất: giỗ là ngày mất tính theo âm lịch. Sửa lại nếu gia đình cúng ngày khác.' : 'Giỗ là ngày mất tính theo âm lịch, lặp lại hằng năm và hiện trên lịch sự kiện.'}>
                   <LunarDayMonth id="ld" day={f.death_lunar_day} month={f.death_lunar_month}
                     onChange={(d, m) => { setLunarAuto(false); setF((x) => ({ ...x, death_lunar_day: d, death_lunar_month: m })); }} />
+                  {deathLunar && f.death_lunar_day && (String(deathLunar.day) !== f.death_lunar_day || String(deathLunar.month) !== f.death_lunar_month) && (
+                    <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning">
+                      <span>Ngày mất ứng với {deathLunar.day}/{deathLunar.month} âm lịch, khác ngày giỗ đang chọn.</span>
+                      <button type="button" className="font-semibold underline underline-offset-4 cursor-pointer min-h-8"
+                        onClick={() => setF((x) => ({ ...x, death_lunar_day: String(deathLunar.day), death_lunar_month: String(deathLunar.month) }))}>
+                        Dùng {deathLunar.day}/{deathLunar.month}
+                      </button>
+                    </p>
+                  )}
                 </Field>
               )}
             </div>
           </Section>
+
+          {f.is_deceased && (
+            <Section title="Nơi an nghỉ" icon={<MapPin />} hint="Để con cháu tìm đến viếng. Hiện trong hồ sơ của người này trên trang xem.">
+              <div className="grid gap-4 lg:grid-cols-2 items-start">
+                <Field label="Chi tiết địa chỉ" htmlFor="bp" optional hint="Tên nghĩa trang, khu, hàng, số mộ, hoặc cách đi tới.">
+                  <Textarea id="bp" rows={3} value={f.burial_place} onChange={(e) => set('burial_place', e.target.value)} placeholder="Ví dụ: Nghĩa trang họ Ngô, xứ Đồng Cả, hàng 3 từ cổng vào" />
+                </Field>
+                <MapField id="bm" label="Vị trí trên Google Maps" value={f.burial_map} onChange={(v) => set('burial_map', v)} address={f.burial_place} previewTitle="Xem trước bản đồ nơi an nghỉ" />
+              </div>
+            </Section>
+          )}
 
           <Section title="Cha mẹ" hint="Gõ tên để tìm. Chưa có trong phả thì chọn “Thêm mới” ở cuối danh sách. Đời được tính tự động.">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -379,7 +414,7 @@ export function MemberForm() {
             <summary className="flex items-center justify-between gap-3 px-4 sm:px-5 min-h-14 cursor-pointer list-none">
               <span>
                 <span className="block font-semibold text-ink">Thông tin bổ sung</span>
-                <span className="block text-sm text-ink-3">Tên khác, chi, quê quán, nghề nghiệp{f.is_deceased ? ', nơi an táng' : ''}</span>
+                <span className="block text-sm text-ink-3">Tên khác, chi, quê quán, nghề nghiệp</span>
               </span>
               <svg viewBox="0 0 20 20" className="size-5 text-ink-2 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 8l5 5 5-5" /></svg>
             </summary>
@@ -403,11 +438,6 @@ export function MemberForm() {
               </Field>
               <Field label="Quê quán" htmlFor="ht"><Input id="ht" value={f.hometown} onChange={(e) => set('hometown', e.target.value)} /></Field>
               <Field label="Nghề nghiệp" htmlFor="oc"><Input id="oc" value={f.occupation} onChange={(e) => set('occupation', e.target.value)} /></Field>
-              {f.is_deceased && (
-                <Field label="Nơi an táng" htmlFor="bp" className="sm:col-span-2">
-                  <Input id="bp" value={f.burial_place} onChange={(e) => set('burial_place', e.target.value)} placeholder="Ví dụ: Nghĩa trang họ, xứ Đồng Cả" />
-                </Field>
-              )}
               <div className="sm:col-span-2 pt-1">
                 <Switch label="Mang huyết thống dòng họ" checked={f.is_blood} onChange={(v) => set('is_blood', v)}
                   description="Tắt với con dâu, con rể. Người không mang huyết thống hiện cạnh vợ/chồng trên cây, nền xám nhạt." />
@@ -438,7 +468,7 @@ export function MemberForm() {
                     const name = mr.husband_id === self ? mr.wife_name : mr.husband_name;
                     return (
                       <li key={mr.id} className="flex items-center gap-2 text-[15px] min-h-10">
-                        <Link to={`/admin/members/${otherId}`} className="flex-1 hover:text-accent truncate">{name}</Link>
+                        <Link to={`/admin/members/${otherId}`} state={{ trail: nextTrail }} className="flex-1 hover:text-accent truncate">{name}</Link>
                         {marriages.length > 1 && <Badge>{mr.order_no === 1 ? 'Cả' : `Thứ ${mr.order_no}`}</Badge>}
                         <button type="button" aria-label={`Gỡ quan hệ với ${name}`} className="size-8 pointer-coarse:size-10 rounded-md text-ink-3 hover:bg-danger-soft hover:text-danger cursor-pointer"
                           onClick={async () => { if (confirm(`Gỡ quan hệ hôn nhân với ${name}? Hồ sơ của ${name} vẫn được giữ.`)) { await api.del(`/admin/marriages/${mr.id}`); detail.reload(); } }}>×</button>
@@ -451,16 +481,13 @@ export function MemberForm() {
               <Section title={`Con (${children.length})`}>
                 <ul className="space-y-0.5 mb-3">
                   {children.map((c) => (
-                    <li key={c.id}><Link to={`/admin/members/${c.id}`} className="flex items-center justify-between gap-2 min-h-9 pointer-coarse:min-h-11 text-[15px] hover:text-accent">
+                    <li key={c.id}><Link to={`/admin/members/${c.id}`} state={{ trail: nextTrail }} className="flex items-center justify-between gap-2 min-h-9 pointer-coarse:min-h-11 text-[15px] hover:text-accent">
                       <span className="truncate">{c.full_name}</span><span className="text-xs text-ink-3 shrink-0">{c.birth_order ? `Thứ ${c.birth_order}` : ''}</span>
                     </Link></li>
                   ))}
                 </ul>
-                <Button type="button" size="sm" disabled={busy} onClick={() => (dirty ? save('child') : nav(`/admin/members/new?${new URLSearchParams({
-                  [f.gender === 'male' ? 'father' : 'mother']: String(self),
-                  ...(marriages.length === 1 ? { [f.gender === 'male' ? 'mother' : 'father']: String(marriages[0].husband_id === self ? marriages[0].wife_id : marriages[0].husband_id) } : {}),
-                  order: String(children.length + 1),
-                })}`))}>Thêm con</Button>
+                {!children.length && <p className="text-sm text-ink-3 mb-3">Chưa có.</p>}
+                <Button type="button" size="sm" icon={<Plus aria-hidden />} onClick={() => setChildOpen(true)}>Thêm con</Button>
               </Section>
               <Button type="button" variant="danger" onClick={() => setDelOpen(true)}>Xóa thành viên</Button>
             </>
@@ -478,6 +505,11 @@ export function MemberForm() {
         <SpouseModal open={spouseOpen} onClose={() => setSpouseOpen(false)} self={self} gender={f.gender} members={members}
           nextOrder={marriages.length + 1} onDone={() => { setSpouseOpen(false); detail.reload(); all.reload(); }} />
       )}
+      {!isNew && self && (
+        <ChildModal open={childOpen} onClose={() => setChildOpen(false)} parent={{ id: self, name: f.full_name, gender: f.gender, generation: Number(f.generation) || null }}
+          spouses={marriages.map((mr) => ({ id: mr.husband_id === self ? mr.wife_id : mr.husband_id, name: (mr.husband_id === self ? mr.wife_name : mr.husband_name) ?? '', order: mr.order_no }))}
+          nextOrder={children.length + 1} onAdded={() => { detail.reload(); all.reload(); }} />
+      )}
       <Modal open={delOpen} onClose={() => setDelOpen(false)} title="Xóa thành viên?"
         footer={<>
           <Button onClick={() => setDelOpen(false)}>Hủy</Button>
@@ -492,7 +524,8 @@ export function MemberForm() {
   );
 }
 
-/** Nút phụ "Lưu và..." gom vào menu để không chiếm chỗ. */
+/** Lưu hồ sơ đang mở, rồi mở ngay chỗ nhập người kế tiếp đã nối sẵn quan hệ (con, hoặc anh chị em cùng cha mẹ).
+    Dùng khi nhập liền nhiều người trong một nhà, đỡ phải quay lại danh sách. */
 function SaveMore({ busy, canSibling, onPick }: { busy: boolean; canSibling: boolean; onPick: (t: Then) => void }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -504,15 +537,15 @@ function SaveMore({ busy, canSibling, onPick }: { busy: boolean; canSibling: boo
   return (
     <div className="relative flex-1 lg:flex-none">
       <Button type="button" disabled={busy} className="w-full" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        Lưu và thêm…
+        Lưu rồi thêm người khác
       </Button>
       {open && (
         <div className="absolute z-30 bottom-full mb-1 lg:bottom-auto lg:top-full lg:mt-1 left-0 right-0 rounded-lg border border-line bg-surface shadow-lg py-1">
           <button type="button" onClick={() => onPick('child')} className="w-full text-left px-3 py-2.5 min-h-11 hover:bg-sunken cursor-pointer">
-            <span className="block text-[15px] font-medium">Thêm con</span><span className="block text-xs text-ink-3">Đi xuống đời tiếp theo</span>
+            <span className="block text-[15px] font-medium">Lưu, rồi thêm con</span><span className="block text-xs text-ink-3">Người mới nhận người này làm cha hoặc mẹ</span>
           </button>
           <button type="button" disabled={!canSibling} onClick={() => onPick('sibling')} className="w-full text-left px-3 py-2.5 min-h-11 hover:bg-sunken cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
-            <span className="block text-[15px] font-medium">Thêm anh chị em</span><span className="block text-xs text-ink-3">{canSibling ? 'Cùng cha mẹ, thứ tự tiếp theo' : 'Cần chọn cha hoặc mẹ trước'}</span>
+            <span className="block text-[15px] font-medium">Lưu, rồi thêm anh chị em</span><span className="block text-xs text-ink-3">{canSibling ? 'Người mới cùng cha mẹ, thứ tự kế tiếp' : 'Cần chọn cha hoặc mẹ trước'}</span>
           </button>
         </div>
       )}
@@ -567,6 +600,96 @@ function QuickParentModal({ role, initialName, childGen, spouseId, onClose, onCr
           description={role === 'mother' ? 'Thường tắt: mẹ là con dâu trong họ.' : 'Thường bật: cha là người trong họ.'} />
         {spouseId && <p className="text-sm text-ink-3">Sẽ tự nối quan hệ vợ chồng với {role === 'father' ? 'mẹ' : 'cha'} đã chọn.</p>}
       </div>
+    </Modal>
+  );
+}
+
+type Trail = { id: number; name: string }[];
+
+/** Thêm con ngay trong hồ sơ cha hoặc mẹ. Nhập được liền nhiều người con: bấm "Thêm và nhập tiếp". */
+function ChildModal({ open, onClose, parent, spouses, nextOrder, onAdded }: {
+  open: boolean; onClose: () => void;
+  parent: { id: number; name: string; gender: 'male' | 'female'; generation: number | null };
+  spouses: { id: number; name: string; order: number }[]; nextOrder: number; onAdded: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [gender, setGender] = useState<'male' | 'female'>('male');
+  const [birth, setBirth] = useState('');
+  const [order, setOrder] = useState(String(nextOrder));
+  const [other, setOther] = useState<string>('');
+  const [dead, setDead] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState<'' | 'one' | 'more'>('');
+  const [added, setAdded] = useState<string[]>([]);
+  const toast = useToast();
+  const otherWord = parent.gender === 'male' ? 'Mẹ' : 'Cha';
+  // Mỗi lần mở: xóa form, chọn sẵn người vợ hoặc chồng đầu tiên
+  useEffect(() => {
+    if (!open) return;
+    setName(''); setBirth(''); setDead(false); setErr(''); setAdded([]);
+    setOrder(String(nextOrder));
+    setOther(spouses[0] ? String(spouses[0].id) : '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  const submit = async (more: boolean) => {
+    if (!name.trim()) { setErr('Nhập họ và tên.'); document.getElementById('cn')?.focus(); return; }
+    setBusy(more ? 'more' : 'one');
+    try {
+      const me = parent.gender === 'male' ? 'father_id' : 'mother_id';
+      const them = parent.gender === 'male' ? 'mother_id' : 'father_id';
+      await api.post('/admin/members', {
+        full_name: name.trim(), gender, birth_date: birth, birth_order: Number(order) || null,
+        is_deceased: dead ? 1 : 0, is_blood: 1, [me]: parent.id, [them]: other ? Number(other) : null,
+        generation: parent.generation ? parent.generation + 1 : null,
+      });
+      onAdded();
+      if (more) {
+        setAdded((a) => [...a, name.trim()]);
+        setName(''); setBirth(''); setDead(false); setErr('');
+        setOrder(String((Number(order) || 0) + 1));
+        document.getElementById('cn')?.focus();
+      } else {
+        toast(`Đã thêm ${name.trim()} là con của ${parent.name}.`);
+        onClose();
+      }
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setBusy('');
+    }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={`Thêm con của ${parent.name}`} width="max-w-lg"
+      footer={<>
+        <Button onClick={onClose}>{added.length ? 'Xong' : 'Hủy'}</Button>
+        <Button loading={busy === 'more'} disabled={!!busy} icon={<Plus aria-hidden />} onClick={() => submit(true)}>Thêm và nhập tiếp</Button>
+        <Button variant="primary" loading={busy === 'one'} disabled={!!busy} icon={<UserPlus aria-hidden />} onClick={() => submit(false)}>Thêm</Button>
+      </>}>
+      <form className="grid gap-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); submit(false); }}>
+        {added.length > 0 && <p role="status" className="sm:col-span-2 rounded-lg bg-success-soft px-3 py-2 text-sm text-success">Đã thêm: {added.join(', ')}.</p>}
+        <Field label="Họ và tên" htmlFor="cn" required error={err} className="sm:col-span-2" hint="Bổ sung chi tiết sau trong hồ sơ của người này.">
+          <Input id="cn" value={name} aria-invalid={!!err} autoComplete="off" onChange={(e) => { setName(e.target.value); if (err) setErr(''); }} />
+        </Field>
+        <Field label="Giới tính" htmlFor="cg">
+          <Segmented id="cg" label="Giới tính" value={gender} onChange={setGender} options={[{ value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }]} />
+        </Field>
+        <Field label="Tình trạng" htmlFor="cs">
+          <Segmented id="cs" label="Tình trạng" value={dead ? 'dead' : 'alive'} onChange={(v) => setDead(v === 'dead')} options={[{ value: 'alive', label: 'Còn sống' }, { value: 'dead', label: 'Đã mất' }]} />
+        </Field>
+        <Field label="Ngày sinh" htmlFor="cb" optional><DateInput id="cb" value={birth} onChange={setBirth} showLunar max={todayIso()} /></Field>
+        <Field label="Con thứ" htmlFor="co" optional>
+          <Input id="co" inputMode="numeric" value={order} onChange={(e) => setOrder(e.target.value.replace(/\D/g, '').slice(0, 2))} />
+        </Field>
+        {spouses.length > 0 && (
+          <Field label={otherWord} htmlFor="cp" className="sm:col-span-2" hint={spouses.length > 1 ? `${parent.name} có ${spouses.length} người ${parent.gender === 'male' ? 'vợ' : 'chồng'}: chọn đúng ${otherWord.toLowerCase()} của người con này.` : undefined}>
+            <Select id="cp" value={other} onChange={(e) => setOther(e.target.value)}>
+              {spouses.map((sp) => <option key={sp.id} value={sp.id}>{sp.name}{spouses.length > 1 ? ` (${sp.order === 1 ? 'cả' : `thứ ${sp.order}`})` : ''}</option>)}
+              <option value="">Chưa rõ</option>
+            </Select>
+          </Field>
+        )}
+        <button type="submit" hidden />
+      </form>
     </Modal>
   );
 }

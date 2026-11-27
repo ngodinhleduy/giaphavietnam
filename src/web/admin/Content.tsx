@@ -8,7 +8,9 @@ import {
 } from '../components/ui.tsx';
 import { ImageUpload, useMe } from './AdminLayout.tsx';
 import { Section } from './Members.tsx';
-import { EventDatePicker, convertEventDate } from '../components/DateInput.tsx';
+import { EventDatePicker } from '../components/DateInput.tsx';
+import { MapField } from '../components/MapEmbed.tsx';
+import { lunarToSolar, nextSolarOfLunar, solarToLunar, startOfDay } from '../../shared/lunar.ts';
 import { slugify } from '../../shared/slug.ts';
 const RichEditor = lazy(() => import('../components/RichEditor.tsx'));
 
@@ -220,8 +222,26 @@ export function ArticleForm() {
 }
 
 // ================= Events =================
-type Ev = { id?: number; title: string; description: string; calendar: 'solar' | 'lunar'; day: number | null; month: number | null; year: number | null; recurring: boolean; location: string };
-const EV0: Ev = { title: '', description: '', calendar: 'lunar', day: null, month: null, year: null, recurring: true, location: '' };
+type Ev = { id?: number; title: string; description: string; calendar: 'solar' | 'lunar'; day: number | null; month: number | null; year: number | null; recurring: boolean; location: string; map: string };
+// Sự kiện mới lưu theo ngày dương. Sự kiện cũ đang lặp theo ngày âm (ví dụ giỗ tổ) giữ nguyên cách lặp khi sửa.
+const EV0: Ev = { title: '', description: '', calendar: 'solar', day: null, month: null, year: null, recurring: true, location: '', map: '' };
+const WEEKDAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+
+/** Ngày dương của lần diễn ra tới (hoặc đúng năm đã lưu với sự kiện một lần) và ngày âm tương ứng. */
+function eventDates(e: { calendar: string; day: number; month: number; year?: number | null; recurring?: number | boolean }) {
+  const today = startOfDay(new Date());
+  const once = !e.recurring && !!e.year;
+  let solar: Date | null;
+  if (e.calendar === 'lunar') {
+    const s = once ? lunarToSolar(e.day, e.month, Number(e.year)) : null;
+    solar = once ? (s ? new Date(s[2], s[1] - 1, s[0]) : null) : nextSolarOfLunar(e.day, e.month, today);
+  } else {
+    solar = new Date(once ? Number(e.year) : today.getFullYear(), e.month - 1, e.day);
+    if (!once && solar < today) solar = new Date(today.getFullYear() + 1, e.month - 1, e.day);
+  }
+  const l = solar ? solarToLunar(solar.getDate(), solar.getMonth() + 1, solar.getFullYear()) : null;
+  return { solar, lunar: e.calendar === 'lunar' ? `${e.day}/${e.month}` : l ? `${l.day}/${l.month}` : '' };
+}
 
 export function EventsAdmin() {
   const { data, error, loading, reload } = useApi<any[]>('/admin/events');
@@ -251,65 +271,70 @@ export function EventsAdmin() {
       setBusy(false);
     }
   };
-  const when = (e: any) => `${e.calendar === 'lunar' ? `${e.day}/${e.month} âm lịch` : `${e.day}/${e.month}`}${e.year && !e.recurring ? `, năm ${e.year}` : ''}`;
+  // Xếp theo lần diễn ra tới, gần nhất lên đầu
+  const rows = (data ?? []).map((e) => ({ e, ...eventDates(e) })).sort((a, b) => (a.solar?.getTime() ?? Infinity) - (b.solar?.getTime() ?? Infinity));
   return (
     <>
       <PageHeader title="Sự kiện" subtitle="Lễ tế, họp họ, ngày kỷ niệm. Ngày giỗ tự lấy từ hồ sơ thành viên."
         actions={<Button variant="primary" icon={<Plus aria-hidden />} onClick={() => open({ ...EV0 })}>Thêm sự kiện</Button>} />
       {loading ? <Loading /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? (
-        <EmptyState icon={<CalendarDays />} title="Chưa có sự kiện" text="Thêm lễ tế xuân, họp họ hoặc ngày kỷ niệm. Sự kiện âm lịch tự đổi sang ngày dương mỗi năm."
+        <EmptyState icon={<CalendarDays />} title="Chưa có sự kiện" text="Thêm lễ tế xuân, họp họ hoặc ngày kỷ niệm. Mỗi sự kiện hiện cả ngày dương và ngày âm."
           action={<Button variant="primary" icon={<Plus aria-hidden />} onClick={() => open({ ...EV0 })}>Thêm sự kiện</Button>} />
       ) : (
-        <ul className="rounded-xl border border-line bg-surface divide-y divide-line overflow-hidden">
-          {data.map((e) => (
-            <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 sm:px-5 py-3 hover:bg-sunken/50 transition-colors">
-              <span aria-hidden className="shrink-0 w-12 rounded-lg bg-sunken py-1.5 text-center">
-                <span className="block text-[11px] leading-none text-ink-2">Th {e.month}</span>
-                <span className="block mt-1 font-serif text-xl font-semibold leading-none">{e.day}</span>
+        <ul className="gp-surface rounded-xl border border-line bg-surface divide-y divide-line overflow-hidden">
+          {rows.map(({ e, solar, lunar }) => (
+            <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 sm:px-5 py-3.5 hover:bg-accent-soft/60 transition-colors">
+              {/* Ngày chính là ngày dương; ngày âm ghi ở dòng phụ */}
+              <span aria-hidden className="shrink-0 w-14 rounded-lg bg-accent-soft py-1.5 text-center">
+                <span className="block text-xs leading-none text-ink-2">{solar ? `Th ${solar.getMonth() + 1}` : 'Âm'}</span>
+                <span className="block mt-1 font-serif text-2xl font-semibold leading-none text-accent">{solar ? solar.getDate() : e.day}</span>
               </span>
               <div className="flex-1 min-w-[12rem]">
-                <p className="font-medium">{e.title}</p>
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
-                  <span>{when(e)}</span>
-                  {!!e.recurring && <span className="inline-flex items-center gap-1"><Repeat aria-hidden className="size-3.5" />Hằng năm</span>}
-                  {e.location && <span className="inline-flex items-center gap-1"><MapPin aria-hidden className="size-3.5" />{e.location}</span>}
+                <p className="font-medium text-ink">{e.title}</p>
+                <p className="mt-0.5 text-sm text-ink-2">
+                  {solar ? `${WEEKDAYS[solar.getDay()]}, ${solar.getDate()}/${solar.getMonth() + 1}/${solar.getFullYear()}` : 'Chưa xác định ngày dương'}
+                  {lunar && <> · Tức {lunar} âm lịch</>}
+                </p>
+                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
+                  <span className="inline-flex items-center gap-1"><Repeat aria-hidden className="size-3.5" />{e.recurring ? (e.calendar === 'lunar' ? 'Hằng năm, theo ngày âm' : 'Hằng năm') : 'Một lần'}</span>
+                  {e.location && <span className="inline-flex items-center gap-1 min-w-0"><MapPin aria-hidden className="size-3.5 shrink-0" /><span className="truncate">{e.location}</span></span>}
+                  {e.map && <Badge>Có bản đồ</Badge>}
                 </p>
               </div>
-              <Button size="sm" icon={<Pencil aria-hidden />} onClick={() => open({ ...e, day: Number(e.day), month: Number(e.month), year: e.year ? Number(e.year) : null, recurring: !!e.recurring, description: e.description ?? '', location: e.location ?? '' })}>Sửa</Button>
+              <Button size="sm" icon={<Pencil aria-hidden />} onClick={() => open({ ...e, day: Number(e.day), month: Number(e.month), year: e.year ? Number(e.year) : null, recurring: !!e.recurring, description: e.description ?? '', location: e.location ?? '', map: e.map ?? '' })}>Sửa</Button>
               <Button size="sm" variant="ghost" className="hover:text-danger" icon={<Trash2 aria-hidden />} aria-label={`Xóa ${e.title}`} onClick={() => setRemoving(e)} />
             </li>
           ))}
         </ul>
       )}
-      <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Sửa sự kiện' : 'Thêm sự kiện'} width="max-w-3xl"
+      <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Sửa sự kiện' : 'Thêm sự kiện'} width="max-w-4xl"
         footer={<><Button onClick={() => setEdit(null)}>Hủy</Button><Button variant="primary" icon={<Check aria-hidden />} loading={busy} onClick={save}>Lưu sự kiện</Button></>}>
         {edit && (
-          <form className="grid gap-x-6 gap-y-4 md:grid-cols-[minmax(0,1fr)_21rem]" onSubmit={(e) => { e.preventDefault(); save(); }}>
-            <div className="space-y-4 md:order-1">
+          <form className="grid gap-6 md:grid-cols-2" onSubmit={(e) => { e.preventDefault(); save(); }}>
+            {/* Cột trái: tên, ngày. Cột phải: nơi tổ chức. Hai cột cùng nhịp khoảng cách 16px. */}
+            <div className="grid gap-4 content-start">
               <Field label="Tên sự kiện" htmlFor="et" required error={errs.title}>
                 <Input id="et" value={edit.title} aria-invalid={!!errs.title} placeholder="Ví dụ: Lễ tế xuân"
                   onChange={(e) => { setEdit({ ...edit, title: e.target.value }); if (errs.title) setErrs({ ...errs, title: undefined }); }} />
               </Field>
-              <Switch label="Lặp lại hằng năm" checked={edit.recurring} onChange={(v) => setEdit({ ...edit, recurring: v })}
-                description={edit.recurring ? 'Mỗi năm tự hiện lại đúng ngày này.' : 'Chỉ diễn ra một lần, đúng năm đã chọn trên lịch.'} />
-              {edit.recurring && (
-                <div>
-                  <p id="ecal" className="text-sm font-medium text-ink mb-1.5">Lặp theo</p>
-                  <Segmented label="Lặp theo" size="sm" value={edit.calendar}
-                    onChange={(c) => setEdit({ ...edit, ...convertEventDate({ calendar: edit.calendar, day: edit.day, month: edit.month, year: edit.year }, c) })}
-                    options={[{ value: 'lunar', label: 'Ngày âm lịch' }, { value: 'solar', label: 'Ngày dương lịch' }]} />
-                  <p className="mt-1.5 text-sm text-ink-2">{edit.calendar === 'lunar' ? 'Dùng cho giỗ, lễ tế. Ngày dương mỗi năm một khác.' : 'Dùng cho ngày kỷ niệm cố định theo dương lịch.'}</p>
-                </div>
-              )}
-              <Field label="Địa điểm" htmlFor="el" optional><Input id="el" value={edit.location} placeholder="Nhà thờ họ" onChange={(e) => setEdit({ ...edit, location: e.target.value })} /></Field>
-              <Field label="Mô tả" htmlFor="eds" optional><Textarea id="eds" rows={4} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
+              <div>
+                <p id="ed-label" className="text-sm font-medium text-ink mb-1.5">Ngày<span className="text-danger ml-0.5" aria-hidden>*</span></p>
+                <EventDatePicker recurring={edit.recurring} invalid={!!errs.date}
+                  value={{ calendar: edit.calendar, day: edit.day, month: edit.month, year: edit.year }}
+                  onChange={(v) => { setEdit({ ...edit, ...v }); if (errs.date) setErrs({ ...errs, date: undefined }); }} />
+                {errs.date && <p role="alert" className="mt-1.5 text-sm text-danger">{errs.date}</p>}
+              </div>
+              <div className="rounded-xl border border-line bg-sunken/50 px-4 py-3">
+                <Switch label="Lặp lại hằng năm" checked={edit.recurring} onChange={(v) => setEdit({ ...edit, recurring: v })}
+                  description={edit.recurring ? 'Mỗi năm tự hiện lại đúng ngày này.' : 'Chỉ diễn ra một lần, đúng năm đã chọn trên lịch.'} />
+              </div>
             </div>
-            <div className="md:order-2">
-              <p className="text-sm font-medium text-ink mb-1.5">Ngày<span className="text-danger ml-0.5" aria-hidden>*</span></p>
-              <EventDatePicker recurring={edit.recurring} invalid={!!errs.date}
-                value={{ calendar: edit.calendar, day: edit.day, month: edit.month, year: edit.year }}
-                onChange={(v) => { setEdit({ ...edit, ...v }); if (errs.date) setErrs({ ...errs, date: undefined }); }} />
-              {errs.date && <p role="alert" className="mt-1.5 text-sm text-danger">{errs.date}</p>}
+            <div className="grid gap-4 content-start">
+              <Field label="Địa điểm" htmlFor="el" optional>
+                <Input id="el" value={edit.location} placeholder="Ví dụ: Nhà thờ họ, thôn Xuân Lai" onChange={(e) => setEdit({ ...edit, location: e.target.value })} />
+              </Field>
+              <MapField id="em" value={edit.map} onChange={(v) => setEdit({ ...edit, map: v })} address={edit.location} previewTitle="Xem trước bản đồ nơi tổ chức" />
+              <Field label="Mô tả" htmlFor="eds" optional><Textarea id="eds" rows={3} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
             </div>
             <button type="submit" hidden />
           </form>

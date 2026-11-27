@@ -9,6 +9,8 @@ import { slugify } from '../shared/slug.ts';
 import { menuLinks, parseMenu } from '../shared/menu.ts';
 import { parsePeople, safeUrl, templateOf } from '../shared/site.ts';
 import { DomainError, cleanDomain, cloudflareDomains, type CloudflareConfig } from './domain.ts';
+import { ensureSchema } from './schema.ts';
+import { cleanMapInput } from '../shared/map.ts';
 import { FILE_HEADERS, SAFE_MIME, allowed, clearLimit, clientIp, fingerprint, hit, intParam, maskLiving, sameOrigin, sniffUpload, type Limit } from './security.ts';
 
 /** storage: nơi lưu file mới. readers: các storage khác để đọc file cũ (ví dụ ảnh còn trên Drive sau khi chuyển sang NAS). */
@@ -32,7 +34,7 @@ const FILE_SETTINGS = ['logo_file_id', 'banner_file_id', 'intro_image_file_id', 
 const MEMBER_FIELDS = [
   'full_name', 'alias', 'gender', 'generation', 'father_id', 'mother_id', 'birth_order', 'is_blood',
   'is_deceased', 'birth_date', 'death_date', 'death_lunar_day', 'death_lunar_month', 'burial_place',
-  'hometown', 'occupation', 'branch', 'bio', 'photo_file_id', 'is_hidden', 'title_role', 'child_type',
+  'hometown', 'occupation', 'branch', 'bio', 'photo_file_id', 'is_hidden', 'title_role', 'child_type', 'burial_map',
 ] as const;
 const CHILD_TYPES = ['biological', 'adopted', 'out_of_wedlock'];
 // Chuẩn hóa ba trường mới để không ghi NULL vào cột NOT NULL
@@ -41,6 +43,7 @@ const normMember = (b: any) => ({
   is_hidden: b.is_hidden === true || Number(b.is_hidden) === 1 ? 1 : 0,
   child_type: CHILD_TYPES.includes(b.child_type) ? b.child_type : 'biological',
   title_role: String(b.title_role ?? '').trim() || null,
+  burial_map: cleanMapInput(b.burial_map) || null,
 });
 
 // Tên gọi của từng nhóm dữ liệu trong nhật ký
@@ -93,6 +96,7 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
 
   app.use('*', async (c, next) => {
     c.set('deps', await resolveDeps(c));
+    await ensureSchema(c.get('deps').db);
     await next();
   });
 
@@ -971,18 +975,18 @@ export function createApp(resolveDeps: (c: C) => Deps | Promise<Deps>) {
     const m = Number(b.month);
     if (!(d >= 1 && d <= 31 && m >= 1 && m <= 12)) throw bad('Ngày tháng không hợp lệ.');
     return [b.title.trim(), b.description, b.calendar === 'lunar' ? 'lunar' : 'solar', d, m, b.year || null,
-      b.recurring ?? 1, b.location];
+      b.recurring ?? 1, String(b.location ?? '').trim().slice(0, 300) || null, cleanMapInput(b.map) || null];
   };
   app.post('/admin/events', async (c) => {
     const r = await db(c).run(
-      'INSERT INTO events (title, description, calendar, day, month, year, recurring, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO events (title, description, calendar, day, month, year, recurring, location, map) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       eventArgs(await c.req.json()),
     );
     return c.json({ id: r.lastId });
   });
   app.put('/admin/events/:id', async (c) => {
     await db(c).run(
-      'UPDATE events SET title = ?, description = ?, calendar = ?, day = ?, month = ?, year = ?, recurring = ?, location = ? WHERE id = ?',
+      'UPDATE events SET title = ?, description = ?, calendar = ?, day = ?, month = ?, year = ?, recurring = ?, location = ?, map = ? WHERE id = ?',
       [...eventArgs(await c.req.json()), c.req.param('id')],
     );
     return c.json({ ok: true });

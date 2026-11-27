@@ -8,6 +8,8 @@ import { api, useApi } from '../lib/api.ts';
 import { TEMPLATES, parsePeople, templateOf, type ContactPerson, type TemplateId } from '../../shared/site.ts';
 import { Badge, Button, ErrorState, Field, Input, Loading, PageHeader, PasswordInput, StrengthMeter, Switch, Textarea, buttonClass, cx, generatePassword, useToast } from '../components/ui.tsx';
 import { defaultPrivacy } from '../../shared/privacy.ts';
+import { cleanMapInput, mapEmbedUrl } from '../../shared/map.ts';
+import { MapView } from '../components/MapEmbed.tsx';
 import { ImageUpload, useMe } from './AdminLayout.tsx';
 import { Section } from './Members.tsx';
 
@@ -27,14 +29,6 @@ const TABS = [
   { id: 'security', label: 'Bảo mật và lưu trữ', icon: Lock },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
-/** Dán cả thẻ iframe thì chỉ giữ địa chỉ trong src; gõ địa chỉ thường thì giữ nguyên. */
-const mapValue = (v: string) => (v.match(/src="([^"]+)"/)?.[1] ?? v).trim();
-const mapSrc = (v: string) => {
-  const m = v.match(/src="([^"]+)"/); // dán cả thẻ iframe của Google Maps cũng nhận
-  const u = (m ? m[1] : v).trim();
-  return /^https?:\/\//.test(u) ? u : `https://www.google.com/maps?q=${encodeURIComponent(u)}&output=embed`;
-};
-
 export function SettingsAdmin() {
   const { data, error, loading, reload } = useApi<any>('/admin/settings');
   const [f, setF] = useState<any>({});
@@ -68,7 +62,7 @@ export function SettingsAdmin() {
   const save = async (body?: any) => {
     setBusy(true);
     try {
-      await api.put('/admin/settings', body ?? { ...Object.fromEntries(KEYS.map((k) => [k, f[k] ?? ''])), map_embed: mapValue(f.map_embed ?? ''), contact_people: people });
+      await api.put('/admin/settings', body ?? { ...Object.fromEntries(KEYS.map((k) => [k, f[k] ?? ''])), map_embed: cleanMapInput(f.map_embed ?? ''), contact_people: people });
       toast('Đã lưu cấu hình.');
       reload();
     } catch (e: any) {
@@ -166,12 +160,12 @@ export function SettingsAdmin() {
             <Section title="Nhà thờ họ và bản đồ" icon={<MapPin />}>
               <div className="grid gap-4">
                 <Field label="Địa chỉ" htmlFor="ad"><Input id="ad" {...bind('address')} /></Field>
-                <Field label="Bản đồ" htmlFor="me" hint="Gõ địa chỉ, hoặc vào Google Maps: Chia sẻ, Nhúng bản đồ, Sao chép HTML rồi dán vào đây.">
+                <Field label="Bản đồ" htmlFor="me" hint="Gõ địa chỉ, dán đường dẫn Google Maps, hoặc dán mã từ Chia sẻ, Nhúng bản đồ, Sao chép HTML.">
                   <Textarea id="me" rows={2} className="font-mono text-sm" {...bind('map_embed')} onBlur={() => setMapPreview(f.map_embed ?? '')} />
                 </Field>
-                {mapPreview ? (
-                  <iframe title="Xem trước bản đồ" className="w-full h-56 rounded-lg border border-line" loading="lazy" src={mapSrc(mapPreview)} />
-                ) : <p className="text-sm text-ink-2">Chưa có bản đồ. Bản xem trước hiện khi bạn rời ô nhập.</p>}
+                {mapEmbedUrl(mapPreview, f.address)
+                  ? <MapView value={mapPreview} address={f.address} title="Xem trước bản đồ" height="h-56" />
+                  : <p className="text-sm text-ink-2">Chưa có bản đồ. Bản xem trước hiện khi bạn rời ô nhập.</p>}
               </div>
             </Section>
             <Section title="Kênh liên hệ" icon={<AtSign />}>

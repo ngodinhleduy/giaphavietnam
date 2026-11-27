@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cx, Input, Select } from './ui.tsx';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
-import { dayInfo, formatLunar, lunarToSolar, solarToLunar, type DayInfo } from '../../shared/lunar.ts';
+import { canChiYear, dayInfo, formatLunar, lunarToSolar, solarToLunar, type DayInfo } from '../../shared/lunar.ts';
 
 /**
  * Ô nhập ngày cho gia phả. Giá trị lưu: '' | 'YYYY' | 'YYYY-MM-DD'.
@@ -83,7 +83,7 @@ export function DateInput({ id, value, onChange, showLunar, placeholder = 'dd/mm
   };
 
   const lunar = showLunar && isFull(value)
-    ? (() => { const [y, m, d] = value.split('-').map(Number); return formatLunar(solarToLunar(d, m, y)); })()
+    ? (() => { const [y, m, d] = value.split('-').map(Number); const l = solarToLunar(d, m, y); return `${l.day}/${l.month}${l.leap ? ' nhuận' : ''} âm lịch, năm ${canChiYear(l.year)}`; })()
     : '';
 
   return (
@@ -110,7 +110,7 @@ export function DateInput({ id, value, onChange, showLunar, placeholder = 'dd/mm
         </button>
       </div>
       {err ? <p id={`${popId}-err`} role="alert" className="mt-1.5 text-sm text-danger">{err}</p>
-        : lunar ? <p className="mt-1.5 text-sm text-ink-3">Âm lịch: {lunar}</p> : null}
+        : lunar ? <p className="mt-1.5 text-sm text-ink-2">Tức {lunar}</p> : null}
       {open && (
         <Calendar id={popId} value={value} max={max}
           onPick={(v) => { focused.current = false; onChange(v); setText(displayDate(v)); setErr(''); setOpen(false); }} />
@@ -225,18 +225,8 @@ const WEEKDAY = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ N�
 
 /**
  * Chọn ngày cho sự kiện ngay trên lịch tháng. Mỗi ô đã hiện cả ngày dương lẫn ngày âm nên lịch không có nút đổi loại lịch.
- * value.calendar chỉ quyết định sự kiện lặp hằng năm theo ngày âm hay ngày dương; nơi dùng đổi nó bằng convertEventDate.
+ * value.calendar cho biết sự kiện lưu theo ngày âm hay ngày dương. Sự kiện mới lưu theo ngày dương; sự kiện cũ theo ngày âm giữ nguyên.
  */
-/** Đổi cách lưu (âm hoặc dương) mà vẫn giữ đúng ô ngày đang chọn trên lịch. */
-export function convertEventDate(v: EventDate, cal: 'lunar' | 'solar'): EventDate {
-  if (cal === v.calendar) return v;
-  if (!v.day || !v.month) return { ...v, calendar: cal };
-  const year = v.year || new Date().getFullYear();
-  if (cal === 'lunar') { const l = solarToLunar(v.day, v.month, year); return { calendar: 'lunar', day: l.day, month: l.month, year: l.year }; }
-  const s = lunarToSolar(v.day, v.month, year);
-  return s ? { calendar: 'solar', day: s[0], month: s[1], year: s[2] } : { ...v, calendar: cal };
-}
-
 export function EventDatePicker({ value, onChange, recurring, invalid }: {
   value: EventDate; onChange: (v: EventDate) => void; recurring: boolean; invalid?: boolean;
 }) {
@@ -265,10 +255,10 @@ export function EventDatePicker({ value, onChange, recurring, invalid }: {
     const l = c.info.lunar;
     onChange(lunar ? { calendar: 'lunar', day: l.day, month: l.month, year: l.year } : { calendar: 'solar', day: c.d, month: m, year: y });
   };
+  // Dòng tóm tắt: ngày dương là chính, ngày âm ghi chú bên dưới
   const next = solarOf(value, recurring ? y : value.year || y);
-  const summary = !value.day || !value.month ? null : lunar
-    ? `${value.day < 11 ? `Mùng ${value.day}` : `Ngày ${value.day}`} tháng ${LUNAR_MONTHS[value.month - 1]} âm lịch`
-    : `Ngày ${value.day} tháng ${value.month} dương lịch`;
+  const lunarOfNext = next ? solarToLunar(next[0], next[1], next[2]) : null;
+  const lunarText = !value.day || !value.month ? '' : lunar ? `${value.day}/${value.month}` : lunarOfNext ? `${lunarOfNext.day}/${lunarOfNext.month}` : '';
   return (
     <div className={cx('rounded-xl border bg-surface p-3', invalid ? 'border-danger' : 'border-line-strong')}>
       <MonthNav y={y} m={m} set={(ny, nm) => setYm({ y: ny, m: nm })} minY={MIN_YEAR} maxY={thisYear + 50} />
@@ -277,12 +267,10 @@ export function EventDatePicker({ value, onChange, recurring, invalid }: {
         {hover ? <>{hover.d}/{m}/{y} · {formatLunar(hover.info.lunar)}{hover.info.mark && <span className="text-danger font-medium"> · {hover.info.mark}</span>}</> : 'Số nhỏ là ngày âm. Màu đỏ: mùng 1, rằm, ngày lễ.'}
       </p>
       <p role="status" className="mt-1 pt-2.5 border-t border-line text-sm">
-        {!summary ? <span className="text-ink-2">Bấm một ngày trên lịch để chọn.</span> : (
+        {!next ? <span className="text-ink-2">{value.day && value.month ? `Năm ${y} không có ngày ${value.day}/${value.month} âm lịch.` : 'Bấm một ngày trên lịch để chọn.'}</span> : (
           <>
-            <span className="font-semibold text-ink">{summary}</span>
-            {next && <span className="text-ink-2">{lunar
-              ? ` · năm ${next[2]} là ${WEEKDAY[new Date(next[2], next[1] - 1, next[0]).getDay()].toLowerCase()} ${next[0]}/${next[1]}/${next[2]}`
-              : ` · ${WEEKDAY[new Date(next[2], next[1] - 1, next[0]).getDay()].toLowerCase()}, âm lịch ${(() => { const l = solarToLunar(next[0], next[1], next[2]); return `${l.day}/${l.month}`; })()}`}</span>}
+            <span className="block font-semibold text-ink">{WEEKDAY[new Date(next[2], next[1] - 1, next[0]).getDay()]}, {next[0]}/{next[1]}/{next[2]}</span>
+            <span className="block text-ink-2">Tức {lunarText} âm lịch{lunar && recurring ? '. Sự kiện này lặp theo ngày âm, ngày dương mỗi năm một khác.' : ''}</span>
           </>
         )}
       </p>

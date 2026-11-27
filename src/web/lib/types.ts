@@ -33,6 +33,8 @@ export interface MemberDetail extends MemberBrief {
   death_lunar_day: number | null;
   death_lunar_month: number | null;
   burial_place: string | null;
+  /** Vị trí Google Maps của nơi an nghỉ */
+  burial_map?: string | null;
   hometown: string | null;
   occupation: string | null;
   bio: string | null;
@@ -92,5 +94,8 @@ export interface UpcomingEvent {
   day: number;
   month: number;
   location?: string | null;
+  /** Vị trí Google Maps của nơi tổ chức */
+  map?: string | null;
+  recurring?: number;
   next_date: string;
 }

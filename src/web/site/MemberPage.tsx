@@ -5,6 +5,17 @@ import type { MemberBrief, MemberDetail } from '../lib/types.ts';
 import { formatDate, lifespan } from '../lib/format.ts';
 import { Container, Crumbs } from './SiteLayout.tsx';
 import { Avatar, Badge, ErrorState, Loading } from '../components/ui.tsx';
+import { MapView } from '../components/MapEmbed.tsx';
+import { canChiYear, solarToLunar } from '../../shared/lunar.ts';
+import { MapPin } from 'lucide-react';
+
+/** "Tức 12/4 âm lịch, năm Bính Tuất" cho ngày có đủ ngày tháng năm; ngày chỉ có năm thì không ghi. */
+function lunarNote(iso?: string | null) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return undefined;
+  const [y, mo, d] = iso.split('-').map(Number);
+  const l = solarToLunar(d, mo, y);
+  return `Tức ${l.day}/${l.month}${l.leap ? ' nhuận' : ''} âm lịch, năm ${canChiYear(l.year)}`;
+}
 
 export function MemberPage() {
   const { id } = useParams();
@@ -18,14 +29,15 @@ export function MemberPage() {
       </Container>
     );
   if (!m) return null;
-  const facts: [string, string | null | undefined][] = [
-    ['Ngày sinh', formatDate(m.birth_date)],
-    ['Ngày mất', m.is_deceased ? formatDate(m.death_date) || 'Không rõ' : null],
-    ['Ngày giỗ (âm lịch)', m.death_lunar_day ? `${m.death_lunar_day} tháng ${m.death_lunar_month}` : null],
+  // [nhãn, giá trị, ghi chú]. Ngày đủ ngày tháng năm thì ghi thêm ngày âm tương ứng.
+  const facts: [string, string | null | undefined, string?][] = [
+    ['Ngày sinh', formatDate(m.birth_date), lunarNote(m.birth_date)],
+    ['Ngày mất', m.is_deceased ? formatDate(m.death_date) || 'Không rõ' : null, lunarNote(m.death_date)],
+    ['Ngày giỗ', m.death_lunar_day ? `${m.death_lunar_day}/${m.death_lunar_month} âm lịch` : null, m.death_lunar_day ? 'Hằng năm' : undefined],
     ['Quê quán', m.hometown],
     ['Nghề nghiệp', m.occupation],
-    ['Nơi an táng', m.burial_place],
   ];
+  const hasBurial = !!m.is_deceased && !!(m.burial_place || m.burial_map);
   return (
     <Container className="py-6 sm:py-10">
       <Crumbs items={[{ to: '/pha-do', label: 'Phả đồ' }]} current={m.full_name} />
@@ -50,13 +62,23 @@ export function MemberPage() {
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
         <div className="min-w-0">
           <dl className="grid sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-x-8 rounded-xl border border-line bg-surface px-5">
-            {facts.filter(([, v]) => v).map(([k, v]) => (
+            {facts.filter(([, v]) => v).map(([k, v, note]) => (
               <div key={k} className="flex justify-between gap-4 py-3 border-b border-line last:border-0">
                 <dt className="text-ink-2">{k}</dt>
-                <dd className="text-ink font-medium text-right">{v}</dd>
+                <dd className="text-right">
+                  <span className="block text-ink font-medium">{v}</span>
+                  {note && <span className="block text-sm text-ink-2">{note}</span>}
+                </dd>
               </div>
             ))}
           </dl>
+          {hasBurial && (
+            <section className="mt-8" aria-labelledby="h-burial">
+              <h2 id="h-burial" className="font-serif text-xl font-semibold mb-3">Nơi an nghỉ</h2>
+              {m.burial_place && <p className="flex items-start gap-2 text-ink-2 mb-3 whitespace-pre-line"><MapPin aria-hidden className="size-[18px] shrink-0 mt-1" /><span>{m.burial_place}</span></p>}
+              <MapView value={m.burial_map} address={m.burial_place} title={`Bản đồ nơi an nghỉ của ${m.full_name}`} height="h-64 sm:h-80" />
+            </section>
+          )}
           {m.bio && (
             <section className="mt-8 max-w-[68ch]">
               <h2 className="font-serif text-xl font-semibold mb-3">Tiểu sử</h2>

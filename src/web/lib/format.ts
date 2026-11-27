@@ -1,4 +1,3 @@
-import { solarToLunar, formatLunar } from '../../shared/lunar.ts';
 import type { MemberBrief } from './types.ts';
 
 export const year = (d?: string | null) => (d ? d.slice(0, 4) : '');
@@ -17,11 +16,6 @@ export function formatDate(s?: string | null) {
   if (d) return `${Number(d)}/${Number(m)}/${y}`;
   if (m) return `${Number(m)}/${y}`;
   return y;
-}
-
-export function lunarLabel(isoDate: string) {
-  const [y, m, d] = isoDate.split('-').map(Number);
-  return formatLunar(solarToLunar(d, m, y));
 }
 
 const WD = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];

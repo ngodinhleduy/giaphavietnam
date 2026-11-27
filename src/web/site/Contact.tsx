@@ -1,3 +1,4 @@
+import { mapEmbedUrl } from '../../shared/map.ts';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.ts';
@@ -137,7 +138,7 @@ export function ContactPage() {
       </div>
       {site.map_embed && (
         <iframe title="Bản đồ nhà thờ họ" className="mt-10 w-full h-80 rounded-xl border border-line" loading="lazy"
-          src={site.map_embed.startsWith('http') ? site.map_embed : `https://www.google.com/maps?q=${encodeURIComponent(site.map_embed)}&output=embed`} />
+          src={mapEmbedUrl(site.map_embed, site.address) ?? undefined} />
       )}
     </Container>
   );

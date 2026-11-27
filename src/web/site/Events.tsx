@@ -1,7 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useApi } from '../lib/api.ts';
 import type { UpcomingEvent } from '../lib/types.ts';
-import { daysUntil, lunarLabel, weekday } from '../lib/format.ts';
+import { daysUntil, weekday } from '../lib/format.ts';
+import { solarToLunar } from '../../shared/lunar.ts';
+import { mapEmbedUrl } from '../../shared/map.ts';
+import { MapView } from '../components/MapEmbed.tsx';
+import { ChevronDown, Map as MapIcon, MapPin } from 'lucide-react';
 import { Container } from './SiteLayout.tsx';
 import { Badge, EmptyState, ErrorState, Loading, PageHeader, cx } from '../components/ui.tsx';
 import { useState } from 'react';
@@ -9,28 +13,41 @@ import { useState } from 'react';
 export function EventRow({ e, compact }: { e: UpcomingEvent; compact?: boolean }) {
   const [y, m, d] = e.next_date.split('-').map(Number);
   const left = daysUntil(e.next_date);
+  const [mapOpen, setMapOpen] = useState(false);
+  // Ngày chính là ngày dương; dòng phụ ghi ngày âm tương ứng
+  const lunar = e.calendar === 'lunar' ? { day: e.day, month: e.month } : solarToLunar(d, m, y);
+  const hasMap = !compact && !!(e.map || e.location) && !!mapEmbedUrl(e.map, e.location);
   return (
-    <li className={cx('flex gap-3 sm:gap-4', compact ? 'p-4' : 'p-4 sm:p-5')}>
-      <div className={cx('shrink-0 self-start w-14 text-center rounded-lg py-1.5', e.kind === 'gio' ? 'bg-sunken' : 'bg-accent-soft')}>
-        <p className="text-xs text-ink-2">Th {m}</p>
-        <p className={cx('font-serif text-2xl font-semibold leading-none mt-0.5', e.kind === 'gio' ? 'text-ink' : 'text-accent')}>{d}</p>
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-        <p className="font-medium text-ink">
-          {e.member_id ? <Link to={`/thanh-vien/${e.member_id}`} className="hover:text-accent">{e.title}</Link> : e.title}
-        </p>
-        <span className="shrink-0">
-          {left === 0 ? <Badge tone="accent">Hôm nay</Badge> : left <= 7 ? <Badge tone="gold">{left} ngày nữa</Badge> : !compact && <Badge>{left} ngày</Badge>}
-        </span>
+    <li className={cx(compact ? 'p-4' : 'p-4 sm:p-5')}>
+      <div className="flex gap-3 sm:gap-4">
+        <div className={cx('shrink-0 self-start w-14 text-center rounded-lg py-1.5', e.kind === 'gio' ? 'bg-sunken' : 'bg-accent-soft')}>
+          <p className="text-xs text-ink-2">Th {m}</p>
+          <p className={cx('font-serif text-2xl font-semibold leading-none mt-0.5', e.kind === 'gio' ? 'text-ink' : 'text-accent')}>{d}</p>
         </div>
-        <p className="text-sm text-ink-2 mt-0.5">
-          {weekday(e.next_date)}, {d}/{m}/{y} · Âm lịch {lunarLabel(e.next_date)}
-        </p>
-        {!compact && (e.description || e.location) && (
-          <p className="text-sm text-ink-2 mt-1">{[e.description, e.location].filter(Boolean).join(' · ')}</p>
-        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+            <p className="font-medium text-ink">
+              {e.member_id ? <Link to={`/thanh-vien/${e.member_id}`} className="hover:text-accent">{e.title}</Link> : e.title}
+            </p>
+            <span className="shrink-0">
+              {left === 0 ? <Badge tone="accent">Hôm nay</Badge> : left <= 7 ? <Badge tone="gold">{left} ngày nữa</Badge> : !compact && <Badge>{left} ngày</Badge>}
+            </span>
+          </div>
+          <p className="text-sm text-ink mt-0.5">{weekday(e.next_date)}, {d}/{m}/{y}</p>
+          <p className="text-sm text-ink-2">Tức {lunar.day}/{lunar.month} âm lịch{e.kind === 'event' && e.recurring ? ' · Hằng năm' : ''}</p>
+          {!compact && e.location && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-sm text-ink-2"><MapPin aria-hidden className="size-4 shrink-0 mt-0.5" /><span>{e.location}</span></p>
+          )}
+          {!compact && e.description && <p className="text-sm text-ink-2 mt-1.5 whitespace-pre-line">{e.description}</p>}
+          {hasMap && (
+            <button type="button" onClick={() => setMapOpen((v) => !v)} aria-expanded={mapOpen}
+              className="mt-2 inline-flex items-center gap-1.5 min-h-10 text-sm font-medium text-accent hover:underline underline-offset-4 cursor-pointer">
+              <MapIcon aria-hidden className="size-4" />{mapOpen ? 'Ẩn bản đồ' : 'Xem bản đồ'}<ChevronDown aria-hidden className={cx('size-4 transition-transform', mapOpen && 'rotate-180')} />
+            </button>
+          )}
+        </div>
       </div>
+      {hasMap && mapOpen && <MapView value={e.map} address={e.location} title={`Bản đồ: ${e.title}`} className="mt-3" height="h-56 sm:h-72" />}
     </li>
   );
 }
@@ -46,7 +63,7 @@ export function EventsPage() {
   }
   return (
     <Container size="text" className="py-10">
-      <PageHeader title="Lịch sự kiện" subtitle="Lễ tế, họp họ và ngày giỗ trong 12 tháng tới. Ngày âm lịch đã quy đổi sang dương lịch." />
+      <PageHeader title="Lịch sự kiện" subtitle="Lễ tế, họp họ và ngày giỗ trong 12 tháng tới. Mỗi mục ghi ngày dương, kèm ngày âm tương ứng." />
       <div role="tablist" className="flex sm:inline-flex p-1 rounded-lg bg-sunken mb-6">
         {([['all', 'Tất cả'], ['event', 'Sự kiện'], ['gio', 'Ngày giỗ']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={filter === k} onClick={() => setFilter(k)}
