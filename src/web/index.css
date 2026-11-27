@@ -114,11 +114,55 @@ html.cms {
   --color-cham: #2a1d17; --color-cham-2: #e6d5bd; --color-son: #7a2e2a; --color-son-2: #f1d9d6; --color-do: #efe6d6;
 }
 
+/* ===== Bốn mẫu bổ sung (27/11): mỗi mẫu có bố cục trang chủ riêng, xem HomeLayouts.tsx ===== */
+/* Mẫu 5, Gốm lam: trắng sứ, xanh cobalt, bo góc lớn */
+[data-tpl="gom-lam"] {
+  --color-bg: #f7f9fc; --color-surface: #ffffff; --color-sunken: #e9eff7; --color-line: #d6e0ee; --color-line-strong: #66789a;
+  --color-ink: #0f1b33; --color-ink-2: #3a4763; --color-ink-3: #56637f;
+  --color-accent: #1d3f9e; --color-accent-hover: #162f78; --color-accent-soft: #e2e9fa;
+  --color-gold: #1d3f9e; --color-gold-soft: #e2e9fa; --color-gold-bright: #a9c1f5;
+  --color-cham: #132a6b; --color-cham-2: #cdd9f3; --color-son: #1d3f9e; --color-son-2: #d5e0f8; --color-do: #e9eff7;
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 18px; --radius-2xl: 24px; --radius-3xl: 32px;
+}
+/* Mẫu 6, Hoàng thành: vàng hoàng thổ, nâu gỗ lim, góc vuông */
+[data-tpl="hoang-thanh"] {
+  --color-bg: #f6e3a6; --color-surface: #fff6d8; --color-sunken: #eed48a; --color-line: #dfc377; --color-line-strong: #7d6a2c;
+  --color-ink: #2a1a0e; --color-ink-2: #4a3518; --color-ink-3: #5c4620;
+  --color-accent: #6b1f12; --color-accent-hover: #52160b; --color-accent-soft: #f3d9a0;
+  --color-gold: #6a4700; --color-gold-soft: #f3d9a0; --color-gold-bright: #f0b93a;
+  --color-cham: #34140a; --color-cham-2: #f0dcae; --color-son: #6b1f12; --color-son-2: #f5dcc0; --color-do: #f2dc98;
+  --radius-sm: 0; --radius-md: 0; --radius-lg: 0; --radius-xl: 0; --radius-2xl: 0; --radius-3xl: 0;
+}
+/* Mẫu 7, Ngói rêu: xanh rêu, nhấn đỏ ngói, bo góc vừa */
+[data-tpl="ngoi-reu"] {
+  --color-bg: #f3f4ee; --color-surface: #fafbf6; --color-sunken: #e6e9dc; --color-line: #d6dbc8; --color-line-strong: #6f7a5e;
+  --color-ink: #1b2418; --color-ink-2: #3f4a39; --color-ink-3: #59644f;
+  --color-accent: #a2451f; --color-accent-hover: #833616; --color-accent-soft: #f4e0d5;
+  --color-gold: #7b4a12; --color-gold-soft: #f2e4cf; --color-gold-bright: #f0c79f;
+  --color-cham: #26361f; --color-cham-2: #d5dec6; --color-son: #3d5a2c; --color-son-2: #dbe6cf; --color-do: #e6e9dc;
+  --radius-sm: 3px; --radius-md: 4px; --radius-lg: 6px; --radius-xl: 6px; --radius-2xl: 8px; --radius-3xl: 10px;
+}
+/* Mẫu 8, Mực tàu: mực đen, giấy xuyến, dấu triện đỏ (biến gold), góc vuông */
+[data-tpl="muc-tau"] {
+  --color-bg: #f6f3ec; --color-surface: #fbf9f4; --color-sunken: #ebe7dc; --color-line: #dcd6c8; --color-line-strong: #7f796c;
+  --color-ink: #141414; --color-ink-2: #45423b; --color-ink-3: #64605a;
+  --color-accent: #141414; --color-accent-hover: #000000; --color-accent-soft: #e8e4d9;
+  --color-gold: #b3261e; --color-gold-soft: #f6e1de; --color-gold-bright: #f0b8b2;
+  --color-cham: #141414; --color-cham-2: #d9d5cb; --color-son: #2a2a2a; --color-son-2: #dedad0; --color-do: #ebe7dc;
+  --radius-sm: 0; --radius-md: 0; --radius-lg: 0; --radius-xl: 0; --radius-2xl: 0; --radius-3xl: 0;
+}
+/* Hoàng thành: viền kép vàng quanh khung chữ và các ô */
+.gp-frame { border: 1px solid var(--color-gold-bright); outline: 1px solid color-mix(in srgb, var(--color-gold-bright) 55%, transparent); outline-offset: 5px; }
+.gp-frame-ink { border: 1px solid var(--color-accent); outline: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent); outline-offset: 4px; }
+/* Mực tàu: tiêu đề khối có hai nét mảnh hai bên */
+.gp-rule { display: flex; align-items: center; gap: 1rem; }
+.gp-rule::before, .gp-rule::after { content: ''; flex: 1; height: 1px; background: var(--color-line-strong); }
+
 /* Lớp giấy cũ mờ phủ lên nền trang xem. File gốc do chủ trang cung cấp, đã chuyển thành ảnh xám rất nhạt (236..255)
    rồi nhân với màu nền của mẫu, nên mẫu nào cũng giữ đúng tông của mình. Mảng lớn tối đi không quá 6%;
    chỉ các nét mảnh của vân giấy đậm hơn (tới 14%), nên vân nhìn rõ mà nền dưới chữ vẫn đủ sáng.
-   Thẻ, header, footer vẫn là màu phẳng để chữ dễ đọc. Mẫu Tối giản không dùng. */
-html[data-tpl]:not([data-tpl="toi-gian"]) {
+   Thẻ, header, footer vẫn là màu phẳng để chữ dễ đọc. Mẫu Tối giản và Gốm lam (nền sứ trắng) không dùng. */
+html[data-tpl]:not([data-tpl="toi-gian"], [data-tpl="gom-lam"]) {
   background-image: url(/hoa-tiet/giay-cu.webp);
   background-size: 1500px auto;
   background-blend-mode: multiply;

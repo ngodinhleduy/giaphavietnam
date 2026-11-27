@@ -294,6 +294,63 @@ export function SettingsAdmin() {
 function TemplateThumb({ id }: { id: TemplateId }) {
   // data-tpl nạp đúng bảng màu và độ bo góc của mẫu vào ô xem trước (xem index.css), nên ô này luôn khớp với trang thật.
   const bar = (w: string, tone: string, h = 'h-1.5') => <span className={cx('block rounded-sm', h, w, tone)} />;
+  // Bốn mẫu bổ sung: ô xem trước vẽ đúng bố cục của mẫu (chia đôi, khung giữa, menu dọc, cột hẹp)
+  if (id === 'gom-lam')
+    return (
+      <span aria-hidden data-tpl={id} className="relative block aspect-[16/10] overflow-hidden bg-bg">
+        <span className="absolute inset-x-0 top-0 flex h-[12%] items-center gap-1 border-b border-line px-[6%]"><span className="size-1.5 rounded-full bg-accent" />{bar('w-[16%]', 'bg-ink', 'h-1')}</span>
+        <span className="absolute left-[6%] top-[20%] flex w-[40%] flex-col gap-1.5">
+          <span className="h-1.5 w-[45%] rounded-full bg-accent-soft" />{bar('w-full', 'bg-ink', 'h-2.5')}{bar('w-[70%]', 'bg-ink/30')}
+          <span className="mt-1 flex gap-1"><span className="h-2.5 w-8 rounded-full bg-accent" /><span className="h-2.5 w-8 rounded-full border border-ink/50" /></span>
+        </span>
+        <span className="gp-lac absolute right-[6%] top-[18%] h-[40%] w-[42%] rounded-xl !bg-[length:120px_52px]" />
+        <span className="absolute inset-x-[6%] bottom-[8%] top-[66%] flex gap-[3%]">
+          {[0, 1, 2].map((k) => <span key={k} className="flex flex-1 flex-col overflow-hidden rounded-lg border border-line bg-surface"><span className="h-1/2 bg-accent-soft" /><span className="p-[6%]">{bar('w-[70%]', 'bg-ink', 'h-1')}</span></span>)}
+        </span>
+      </span>
+    );
+  if (id === 'hoang-thanh')
+    return (
+      <span aria-hidden data-tpl={id} className="relative block aspect-[16/10] overflow-hidden bg-bg">
+        <span className="absolute inset-x-0 top-0 flex h-[12%] items-center gap-1 border-b border-line px-[6%]"><span className="size-1.5 rounded-full bg-accent" />{bar('w-[16%]', 'bg-ink', 'h-1')}</span>
+        <span className="gp-lac absolute inset-x-0 top-[12%] flex h-[62%] items-center justify-center !bg-[length:150px_64px]">
+          <span className="flex w-[52%] flex-col items-center gap-1.5 border border-gold-bright bg-cham px-[6%] py-[7%] outline outline-1 outline-offset-2 outline-gold-bright/60">
+            <span className="size-1.5 rotate-45 bg-gold-bright" />{bar('w-[80%]', 'bg-white', 'h-2.5')}{bar('w-[55%]', 'bg-white/45')}
+            <span className="mt-1 flex gap-1"><span className="h-2.5 w-7 bg-gold-bright" /><span className="h-2.5 w-7 border border-white/70" /></span>
+          </span>
+        </span>
+        <span className="absolute bottom-0 left-1/2 top-[74%] w-px bg-line-strong" />
+        <span className="absolute left-[14%] top-[80%] h-[12%] w-[32%] border border-line bg-surface" /><span className="absolute right-[14%] top-[86%] h-[12%] w-[32%] border border-line bg-surface" />
+        <span className="absolute left-1/2 top-[84%] size-1.5 -translate-x-1/2 rotate-45 bg-accent" />
+      </span>
+    );
+  if (id === 'ngoi-reu')
+    return (
+      <span aria-hidden data-tpl={id} className="relative flex aspect-[16/10] overflow-hidden bg-bg">
+        <span className="flex w-[24%] flex-col gap-1.5 bg-cham p-[5%]">
+          <span className="size-2 rounded-full bg-accent" />{bar('w-full', 'bg-white', 'h-1')}
+          <span className="mt-1.5 flex flex-col gap-1.5">{bar('w-[80%]', 'bg-gold-bright', 'h-1')}{bar('w-[65%]', 'bg-white/40', 'h-1')}{bar('w-[75%]', 'bg-white/40', 'h-1')}{bar('w-[55%]', 'bg-white/40', 'h-1')}</span>
+        </span>
+        <span className="flex flex-1 flex-col gap-1.5 p-[6%]">
+          {bar('w-[70%]', 'bg-ink', 'h-2.5')}{bar('w-[50%]', 'bg-ink/30')}
+          <span className="gp-lac mt-1 h-[26%] rounded-lg !bg-[length:120px_52px]" />
+          <span className="mt-1 flex flex-1 gap-[5%]">
+            <span className="flex flex-1 flex-col justify-around border-y border-line">{bar('w-[80%]', 'bg-ink', 'h-1')}{bar('w-[60%]', 'bg-ink/30', 'h-1')}{bar('w-[70%]', 'bg-ink', 'h-1')}</span>
+            <span className="w-[32%] rounded-md border border-line bg-surface p-[5%]">{bar('w-full', 'bg-accent', 'h-1')}</span>
+          </span>
+        </span>
+      </span>
+    );
+  if (id === 'muc-tau')
+    return (
+      <span aria-hidden data-tpl={id} className="relative flex aspect-[16/10] flex-col items-center gap-1.5 overflow-hidden bg-bg px-[26%] pt-[7%]">
+        <span className="size-4 bg-gold" />{bar('w-full', 'bg-ink', 'h-2.5')}<span className="h-0.5 w-4 bg-ink" />{bar('w-[70%]', 'bg-ink/30', 'h-1')}
+        <span className="mt-1.5 flex w-full items-center gap-1.5"><span className="h-px flex-1 bg-line-strong" />{bar('w-[24%]', 'bg-ink', 'h-1')}<span className="h-px flex-1 bg-line-strong" /></span>
+        <span className="flex w-full flex-col divide-y divide-line">
+          {[0, 1, 2].map((k) => <span key={k} className="flex items-center gap-2 py-1.5">{bar('w-[14%]', 'bg-ink/30', 'h-1')}{bar(k === 1 ? 'w-[52%]' : 'w-[66%]', 'bg-ink', 'h-1')}</span>)}
+        </span>
+      </span>
+    );
   const darkHero = id === 'trong-dong' || id === 'son';
   const tone = darkHero ? 'bg-white' : 'bg-ink';
   const sub = darkHero ? 'bg-white/45' : 'bg-ink/30';

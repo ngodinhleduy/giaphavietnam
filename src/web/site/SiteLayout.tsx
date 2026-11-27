@@ -4,7 +4,7 @@ import { useApi, fileUrl } from '../lib/api.ts';
 import type { Site } from '../lib/types.ts';
 import { ArrowLeft, ArrowUpRight, ChevronRight, Eye, Mail, MapPin, Menu as MenuIcon, Music2, Phone, Play, X } from 'lucide-react';
 import { cx, Loading, ErrorState } from '../components/ui.tsx';
-import { TEMPLATES, templateOf, type TemplateId } from '../../shared/site.ts';
+import { TEMPLATES, layoutOf, templateOf, type TemplateId } from '../../shared/site.ts';
 
 const SiteCtx = createContext<{ site: Site; reload: () => void; template: TemplateId } | null>(null);
 export const useSite = () => useContext(SiteCtx)!;
@@ -12,14 +12,17 @@ export const useSite = () => useContext(SiteCtx)!;
 import { defaultMenu, menuLinks, type MenuLink } from '../../shared/menu.ts';
 
 /** Một mục menu. Chuyên mục dùng chung đường dẫn /bai-viet nên phải so cả tham số ?c= mới biết mục nào đang mở. */
-function MenuEntry({ n, mobile }: { n: MenuLink; mobile?: boolean }) {
+function MenuEntry({ n, mobile, side }: { n: MenuLink; mobile?: boolean; side?: boolean }) {
   const loc = useLocation();
   const [path, query = ''] = n.to.split('?');
   const want = new URLSearchParams(query).get('c');
   const have = new URLSearchParams(loc.search).get('c');
   const onPath = path === '/' ? loc.pathname === '/' : loc.pathname === path || loc.pathname.startsWith(path + '/');
   const active = !n.external && onPath && (loc.pathname === path ? (want ?? '') === (path === '/bai-viet' ? have ?? '' : want ?? '') : !want);
-  const cls = mobile
+  // Menu dọc của mẫu Ngói rêu: chữ sáng trên nền rêu đậm, mục đang mở có vạch vàng bên trái
+  const cls = side
+    ? cx('flex min-h-11 items-center gap-1.5 border-l-2 px-4 font-serif text-[17px] font-medium transition-colors', active ? 'border-gold-bright bg-white/10 text-white' : 'border-transparent text-cham-2 hover:bg-white/5 hover:text-white')
+    : mobile
     ? cx('flex h-12 items-center gap-1.5 px-3 rounded-lg font-serif text-lg font-medium transition-colors', active ? 'text-accent bg-accent-soft' : 'text-ink hover:bg-sunken')
     : cx('gp-nav relative px-3 h-10 inline-flex items-center gap-1 rounded-lg font-serif text-[17px] font-medium max-lg:px-2.5 max-lg:text-base whitespace-nowrap transition-colors', active ? 'text-accent is-active' : 'text-ink-2 hover:text-ink');
   if (n.external) return <a href={n.to} target="_blank" rel="noopener noreferrer" className={cls}>{n.label}<ArrowUpRight aria-hidden className="size-3.5" /><span className="sr-only"> (mở trang khác)</span></a>;
@@ -76,6 +79,10 @@ export function SiteLayout() {
   if (!site) return <Loading />;
   const template = templateOf(preview && TEMPLATES.some((t) => t.id === preview) ? preview : site.template);
   const previewing = !!preview && template !== templateOf(site.template);
+  const layout = layoutOf(template);
+  // Ngói rêu: từ lg trở lên menu nằm dọc bên trái, phần còn lại lùi vào 16rem. Mực tàu: tên và menu canh giữa, hai tầng.
+  const side = layout === 'sidebar';
+  const stacked = layout === 'scroll';
   const logo = site.logo_file_id ? (
     <img src={fileUrl(site.logo_file_id)} alt="" className="size-9 rounded-full object-cover" />
   ) : (
@@ -97,6 +104,19 @@ export function SiteLayout() {
   return (
     <SiteCtx.Provider value={{ site, reload, template }}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 bg-surface p-2 z-50">Bỏ qua menu</a>
+      {side && (
+        <aside className="no-print fixed inset-y-0 left-0 z-40 hidden w-64 flex-col overflow-y-auto bg-cham text-cham-2 lg:flex">
+          <Link to="/" className="flex flex-col items-start gap-3 px-6 pb-6 pt-8">
+            {logo}
+            <span className="font-serif text-xl font-semibold leading-snug text-white">{site.site_name}</span>
+          </Link>
+          <nav className="flex-1 border-t border-white/15 py-3" aria-label="Chính">
+            {NAV.map((n) => <MenuEntry key={n.to + n.label} n={n} side />)}
+          </nav>
+          {site.address && <p className="flex gap-2 border-t border-white/15 px-6 py-5 text-sm leading-relaxed"><MapPin aria-hidden className="mt-1 size-4 shrink-0" />{site.address}</p>}
+        </aside>
+      )}
+      <div className={cx(side && 'lg:pl-64')}>
       {previewing && (
         <div role="status" className="no-print bg-ink text-white text-sm">
           <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 min-h-11 py-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -106,13 +126,13 @@ export function SiteLayout() {
           </div>
         </div>
       )}
-      <header className="sticky top-0 z-40 bg-bg/95 backdrop-blur border-b border-line no-print pt-[env(safe-area-inset-top)]">
-        <div className="max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4 lg:gap-6">
+      <header className={cx('sticky top-0 z-40 bg-bg/95 backdrop-blur border-b border-line no-print pt-[env(safe-area-inset-top)]', side && 'lg:hidden', stacked && 'md:static')}>
+        <div className={cx('max-w-6xl xl:max-w-[90rem] 2xl:max-w-[110rem] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4 lg:gap-6', stacked && 'md:h-auto md:flex-col md:gap-1 md:pb-2 md:pt-6')}>
           <Link to="/" className="group flex items-center gap-3 min-w-0">
             {logo}
             <span className="font-serif font-semibold text-lg text-ink truncate">{site.site_name}</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-1 ml-auto" aria-label="Chính">
+          <nav className={cx('hidden md:flex items-center gap-1 ml-auto', stacked && 'md:ml-0 md:flex-wrap md:justify-center')} aria-label="Chính">
             {NAV.map((n) => <MenuEntry key={n.to + n.label} n={n} />)}
           </nav>
           <button className="md:hidden ml-auto size-10 inline-flex items-center justify-center rounded-lg hover:bg-sunken cursor-pointer transition-colors"
@@ -190,6 +210,7 @@ export function SiteLayout() {
           </div>
         </div>
       </footer>
+      </div>
     </SiteCtx.Provider>
   );
 }
